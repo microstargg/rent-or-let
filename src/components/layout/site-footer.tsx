@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SiteLogo } from "@/components/brand/site-logo";
 import { siteContent } from "@/lib/content/site";
 
 export function SiteFooter() {
@@ -6,7 +7,7 @@ export function SiteFooter() {
     <footer className="border-t bg-muted/30">
       <div className="container mx-auto grid max-w-6xl gap-8 px-4 py-12 md:grid-cols-3">
         <div>
-          <h2 className="font-semibold">Property Management Services</h2>
+          <SiteLogo href="/" size="sm" />
           <p className="mt-2 text-sm text-muted-foreground">
             {siteContent.contact.address.line1}
             <br />

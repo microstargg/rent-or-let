@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { put } from "@vercel/blob";
 import { requireStaffSession } from "@/lib/auth/server";
 import { addPropertyImage, countPropertyImages } from "@/lib/db/queries";
+import { enqueuePortalSync } from "@/lib/portals/sync-queue";
 
 export async function POST(request: Request) {
   const session = await requireStaffSession();
@@ -43,6 +44,8 @@ export async function POST(request: Request) {
       sortOrder: count,
       isPrimary: count === 0,
     });
+
+    await enqueuePortalSync(propertyId, "send");
 
     return NextResponse.json({ url: publicUrl });
   } catch (error) {

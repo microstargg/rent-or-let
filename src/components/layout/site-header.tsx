@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu, Phone, X } from "lucide-react";
 import { useState } from "react";
+import { SiteLogo } from "@/components/brand/site-logo";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { siteContent } from "@/lib/content/site";
@@ -25,12 +26,7 @@ export function SiteHeader() {
   return (
     <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
       <div className="container mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
-        <Link href="/" className="flex flex-col">
-          <span className="text-lg font-bold text-primary">
-            Property Management Services
-          </span>
-          <span className="text-xs text-muted-foreground">Rent or Let</span>
-        </Link>
+        <SiteLogo />
 
         <nav className="hidden items-center gap-6 md:flex">
           {navLinks.map(({ href, label }) => (

@@ -37,7 +37,11 @@ export function PropertyEditClient({ property }: PropertyEditClientProps) {
         </div>
       </div>
 
-      <PropertyForm property={property} onSuccess={() => router.refresh()} />
+      <PropertyForm
+        property={property}
+        imageCount={property.images?.length ?? 0}
+        onSuccess={() => router.refresh()}
+      />
       <PropertyImageUpload propertyId={property.id} images={property.images ?? []} />
 
       {Object.keys(property.portal_sync).length > 0 && (

@@ -80,6 +80,15 @@ function splitPostcode(postcode: string): { pc1: string; pc2: string } {
   return { pc1: postcode, pc2: "" };
 }
 
+function absolutizeMediaUrl(url: string): string {
+  if (/^https?:\/\//i.test(url)) return url;
+  const base = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.rent-or-let.co.uk").replace(
+    /\/$/,
+    ""
+  );
+  return `${base}${url.startsWith("/") ? url : `/${url}`}`;
+}
+
 /** Rightmove/OTM RTDF media type codes. */
 const MEDIA_TYPE = {
   image: 1,
@@ -98,7 +107,7 @@ function buildPropertyMedia(
   for (const img of property.images ?? []) {
     media.push({
       media_type: MEDIA_TYPE.image,
-      media_url: img.url,
+      media_url: absolutizeMediaUrl(img.url),
       sort_order: sortOrder++,
       media_update_date: mediaUpdateDate,
     });
@@ -107,7 +116,7 @@ function buildPropertyMedia(
   if (property.floorplan_url) {
     media.push({
       media_type: MEDIA_TYPE.floorplan,
-      media_url: property.floorplan_url,
+      media_url: absolutizeMediaUrl(property.floorplan_url),
       sort_order: sortOrder++,
       media_update_date: mediaUpdateDate,
     });
@@ -116,7 +125,7 @@ function buildPropertyMedia(
   if (property.virtual_tour_url) {
     media.push({
       media_type: MEDIA_TYPE.virtualTour,
-      media_url: property.virtual_tour_url,
+      media_url: absolutizeMediaUrl(property.virtual_tour_url),
       sort_order: sortOrder++,
       media_update_date: mediaUpdateDate,
     });
@@ -125,7 +134,7 @@ function buildPropertyMedia(
   if (property.epc_url) {
     media.push({
       media_type: MEDIA_TYPE.epc,
-      media_url: property.epc_url,
+      media_url: absolutizeMediaUrl(property.epc_url),
       sort_order: sortOrder++,
       media_update_date: mediaUpdateDate,
     });

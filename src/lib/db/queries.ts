@@ -150,6 +150,8 @@ export async function createProperty(data: {
   features?: string[];
   epcRating?: string | null;
   virtualTourUrl?: string | null;
+  floorplanUrl?: string | null;
+  epcUrl?: string | null;
   publishedAt?: Date | null;
 }) {
   const [row] = await db
@@ -177,6 +179,8 @@ export async function createProperty(data: {
       features: data.features ?? [],
       epcRating: data.epcRating,
       virtualTourUrl: data.virtualTourUrl,
+      floorplanUrl: data.floorplanUrl,
+      epcUrl: data.epcUrl,
       publishedAt: data.publishedAt,
       portalSync: {},
     })
@@ -210,6 +214,8 @@ export async function updateProperty(
     features: string[];
     epcRating: string | null;
     virtualTourUrl: string | null;
+    floorplanUrl: string | null;
+    epcUrl: string | null;
     publishedAt: Date | null;
     portalSync: Record<string, unknown>;
   }>
@@ -241,6 +247,8 @@ export async function updateProperty(
       ...(data.features && { features: data.features }),
       ...(data.epcRating !== undefined && { epcRating: data.epcRating }),
       ...(data.virtualTourUrl !== undefined && { virtualTourUrl: data.virtualTourUrl }),
+      ...(data.floorplanUrl !== undefined && { floorplanUrl: data.floorplanUrl }),
+      ...(data.epcUrl !== undefined && { epcUrl: data.epcUrl }),
       ...(data.publishedAt !== undefined && { publishedAt: data.publishedAt }),
       ...(data.portalSync && { portalSync: data.portalSync }),
       updatedAt: new Date(),
@@ -290,6 +298,65 @@ export async function countPropertyImages(propertyId: string) {
     .from(propertyImages)
     .where(eq(propertyImages.propertyId, propertyId));
   return result?.value ?? 0;
+}
+
+export async function getPropertyImage(imageId: string) {
+  const [row] = await db
+    .select()
+    .from(propertyImages)
+    .where(eq(propertyImages.id, imageId))
+    .limit(1);
+  return row ?? null;
+}
+
+export async function deletePropertyImage(imageId: string) {
+  const image = await getPropertyImage(imageId);
+  if (!image) return null;
+
+  await db.delete(propertyImages).where(eq(propertyImages.id, imageId));
+
+  const remaining = await db
+    .select()
+    .from(propertyImages)
+    .where(eq(propertyImages.propertyId, image.propertyId))
+    .orderBy(asc(propertyImages.sortOrder));
+
+  if (remaining.length === 0) return image.propertyId;
+
+  const hasPrimary = remaining.some((row) => row.isPrimary);
+  for (let i = 0; i < remaining.length; i++) {
+    await db
+      .update(propertyImages)
+      .set({
+        sortOrder: i,
+        ...(i === 0 && !hasPrimary ? { isPrimary: true } : {}),
+      })
+      .where(eq(propertyImages.id, remaining[i].id));
+  }
+
+  return image.propertyId;
+}
+
+export async function setPropertyImagePrimary(imageId: string) {
+  const image = await getPropertyImage(imageId);
+  if (!image) return null;
+
+  await db
+    .update(propertyImages)
+    .set({ isPrimary: false })
+    .where(eq(propertyImages.propertyId, image.propertyId));
+  await db.update(propertyImages).set({ isPrimary: true }).where(eq(propertyImages.id, imageId));
+
+  return image.propertyId;
+}
+
+export async function reorderPropertyImages(propertyId: string, imageIds: string[]) {
+  for (let i = 0; i < imageIds.length; i++) {
+    await db
+      .update(propertyImages)
+      .set({ sortOrder: i })
+      .where(and(eq(propertyImages.id, imageIds[i]), eq(propertyImages.propertyId, propertyId)));
+  }
 }
 
 export async function insertEnquiry(data: {

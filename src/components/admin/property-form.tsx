@@ -1,23 +1,74 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { PropertyPortalChecklist } from "@/components/admin/property-portal-checklist";
+import { PORTAL_LIMITS } from "@/lib/portals/portal-readiness";
 import type { Property } from "@/types";
 import { slugify } from "@/lib/utils";
 
 interface PropertyFormProps {
   property?: Property;
+  imageCount?: number;
   onSuccess: (id: string) => void;
 }
 
 const defaultBranchId = "00000000-0000-0000-0000-000000000001";
 
-export function PropertyForm({ property, onSuccess }: PropertyFormProps) {
+function CharCount({
+  value,
+  max,
+  warnAt,
+}: {
+  value: string;
+  max: number;
+  warnAt?: number;
+}) {
+  const len = value.length;
+  const over = len > max;
+  const warn = warnAt !== undefined && len > warnAt && !over;
+
+  return (
+    <p
+      className={`mt-1 text-xs ${
+        over ? "text-red-600" : warn ? "text-amber-600" : "text-muted-foreground"
+      }`}
+    >
+      {len.toLocaleString()} / {max.toLocaleString()} characters
+      {over && " — too long for portals"}
+    </p>
+  );
+}
+
+export function PropertyForm({ property, imageCount = 0, onSuccess }: PropertyFormProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [draft, setDraft] = useState({
+    agent_ref: property?.agent_ref ?? "",
+    house_name_number: property?.house_name_number ?? "",
+    street: property?.street ?? "",
+    postcode: property?.postcode ?? "",
+    summary: property?.summary ?? "",
+    description: property?.description ?? "",
+    features: property?.features?.join("\n") ?? "",
+    status: property?.status ?? "draft",
+  });
+
+  const featureList = useMemo(
+    () =>
+      draft.features
+        .split("\n")
+        .map((f) => f.trim())
+        .filter(Boolean),
+    [draft.features]
+  );
+
+  function updateDraft(field: keyof typeof draft, value: string) {
+    setDraft((current) => ({ ...current, [field]: value }));
+  }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -58,6 +109,8 @@ export function PropertyForm({ property, onSuccess }: PropertyFormProps) {
         .filter(Boolean),
       epc_rating: (formData.get("epc_rating") as string) || null,
       virtual_tour_url: (formData.get("virtual_tour_url") as string) || null,
+      floorplan_url: (formData.get("floorplan_url") as string) || null,
+      epc_url: (formData.get("epc_url") as string) || null,
       published_at:
         formData.get("status") === "available" ? new Date().toISOString() : null,
     };
@@ -83,13 +136,28 @@ export function PropertyForm({ property, onSuccess }: PropertyFormProps) {
 
   return (
     <form onSubmit={handleSubmit} className="mt-6 max-w-2xl space-y-6">
+      <PropertyPortalChecklist
+        input={{
+          agent_ref: draft.agent_ref,
+          house_name_number: draft.house_name_number,
+          street: draft.street,
+          postcode: draft.postcode,
+          summary: draft.summary,
+          description: draft.description,
+          features: featureList,
+          status: draft.status,
+          imageCount,
+        }}
+      />
+
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
           <Label htmlFor="agent_ref">Agent reference</Label>
           <Input
             id="agent_ref"
             name="agent_ref"
-            defaultValue={property?.agent_ref}
+            value={draft.agent_ref}
+            onChange={(e) => updateDraft("agent_ref", e.target.value)}
             required
           />
         </div>
@@ -98,7 +166,8 @@ export function PropertyForm({ property, onSuccess }: PropertyFormProps) {
           <select
             id="status"
             name="status"
-            defaultValue={property?.status ?? "draft"}
+            value={draft.status}
+            onChange={(e) => updateDraft("status", e.target.value)}
             className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
           >
             <option value="draft">Draft</option>
@@ -115,12 +184,23 @@ export function PropertyForm({ property, onSuccess }: PropertyFormProps) {
           <Input
             id="house_name_number"
             name="house_name_number"
-            defaultValue={property?.house_name_number}
+            value={draft.house_name_number}
+            onChange={(e) => updateDraft("house_name_number", e.target.value)}
+            placeholder="e.g. 12"
           />
+          <p className="mt-1 text-xs text-muted-foreground">
+            Required for accurate portal address matching.
+          </p>
         </div>
         <div className="sm:col-span-2">
           <Label htmlFor="street">Street</Label>
-          <Input id="street" name="street" defaultValue={property?.street} required />
+          <Input
+            id="street"
+            name="street"
+            value={draft.street}
+            onChange={(e) => updateDraft("street", e.target.value)}
+            required
+          />
         </div>
       </div>
 
@@ -131,7 +211,13 @@ export function PropertyForm({ property, onSuccess }: PropertyFormProps) {
         </div>
         <div>
           <Label htmlFor="postcode">Postcode</Label>
-          <Input id="postcode" name="postcode" defaultValue={property?.postcode} required />
+          <Input
+            id="postcode"
+            name="postcode"
+            value={draft.postcode}
+            onChange={(e) => updateDraft("postcode", e.target.value)}
+            required
+          />
         </div>
       </div>
 
@@ -207,6 +293,7 @@ export function PropertyForm({ property, onSuccess }: PropertyFormProps) {
             <option value="detached">Detached</option>
             <option value="flat">Flat</option>
             <option value="bungalow">Bungalow</option>
+            <option value="commercial">Commercial</option>
           </select>
         </div>
         <div>
@@ -240,7 +327,13 @@ export function PropertyForm({ property, onSuccess }: PropertyFormProps) {
 
       <div>
         <Label htmlFor="summary">Summary</Label>
-        <Input id="summary" name="summary" defaultValue={property?.summary ?? ""} />
+        <Input
+          id="summary"
+          name="summary"
+          value={draft.summary}
+          onChange={(e) => updateDraft("summary", e.target.value)}
+        />
+        <CharCount value={draft.summary} max={PORTAL_LIMITS.summary} warnAt={250} />
       </div>
 
       <div>
@@ -249,8 +342,14 @@ export function PropertyForm({ property, onSuccess }: PropertyFormProps) {
           id="description"
           name="description"
           rows={6}
-          defaultValue={property?.description}
+          value={draft.description}
+          onChange={(e) => updateDraft("description", e.target.value)}
           required
+        />
+        <CharCount
+          value={draft.description}
+          max={PORTAL_LIMITS.description}
+          warnAt={12000}
         />
       </div>
 
@@ -260,24 +359,67 @@ export function PropertyForm({ property, onSuccess }: PropertyFormProps) {
           id="features"
           name="features"
           rows={4}
-          defaultValue={property?.features?.join("\n") ?? ""}
+          value={draft.features}
+          onChange={(e) => updateDraft("features", e.target.value)}
         />
+        <p
+          className={`mt-1 text-xs ${
+            featureList.length > PORTAL_LIMITS.features
+              ? "text-amber-600"
+              : "text-muted-foreground"
+          }`}
+        >
+          {featureList.length} / {PORTAL_LIMITS.features} sent to portals
+        </p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div>
-          <Label htmlFor="epc_rating">EPC rating</Label>
-          <Input id="epc_rating" name="epc_rating" defaultValue={property?.epc_rating ?? ""} />
+      <div className="space-y-4 rounded-xl border p-4">
+        <h3 className="font-medium">Media &amp; documents</h3>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <Label htmlFor="epc_rating">EPC rating</Label>
+            <Input
+              id="epc_rating"
+              name="epc_rating"
+              defaultValue={property?.epc_rating ?? ""}
+              placeholder="e.g. D"
+            />
+          </div>
+          <div>
+            <Label htmlFor="virtual_tour_url">Virtual tour URL</Label>
+            <Input
+              id="virtual_tour_url"
+              name="virtual_tour_url"
+              type="url"
+              defaultValue={property?.virtual_tour_url ?? ""}
+              placeholder="https://"
+            />
+          </div>
+          <div>
+            <Label htmlFor="floorplan_url">Floorplan URL</Label>
+            <Input
+              id="floorplan_url"
+              name="floorplan_url"
+              type="url"
+              defaultValue={property?.floorplan_url ?? ""}
+              placeholder="https://"
+            />
+          </div>
+          <div>
+            <Label htmlFor="epc_url">EPC certificate URL</Label>
+            <Input
+              id="epc_url"
+              name="epc_url"
+              type="url"
+              defaultValue={property?.epc_url ?? ""}
+              placeholder="https://"
+            />
+          </div>
         </div>
-        <div>
-          <Label htmlFor="virtual_tour_url">Virtual tour URL</Label>
-          <Input
-            id="virtual_tour_url"
-            name="virtual_tour_url"
-            type="url"
-            defaultValue={property?.virtual_tour_url ?? ""}
-          />
-        </div>
+        <p className="text-xs text-muted-foreground">
+          Floorplan and EPC URLs are sent to Rightmove and OnTheMarket as separate media
+          items when set.
+        </p>
       </div>
 
       {error && <p className="text-sm text-red-600">{error}</p>}

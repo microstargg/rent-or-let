@@ -7,6 +7,7 @@ import { formatCurrency, formatDate } from "@/lib/utils";
 import { siteContent } from "@/lib/content/site";
 import { Button } from "@/components/ui/button";
 import { PropertyEnquiryForm } from "@/components/properties/property-enquiry-form";
+import { PropertyGallery } from "@/components/properties/property-gallery";
 import { FeesDisclosure } from "@/components/compliance/fees-disclosure";
 
 interface PropertyDetailPageProps {
@@ -32,26 +33,14 @@ export default async function PropertyDetailPage({
   const property = await getPropertyBySlug(slug);
   if (!property) notFound();
 
-  const primaryImage = property.images?.find((i) => i.is_primary);
-
   return (
     <div className="container mx-auto max-w-6xl px-4 py-12">
       <div className="grid gap-10 lg:grid-cols-3">
         <div className="lg:col-span-2">
-          <div className="aspect-[16/10] overflow-hidden rounded-xl bg-muted">
-            {primaryImage ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={primaryImage.url}
-                alt={property.display_address}
-                className="h-full w-full object-cover"
-              />
-            ) : (
-              <div className="flex h-full items-center justify-center text-muted-foreground">
-                Photos coming soon
-              </div>
-            )}
-          </div>
+          <PropertyGallery
+            images={property.images ?? []}
+            displayAddress={property.display_address}
+          />
 
           <div className="mt-8">
             <p className="text-3xl font-bold text-primary">
