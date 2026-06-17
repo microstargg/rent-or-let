@@ -11,6 +11,48 @@ import {
 import { sendProperty, removeProperty } from "./rtdf-client";
 import type { PortalName } from "@/types";
 
+function enabledPortalsForBranch(branch: {
+  rightmoveSyncEnabled: boolean;
+  otmSyncEnabled: boolean;
+}): PortalName[] {
+  const portals: PortalName[] = [];
+  if (branch.rightmoveSyncEnabled) portals.push("rightmove");
+  if (branch.otmSyncEnabled) portals.push("onthemarket");
+  return portals;
+}
+
+export async function syncPropertyToPortals(
+  propertyId: string,
+  action: "send" | "remove"
+): Promise<void> {
+  if (!process.env.DATABASE_URL) return;
+
+  const result = await getPropertyWithBranch(propertyId);
+  if (!result) return;
+
+  for (const portal of enabledPortalsForBranch(result.branch)) {
+    try {
+      await processSyncJob(propertyId, portal, action);
+    } catch (error) {
+      console.error(`Portal sync failed for ${propertyId} (${portal}):`, error);
+    }
+  }
+}
+
+export async function syncPropertyToPortal(
+  propertyId: string,
+  portal: PortalName,
+  action: "send" | "remove"
+): Promise<void> {
+  if (!process.env.DATABASE_URL) return;
+
+  try {
+    await processSyncJob(propertyId, portal, action);
+  } catch (error) {
+    console.error(`Portal sync failed for ${propertyId} (${portal}):`, error);
+  }
+}
+
 export async function processSyncJob(
   propertyId: string,
   portal: PortalName,

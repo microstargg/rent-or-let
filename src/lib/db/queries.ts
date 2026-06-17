@@ -9,10 +9,9 @@ import {
   tenantApplications,
   complaints,
   portalSyncLogs,
-  portalSyncJobs,
   cookieConsents,
 } from "./schema";
-import type { Property, PropertyImage, PortalName } from "@/types";
+import type { Property, PropertyImage } from "@/types";
 
 function mapProperty(
   row: typeof properties.$inferSelect,
@@ -489,37 +488,6 @@ export async function insertCookieConsent(data: {
   });
 }
 
-export async function enqueuePortalSyncJob(
-  propertyId: string,
-  portal: PortalName,
-  action: "send" | "remove"
-) {
-  await db.insert(portalSyncJobs).values({ propertyId, portal, action, status: "pending" });
-}
-
-export async function getPendingSyncJobs(limit = 20) {
-  return db
-    .select()
-    .from(portalSyncJobs)
-    .where(eq(portalSyncJobs.status, "pending"))
-    .orderBy(asc(portalSyncJobs.scheduledAt))
-    .limit(limit);
-}
-
-export async function updateSyncJob(
-  id: string,
-  data: { status: string; attempts: number; processedAt?: Date }
-) {
-  await db
-    .update(portalSyncJobs)
-    .set({
-      status: data.status,
-      attempts: data.attempts,
-      processedAt: data.processedAt,
-    })
-    .where(eq(portalSyncJobs.id, id));
-}
-
 export async function insertPortalSyncLog(data: {
   propertyId: string;
   portal: string;
@@ -549,14 +517,6 @@ export async function listPortalSyncLogs(limit = 50) {
     .innerJoin(properties, eq(portalSyncLogs.propertyId, properties.id))
     .orderBy(desc(portalSyncLogs.createdAt))
     .limit(limit);
-}
-
-export async function countPendingSyncJobs() {
-  const [result] = await db
-    .select({ value: count() })
-    .from(portalSyncJobs)
-    .where(eq(portalSyncJobs.status, "pending"));
-  return result?.value ?? 0;
 }
 
 export async function countByStatus(

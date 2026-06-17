@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireStaffSession } from "@/lib/auth/server";
-import { enqueuePortalSync } from "@/lib/portals/sync-queue";
+import { syncPropertyToPortals } from "@/lib/portals/sync-worker";
 
 export async function POST(
   _request: Request,
@@ -10,6 +10,6 @@ export async function POST(
   const session = await requireStaffSession();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  await enqueuePortalSync(id, "send");
+  await syncPropertyToPortals(id, "send");
   return NextResponse.json({ success: true });
 }

@@ -1,12 +1,11 @@
-import { listPortalSyncLogs, countPendingSyncJobs, getDefaultBranch } from "@/lib/db/queries";
+import { listPortalSyncLogs, getDefaultBranch } from "@/lib/db/queries";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PortalSettings } from "@/components/admin/portal-settings";
 import { PortalConnectionTest } from "@/components/admin/portal-connection-test";
 
 export default async function AdminPortalsPage() {
-  const [logs, pendingCount, branch] = await Promise.all([
+  const [logs, branch] = await Promise.all([
     listPortalSyncLogs(50),
-    countPendingSyncJobs(),
     getDefaultBranch(),
   ]);
 
@@ -81,12 +80,6 @@ export default async function AdminPortalsPage() {
       )}
 
       <PortalConnectionTest />
-
-      {pendingCount > 0 && (
-        <p className="mt-6 text-sm text-muted-foreground">
-          {pendingCount} pending sync job(s) — processed every 5 minutes via cron
-        </p>
-      )}
 
       <div className="mt-8 overflow-x-auto rounded-xl border">
         <table className="w-full text-sm">

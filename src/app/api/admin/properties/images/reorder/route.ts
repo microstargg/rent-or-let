@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireStaffSession } from "@/lib/auth/server";
 import { reorderPropertyImages } from "@/lib/db/queries";
-import { enqueuePortalSync } from "@/lib/portals/sync-queue";
+import { syncPropertyToPortals } from "@/lib/portals/sync-worker";
 
 const reorderSchema = z.object({
   property_id: z.string().uuid(),
@@ -16,7 +16,7 @@ export async function PATCH(request: Request) {
   try {
     const { property_id, image_ids } = reorderSchema.parse(await request.json());
     await reorderPropertyImages(property_id, image_ids);
-    await enqueuePortalSync(property_id, "send");
+    await syncPropertyToPortals(property_id, "send");
     return NextResponse.json({ ok: true });
   } catch (error) {
     console.error(error);

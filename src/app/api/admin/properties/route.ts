@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireStaffSession } from "@/lib/auth/server";
 import { createProperty } from "@/lib/db/queries";
-import { enqueuePortalSync } from "@/lib/portals/sync-queue";
+import { syncPropertyToPortals } from "@/lib/portals/sync-worker";
 import { adminPropertySchema, toPropertyDbFields } from "@/lib/admin/property-schema";
 import { slugify } from "@/lib/utils";
 
@@ -20,7 +20,7 @@ export async function POST(request: Request) {
     });
 
     if (data.status === "available") {
-      await enqueuePortalSync(property.id, "send");
+      await syncPropertyToPortals(property.id, "send");
     }
 
     return NextResponse.json({ id: property.id });

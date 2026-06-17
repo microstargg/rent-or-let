@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireStaffSession } from "@/lib/auth/server";
 import { updateProperty } from "@/lib/db/queries";
-import { enqueuePortalSync } from "@/lib/portals/sync-queue";
+import { syncPropertyToPortals } from "@/lib/portals/sync-worker";
 import { adminPropertySchema, toPropertyDbFields } from "@/lib/admin/property-schema";
 
 export async function PATCH(
@@ -19,9 +19,9 @@ export async function PATCH(
     await updateProperty(id, toPropertyDbFields(data));
 
     if (data.status === "available") {
-      await enqueuePortalSync(id, "send");
+      await syncPropertyToPortals(id, "send");
     } else if (data.status === "archived" || data.status === "let_agreed") {
-      await enqueuePortalSync(id, "remove");
+      await syncPropertyToPortals(id, "remove");
     }
 
     return NextResponse.json({ id });

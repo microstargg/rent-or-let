@@ -5,8 +5,8 @@ import {
   getDefaultBranch,
   updateBranchPortalSettings,
   listAvailablePropertyIds,
-  enqueuePortalSyncJob,
 } from "@/lib/db/queries";
+import { syncPropertyToPortal } from "@/lib/portals/sync-worker";
 
 const settingsSchema = z.object({
   rightmove_sync_enabled: z.boolean().optional(),
@@ -40,16 +40,16 @@ export async function PATCH(request: Request) {
       const propertyIds = await listAvailablePropertyIds();
       for (const propertyId of propertyIds) {
         if (turningOffRightmove) {
-          await enqueuePortalSyncJob(propertyId, "rightmove", "remove");
+          await syncPropertyToPortal(propertyId, "rightmove", "remove");
         }
         if (turningOffOtm) {
-          await enqueuePortalSyncJob(propertyId, "onthemarket", "remove");
+          await syncPropertyToPortal(propertyId, "onthemarket", "remove");
         }
         if (turningOnRightmove) {
-          await enqueuePortalSyncJob(propertyId, "rightmove", "send");
+          await syncPropertyToPortal(propertyId, "rightmove", "send");
         }
         if (turningOnOtm) {
-          await enqueuePortalSyncJob(propertyId, "onthemarket", "send");
+          await syncPropertyToPortal(propertyId, "onthemarket", "send");
         }
       }
     }
