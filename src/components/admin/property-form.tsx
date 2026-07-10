@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -46,6 +46,7 @@ function CharCount({
 export function PropertyForm({ property, imageCount = 0, onSuccess }: PropertyFormProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [landlords, setLandlords] = useState<{ id: string; firstName: string; lastName: string }[]>([]);
   const [draft, setDraft] = useState({
     agent_ref: property?.agent_ref ?? "",
     house_name_number: property?.house_name_number ?? "",
@@ -56,6 +57,13 @@ export function PropertyForm({ property, imageCount = 0, onSuccess }: PropertyFo
     features: property?.features?.join("\n") ?? "",
     status: property?.status ?? "draft",
   });
+
+  useEffect(() => {
+    fetch("/api/admin/landlords")
+      .then((r) => r.json())
+      .then(setLandlords)
+      .catch(() => setLandlords([]));
+  }, []);
 
   const featureList = useMemo(
     () =>
@@ -111,6 +119,8 @@ export function PropertyForm({ property, imageCount = 0, onSuccess }: PropertyFo
       virtual_tour_url: (formData.get("virtual_tour_url") as string) || null,
       floorplan_url: (formData.get("floorplan_url") as string) || null,
       epc_url: (formData.get("epc_url") as string) || null,
+      landlord_id: (formData.get("landlord_id") as string) || null,
+      is_vacant: formData.get("is_vacant") === "on",
       published_at:
         formData.get("status") === "available" ? new Date().toISOString() : null,
     };
@@ -175,6 +185,35 @@ export function PropertyForm({ property, imageCount = 0, onSuccess }: PropertyFo
             <option value="let_agreed">Let agreed</option>
             <option value="archived">Archived</option>
           </select>
+        </div>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div>
+          <Label htmlFor="landlord_id">Landlord</Label>
+          <select
+            id="landlord_id"
+            name="landlord_id"
+            defaultValue={property?.landlord_id ?? ""}
+            className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+          >
+            <option value="">None</option>
+            {landlords.map((l) => (
+              <option key={l.id} value={l.id}>
+                {l.firstName} {l.lastName}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="flex items-center gap-2 pt-8">
+          <input
+            id="is_vacant"
+            name="is_vacant"
+            type="checkbox"
+            defaultChecked={property?.is_vacant ?? true}
+            className="h-4 w-4"
+          />
+          <Label htmlFor="is_vacant">Vacant (available to let)</Label>
         </div>
       </div>
 

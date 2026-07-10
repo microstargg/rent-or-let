@@ -1,0 +1,12 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/rent",
+      "schedule": "0 6 1 * *"
+    },
+    {
+      "path": "/api/cron/compliance",
+      "schedule": "0 7 * * *"
+    }
+  ]
+}

@@ -1,5 +1,9 @@
 import { createNeonAuth } from "@neondatabase/neon-js/auth/next/server";
-import { getStaffProfileById } from "@/lib/db/queries";
+import {
+  getStaffProfileById,
+  getRenterProfileByUserId,
+  getLandlordProfileByUserId,
+} from "@/lib/db/queries";
 
 type NeonAuth = ReturnType<typeof createNeonAuth>;
 
@@ -48,4 +52,26 @@ export async function requireStaffSession() {
   if (!staff) return null;
 
   return session;
+}
+
+export async function requireRenterSession() {
+  const { data: session } = await auth.getSession();
+  const userId = session?.user?.id;
+  if (!userId) return null;
+
+  const profile = await getRenterProfileByUserId(userId);
+  if (!profile) return null;
+
+  return { session, profile };
+}
+
+export async function requireLandlordSession() {
+  const { data: session } = await auth.getSession();
+  const userId = session?.user?.id;
+  if (!userId) return null;
+
+  const profile = await getLandlordProfileByUserId(userId);
+  if (!profile) return null;
+
+  return { session, profile };
 }

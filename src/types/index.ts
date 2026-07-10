@@ -53,6 +53,8 @@ export interface Property {
   floorplan_url?: string;
   epc_url?: string;
   portal_sync: Record<string, PortalSyncState>;
+  landlord_id?: string;
+  is_vacant?: boolean;
   published_at?: string;
   created_at: string;
   updated_at: string;

@@ -47,3 +47,4 @@ See [docs/portal-onboarding.md](docs/portal-onboarding.md).
 - [Portal onboarding](docs/portal-onboarding.md)
 - [Security audit](docs/security-audit.md)
 - [Let Flow integration](docs/let-flow-integration.md)
+- [Client setup playbook](docs/client-setup.md)

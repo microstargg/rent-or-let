@@ -26,6 +26,8 @@ export const adminPropertySchema = z.object({
   floorplan_url: z.string().nullable().optional(),
   epc_url: z.string().nullable().optional(),
   published_at: z.string().nullable().optional(),
+  landlord_id: z.string().uuid().nullable().optional(),
+  is_vacant: z.boolean().optional(),
 });
 
 export type AdminPropertyInput = z.infer<typeof adminPropertySchema>;
@@ -57,5 +59,7 @@ export function toPropertyDbFields(data: AdminPropertyInput) {
     floorplanUrl: data.floorplan_url,
     epcUrl: data.epc_url,
     publishedAt: data.status === "available" ? new Date() : null,
+    landlordId: data.landlord_id ?? null,
+    isVacant: data.is_vacant ?? true,
   };
 }

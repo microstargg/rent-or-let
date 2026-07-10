@@ -1,5 +1,11 @@
 import { NextResponse } from "next/server";
 import { insertComplaint, insertEnquiry } from "@/lib/db/queries";
+import {
+  createTicket,
+  findBranchByMaintenanceToken,
+  getRenterByEmail,
+  getActiveTenancyForRenter,
+} from "@/lib/db/queries";
 
 interface ResendInboundEmail {
   from: string;
@@ -7,6 +13,11 @@ interface ResendInboundEmail {
   subject: string;
   text?: string;
   html?: string;
+}
+
+function extractMaintenanceToken(to: string): string | null {
+  const match = to.match(/maintenance\+([^@]+)@/i);
+  return match?.[1] ?? null;
 }
 
 export async function POST(request: Request) {
@@ -24,8 +35,34 @@ export async function POST(request: Request) {
     if (!email) return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
 
     const fromMatch = email.from.match(/<(.+)>|(.+)/);
-    const senderEmail = fromMatch?.[1] ?? fromMatch?.[2] ?? email.from;
+    const senderEmail = (fromMatch?.[1] ?? fromMatch?.[2] ?? email.from).trim();
     const senderName = email.from.replace(/<.+>/, "").trim() || senderEmail;
+
+    const maintenanceToken = extractMaintenanceToken(email.to);
+    if (maintenanceToken) {
+      const branch = await findBranchByMaintenanceToken(maintenanceToken);
+      if (branch) {
+        const renter = await getRenterByEmail(senderEmail, branch.id);
+        const tenancy = renter
+          ? await getActiveTenancyForRenter(renter.id, branch.id)
+          : null;
+
+        if (tenancy) {
+          await createTicket({
+            branchId: branch.id,
+            propertyId: tenancy.propertyId,
+            tenancyId: tenancy.id,
+            reportedByType: "tenant",
+            reportedById: renter?.id,
+            source: "email",
+            summary: email.subject || "Maintenance request",
+            description: email.text ?? email.html ?? "",
+          });
+          return NextResponse.json({ success: true, routed: "ticket" });
+        }
+      }
+      return NextResponse.json({ success: true, routed: "maintenance-unmatched" });
+    }
 
     const isComplaint =
       email.subject.toLowerCase().includes("complaint") ||

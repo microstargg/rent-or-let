@@ -1,74 +1,163 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { Button } from "@/components/ui/button";
 import { formatCurrency } from "@/lib/utils";
-import { listAllProperties } from "@/lib/db/queries";
-import type { PropertyStatus } from "@/types";
+import { searchProperties, ADMIN_LIST_PAGE_SIZE } from "@/lib/db/queries";
+import { AdminListToolbar } from "@/components/admin/admin-list-toolbar";
+import { AdminPagination, listBaseHref } from "@/components/admin/admin-pagination";
+import {
+  AdminEmptyState,
+  AdminPageHeader,
+  AdminSection,
+  AdminTable,
+  StatusBadge,
+  StatPill,
+} from "@/components/admin/admin-page";
+import { displayPersonName } from "@/lib/person-name";
 
-const statusColors: Record<PropertyStatus, string> = {
-  draft: "bg-gray-100 text-gray-800",
-  available: "bg-green-100 text-green-800",
-  let_agreed: "bg-amber-100 text-amber-800",
-  archived: "bg-red-100 text-red-800",
-};
+export default async function AdminPropertiesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string; status?: string; sort?: string; page?: string }>;
+}) {
+  const params = await searchParams;
+  const q = params.q?.trim() ?? "";
+  const status = params.status ?? "";
+  const sort =
+    params.sort === "address" || params.sort === "rent" ? params.sort : "updated";
+  const page = Math.max(1, Number(params.page) || 1);
+  const hasFilters =
+    Boolean(q) || Boolean(status) || sort !== "updated" || page > 1;
 
-export default async function AdminPropertiesPage() {
-  const properties = await listAllProperties();
+  const { rows, total, stats } = await searchProperties({
+    q,
+    status: status || undefined,
+    sort,
+    page,
+    pageSize: ADMIN_LIST_PAGE_SIZE,
+  });
+
+  const baseHref = listBaseHref("/admin/properties", {
+    q: q || null,
+    status: status || null,
+    sort: sort === "updated" ? null : sort,
+  });
 
   return (
     <div>
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">Properties</h1>
-        <Button asChild>
-          <Link href="/admin/properties/new">Add property</Link>
-        </Button>
+      <AdminPageHeader
+        title="Properties"
+        description="Search and filter the portfolio. Open a property to edit details, images, and portal sync."
+        actions={
+          <Button asChild size="sm">
+            <Link href="/admin/properties/new">Add property</Link>
+          </Button>
+        }
+      />
+
+      <div className="mt-6 grid gap-3 sm:grid-cols-3">
+        <StatPill label="Total" value={stats.total} />
+        <StatPill label="Available" value={stats.available} tone="success" />
+        <StatPill
+          label="Vacant"
+          value={stats.vacant}
+          tone={stats.vacant ? "warning" : "neutral"}
+        />
       </div>
 
-      <div className="mt-6 overflow-x-auto rounded-xl border">
-        <table className="w-full text-sm">
-          <thead className="border-b bg-muted/50">
-            <tr>
-              <th className="px-4 py-3 text-left font-medium">Address</th>
-              <th className="px-4 py-3 text-left font-medium">Rent</th>
-              <th className="px-4 py-3 text-left font-medium">Status</th>
-              <th className="px-4 py-3 text-left font-medium">Ref</th>
-              <th className="px-4 py-3 text-right font-medium">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {properties.map((property) => (
-              <tr key={property.id} className="border-b last:border-0">
-                <td className="px-4 py-3">{property.displayAddress}</td>
-                <td className="px-4 py-3">{formatCurrency(Number(property.pricePcm))}</td>
-                <td className="px-4 py-3">
-                  <span
-                    className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                      statusColors[property.status as PropertyStatus] ?? ""
-                    }`}
-                  >
-                    {property.status}
-                  </span>
-                </td>
-                <td className="px-4 py-3 text-muted-foreground">{property.agentRef}</td>
-                <td className="px-4 py-3 text-right">
-                  <Button asChild variant="ghost" size="sm">
-                    <Link href={`/admin/properties/${property.id}`}>Edit</Link>
-                  </Button>
-                </td>
-              </tr>
-            ))}
-            {!properties.length && (
-              <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">
-                  No properties yet.{" "}
-                  <Link href="/admin/properties/new" className="text-primary underline">
-                    Add your first property
-                  </Link>
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+      <AdminSection title="Find properties">
+        <Suspense fallback={<div className="h-10 animate-pulse rounded-md bg-muted" />}>
+          <AdminListToolbar
+            searchPlaceholder="Search address, postcode, or ref…"
+            statusOptions={[
+              { value: "draft", label: "Draft" },
+              { value: "available", label: "Available" },
+              { value: "let_agreed", label: "Let agreed" },
+              { value: "archived", label: "Archived" },
+            ]}
+            sortOptions={[
+              { value: "updated", label: "Recently updated" },
+              { value: "address", label: "Address A–Z" },
+              { value: "rent", label: "Rent high–low" },
+            ]}
+            defaultSort="updated"
+          />
+        </Suspense>
+      </AdminSection>
+
+      <AdminSection title="Properties" description={`${total} matching`}>
+        {rows.length ? (
+          <>
+            <AdminTable
+              headers={["Address", "Town", "Beds", "Rent", "Status", "Ref", "Landlord"]}
+            >
+              {rows.map(({ property, landlordFirstName, landlordLastName }) => {
+                const landlordName =
+                  landlordFirstName || landlordLastName
+                    ? displayPersonName(
+                        landlordFirstName ?? "",
+                        landlordLastName ?? ""
+                      )
+                    : null;
+                return (
+                  <tr key={property.id}>
+                    <td className="px-4 py-3">
+                      <Link
+                        href={`/admin/properties/${property.id}`}
+                        className="font-medium text-primary hover:underline"
+                      >
+                        {property.displayAddress}
+                      </Link>
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground">{property.town}</td>
+                    <td className="px-4 py-3 tabular-nums">{property.bedrooms}</td>
+                    <td className="px-4 py-3 tabular-nums">
+                      {formatCurrency(Number(property.pricePcm))}
+                    </td>
+                    <td className="px-4 py-3">
+                      <StatusBadge status={property.status} />
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground">{property.agentRef}</td>
+                    <td className="px-4 py-3">
+                      {landlordName ? (
+                        <Link
+                          href={`/admin/landlords?q=${encodeURIComponent(landlordName)}`}
+                          className="text-sm text-primary hover:underline"
+                        >
+                          {landlordName}
+                        </Link>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </AdminTable>
+            <AdminPagination page={page} total={total} baseHref={baseHref} />
+          </>
+        ) : hasFilters ? (
+          <AdminEmptyState
+            title="No properties match"
+            description={
+              q ? `Nothing found for “${q}”.` : "Try another status or clear filters."
+            }
+          >
+            <Button asChild variant="outline" size="sm">
+              <Link href="/admin/properties">Clear filters</Link>
+            </Button>
+          </AdminEmptyState>
+        ) : (
+          <AdminEmptyState
+            title="No properties yet"
+            description="Add your first property to start building the portfolio."
+          >
+            <Button asChild size="sm">
+              <Link href="/admin/properties/new">Add property</Link>
+            </Button>
+          </AdminEmptyState>
+        )}
+      </AdminSection>
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { eq, and, gte, lte, ilike, desc, asc, sql, count } from "drizzle-orm";
+import { eq, and, or, gte, lte, ilike, desc, asc, sql, count } from "drizzle-orm";
 import { db } from "./index";
 import {
   properties,
@@ -10,6 +10,7 @@ import {
   complaints,
   portalSyncLogs,
   cookieConsents,
+  landlords,
 } from "./schema";
 import type { Property, PropertyImage } from "@/types";
 
@@ -45,6 +46,8 @@ function mapProperty(
     floorplan_url: row.floorplanUrl ?? undefined,
     epc_url: row.epcUrl ?? undefined,
     portal_sync: (row.portalSync as Property["portal_sync"]) ?? {},
+    landlord_id: row.landlordId ?? undefined,
+    is_vacant: row.isVacant,
     published_at: row.publishedAt?.toISOString(),
     created_at: row.createdAt.toISOString(),
     updated_at: row.updatedAt.toISOString(),
@@ -126,6 +129,77 @@ export async function listAllProperties() {
   return db.select().from(properties).orderBy(desc(properties.updatedAt));
 }
 
+export async function searchProperties(opts: {
+  q?: string;
+  status?: string;
+  sort?: string;
+  page?: number;
+  pageSize?: number;
+} = {}) {
+  const pageSize = opts.pageSize ?? 50;
+  const page = Math.max(1, opts.page ?? 1);
+  const offset = (page - 1) * pageSize;
+  const conditions = [];
+  if (opts.status && opts.status !== "all") {
+    conditions.push(eq(properties.status, opts.status));
+  }
+  if (opts.q?.trim()) {
+    const pattern = `%${opts.q.trim()}%`;
+    conditions.push(
+      or(
+        ilike(properties.displayAddress, pattern),
+        ilike(properties.town, pattern),
+        ilike(properties.postcode, pattern),
+        ilike(properties.agentRef, pattern),
+        ilike(properties.street, pattern)
+      )!
+    );
+  }
+  const where = conditions.length ? and(...conditions) : undefined;
+
+  const orderBy =
+    opts.sort === "address"
+      ? [asc(properties.displayAddress)]
+      : opts.sort === "rent"
+        ? [desc(properties.pricePcm)]
+        : [desc(properties.updatedAt)];
+
+  const [rows, totalRow, stats] = await Promise.all([
+    db
+      .select({
+        property: properties,
+        landlordFirstName: landlords.firstName,
+        landlordLastName: landlords.lastName,
+      })
+      .from(properties)
+      .leftJoin(landlords, eq(properties.landlordId, landlords.id))
+      .where(where)
+      .orderBy(...orderBy)
+      .limit(pageSize)
+      .offset(offset),
+    db.select({ total: count() }).from(properties).where(where),
+    db
+      .select({
+        total: count(),
+        available: sql<number>`count(*) filter (where ${properties.status} = 'available')`.mapWith(
+          Number
+        ),
+        vacant: sql<number>`count(*) filter (where ${properties.isVacant} = true)`.mapWith(Number),
+      })
+      .from(properties),
+  ]);
+
+  return {
+    rows,
+    total: totalRow[0]?.total ?? 0,
+    stats: {
+      total: stats[0]?.total ?? 0,
+      available: stats[0]?.available ?? 0,
+      vacant: stats[0]?.vacant ?? 0,
+    },
+  };
+}
+
 export async function createProperty(data: {
   branchId: string;
   agentRef: string;
@@ -152,6 +226,8 @@ export async function createProperty(data: {
   floorplanUrl?: string | null;
   epcUrl?: string | null;
   publishedAt?: Date | null;
+  landlordId?: string | null;
+  isVacant?: boolean;
 }) {
   const [row] = await db
     .insert(properties)
@@ -181,6 +257,8 @@ export async function createProperty(data: {
       floorplanUrl: data.floorplanUrl,
       epcUrl: data.epcUrl,
       publishedAt: data.publishedAt,
+      landlordId: data.landlordId,
+      isVacant: data.isVacant ?? true,
       portalSync: {},
     })
     .returning({ id: properties.id });
@@ -217,6 +295,8 @@ export async function updateProperty(
     epcUrl: string | null;
     publishedAt: Date | null;
     portalSync: Record<string, unknown>;
+    landlordId: string | null;
+    isVacant: boolean;
   }>
 ) {
   await db
@@ -250,6 +330,8 @@ export async function updateProperty(
       ...(data.epcUrl !== undefined && { epcUrl: data.epcUrl }),
       ...(data.publishedAt !== undefined && { publishedAt: data.publishedAt }),
       ...(data.portalSync && { portalSync: data.portalSync }),
+      ...(data.landlordId !== undefined && { landlordId: data.landlordId }),
+      ...(data.isVacant !== undefined && { isVacant: data.isVacant }),
       updatedAt: new Date(),
     })
     .where(eq(properties.id, id));
@@ -603,5 +685,148 @@ export async function listAvailablePropertyIds(): Promise<string[]> {
     .where(eq(properties.status, "available"));
   return rows.map((r) => r.id);
 }
+
+export {
+  listLandlords,
+  searchLandlords,
+  countLandlords,
+  getLandlordById,
+  createLandlord,
+  updateLandlord,
+  deleteLandlord,
+  listRenters,
+  searchRenters,
+  countRenters,
+  getRenterById,
+  createRenter,
+  updateRenter,
+  getRenterByEmail,
+  listTenancies,
+  searchTenancies,
+  getTenancyById,
+  getActiveTenancyForRenter,
+  createTenancy,
+  endTenancy,
+  getBranchWithSettings,
+  updateBranchSettings,
+  ADMIN_LIST_PAGE_SIZE,
+} from "./queries/operations";
+
+export {
+  listInvoices,
+  getInvoiceById,
+  getInvoiceForRenter,
+  listInvoicesForRenter,
+  createInvoices,
+  markInvoicePaid,
+  markInvoicePartialPaid,
+  insertPayment,
+  getPaymentByExternalRef,
+  updateInvoiceStatus,
+  getActiveTenanciesForRent,
+  getExistingRentInvoicesForDueDate,
+  countOverdueInvoices,
+  getLandlordStatementData,
+  getTenancyBalance,
+  listArrears,
+  listPaymentExceptions,
+  resolvePaymentException,
+  applyLateFeesForBranch,
+  recordPaymentAndAllocate,
+  createTask,
+  insertLedgerEntry,
+} from "./queries/finance";
+
+export {
+  listTickets,
+  searchTickets,
+  TICKET_LIST_PAGE_SIZE,
+  getTicketById,
+  listTicketsForRenter,
+  getTicketForRenter,
+  createTicket,
+  updateTicketStatus,
+  listTicketMessages,
+  addTicketMessage,
+  listWorkOrders,
+  createWorkOrder,
+  updateWorkOrder,
+  listContractors,
+  createContractor,
+  deleteContractor,
+  countOpenTickets,
+  findBranchByMaintenanceToken,
+  attachDocumentToTicket,
+  approveWorkOrder,
+  completeWorkOrder,
+} from "./queries/tickets";
+
+export {
+  getRenterProfileByUserId,
+  createRenterProfile,
+  createRenterInvite,
+  getRenterInviteByToken,
+  acceptRenterInvite,
+  listPendingRenterInvites,
+} from "./queries/renter-auth";
+
+export {
+  createDocument,
+  markDocumentServed,
+  getDocumentById,
+  listDocumentsForEntity,
+  createComplianceItem,
+  updateComplianceItem,
+  getComplianceItemById,
+  listComplianceItems,
+  seedTenancyComplianceChecklist,
+  getPropertyComplianceScore,
+  listPropertyComplianceScores,
+  refreshComplianceStatuses,
+  markComplianceServed,
+  countComplianceIssues,
+  TENANCY_COMPLIANCE_TYPES,
+} from "./queries/compliance";
+
+export {
+  insertLandlordLedgerEntry,
+  getLandlordBalance,
+  postRentReceivedToLandlord,
+  postLandlordAdjustment,
+  postWorkOrderCostToLandlord,
+  listLandlordLedger,
+  listLandlordBalances,
+  generateLandlordStatements,
+  listLandlordStatements,
+  createLandlordPayout,
+  listLandlordPayouts,
+} from "./queries/landlord-finance";
+
+export {
+  updateEnquiryPipeline,
+  createViewing,
+  listViewings,
+  updateApplicationReferencing,
+  getApplicationById,
+  convertApplicationToTenancy,
+  createLandlordProfile,
+  getLandlordProfileByUserId,
+  createLandlordInvite,
+  getLandlordInviteByToken,
+  acceptLandlordInvite,
+  listPropertiesForLandlord,
+} from "./queries/lettings";
+
+export {
+  protectDeposit,
+  listDepositRegister,
+  createInspection,
+  completeInspection,
+  listInspections,
+  createNotice,
+  listNotices,
+  bulkServeRraInfoSheet,
+  setRentReviewDate,
+} from "./queries/lifecycle";
 
 export { mapProperty };

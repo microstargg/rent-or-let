@@ -1,5 +1,6 @@
 import { listTenantApplications } from "@/lib/db/queries";
 import { ApplicationStatusSelect } from "@/components/admin/application-status-select";
+import { ConvertApplicationButton } from "@/components/admin/convert-application-button";
 
 export default async function AdminApplicationsPage() {
   const rows = await listTenantApplications();
@@ -14,9 +15,9 @@ export default async function AdminApplicationsPage() {
               <th className="px-4 py-3 text-left">Applicant</th>
               <th className="px-4 py-3 text-left">Email</th>
               <th className="px-4 py-3 text-left">Property</th>
-              <th className="px-4 py-3 text-left">Employment</th>
+              <th className="px-4 py-3 text-left">Referencing</th>
               <th className="px-4 py-3 text-left">Status</th>
-              <th className="px-4 py-3 text-left">Date</th>
+              <th className="px-4 py-3 text-left">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -27,12 +28,16 @@ export default async function AdminApplicationsPage() {
                 </td>
                 <td className="px-4 py-3">{application.email}</td>
                 <td className="px-4 py-3">{displayAddress ?? "General"}</td>
-                <td className="px-4 py-3 capitalize">{application.employmentStatus}</td>
+                <td className="px-4 py-3 capitalize">
+                  {application.referencingStatus ?? "pending"}
+                </td>
                 <td className="px-4 py-3">
                   <ApplicationStatusSelect id={application.id} status={application.status} />
                 </td>
-                <td className="px-4 py-3 text-muted-foreground">
-                  {new Date(application.createdAt).toLocaleString("en-GB")}
+                <td className="px-4 py-3">
+                  {application.propertyId && application.status !== "approved" && (
+                    <ConvertApplicationButton applicationId={application.id} />
+                  )}
                 </td>
               </tr>
             ))}

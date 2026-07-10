@@ -5,5 +5,5 @@ export default auth.middleware({
 });
 
 export const config = {
-  matcher: ["/admin/:path*"],
+  matcher: ["/admin/:path*", "/portal/:path*", "/landlord-portal/:path*"],
 };
