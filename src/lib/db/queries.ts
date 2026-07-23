@@ -641,6 +641,17 @@ export async function getStaffProfileById(id: string) {
   return row ?? null;
 }
 
+export {
+  listStaffProfiles,
+  createStaffProfile,
+  getStaffProfileByEmail,
+  createStaffInvite,
+  getStaffInviteByToken,
+  acceptStaffInvite,
+  listPendingStaffInvites,
+} from "./queries/staff";
+
+
 export interface BranchPortalSettings {
   id: string;
   name: string;
@@ -828,5 +839,7 @@ export {
   bulkServeRraInfoSheet,
   setRentReviewDate,
 } from "./queries/lifecycle";
+
+export { listTasks, updateTaskStatus } from "./queries/tasks";
 
 export { mapProperty };

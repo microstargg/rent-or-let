@@ -17,7 +17,9 @@ export default function CmpPage() {
       <div className="mt-8 rounded-xl border bg-card p-6">
         <h2 className="text-lg font-semibold">Certificate</h2>
         <p className="mt-2 text-sm text-muted-foreground">
-          View our Client Money Protection certificate:
+          View our Client Money Protection certificate (upload PDF to{" "}
+          <code className="text-xs">public/documents/ukala-cmp-certificate.pdf</code> when
+          rebranding):
         </p>
         <Link
           href={siteContent.cmp.certificateUrl}

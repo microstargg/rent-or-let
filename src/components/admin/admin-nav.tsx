@@ -21,6 +21,7 @@ import {
   Banknote,
   AlertTriangle,
   ShieldCheck,
+  ListTodo,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -64,6 +65,7 @@ const navSections: NavSection[] = [
     items: [
       { href: "/admin/compliance", label: "Certificates", icon: ShieldCheck },
       { href: "/admin/lifecycle", label: "Deposits & notices", icon: FileText },
+      { href: "/admin/tasks", label: "Tasks", icon: ListTodo },
     ],
   },
   {

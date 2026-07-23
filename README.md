@@ -8,7 +8,7 @@ Modern property management platform for Property Management Services (rent-or-le
 - **Neon Postgres** + Drizzle ORM
 - **Neon Auth** (Better Auth) for staff login
 - **Vercel Blob** for property images
-- **Vercel** hosting + cron for portal sync
+- **Vercel** hosting + cron for rent invoices and compliance
 
 ## Getting started
 
@@ -39,7 +39,18 @@ VALUES ('neon-auth-user-id', 'staff@example.com', 'Staff Name', 'admin');
 
 ## Portal sync
 
-See [docs/portal-onboarding.md](docs/portal-onboarding.md).
+See [docs/portal-onboarding.md](docs/portal-onboarding.md). Property saves sync inline; Vercel cron runs rent + compliance jobs.
+
+## Testing
+
+```bash
+npm run lint
+npm run build
+npm run test:e2e:public   # PublicVisitor + login redirects
+npm run test:phase        # Domain gates A–F (needs DATABASE_URL)
+# Optional authenticated personas:
+# E2E_STAFF_EMAIL=... E2E_STAFF_PASSWORD=... npm run test:e2e
+```
 
 ## Documentation
 

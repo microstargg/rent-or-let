@@ -8,9 +8,14 @@ import {
   updateBranchSettings,
   createRenterInvite,
   getRenterById,
+  createStaffInvite,
+  getStaffProfileByEmail,
+  listStaffProfiles,
+  listPendingStaffInvites,
 } from "@/lib/db/queries";
 import { getAppUrl } from "@/lib/app-url";
 import { getStripe, isStripeConfigured } from "@/lib/stripe/client";
+import { sendPortalInviteEmail } from "@/lib/email/resend";
 
 export async function GET() {
   const { error } = await requireAdminApi();
@@ -24,11 +29,15 @@ export async function GET() {
   const full = await getBranchWithSettings(branch.id);
   const inboundDomain = process.env.RESEND_INBOUND_DOMAIN ?? "";
   const token = full?.settings.maintenance_inbox_token;
+  const staff = await listStaffProfiles();
+  const pendingInvites = await listPendingStaffInvites();
 
   return NextResponse.json({
     branch: full,
     maintenance_inbox: token && inboundDomain ? `maintenance+${token}@${inboundDomain}` : null,
     stripe_configured: isStripeConfigured(),
+    staff,
+    pending_staff_invites: pendingInvites,
   });
 }
 
@@ -71,6 +80,12 @@ export async function PATCH(request: Request) {
 const inviteSchema = z.object({
   renter_id: z.string().uuid(),
   email: z.string().email(),
+});
+
+const staffInviteSchema = z.object({
+  email: z.string().email(),
+  full_name: z.string().min(1),
+  role: z.enum(["staff", "admin"]).optional(),
 });
 
 export async function POST(request: Request) {
@@ -119,7 +134,46 @@ export async function POST(request: Request) {
       expiresAt,
     });
     const inviteUrl = `${getAppUrl()}/accept-invite?token=${token}`;
-    return NextResponse.json({ invite_url: inviteUrl });
+    const emailResult = await sendPortalInviteEmail({
+      to: body.email,
+      inviteUrl,
+      role: "renter",
+    });
+    return NextResponse.json({
+      invite_url: inviteUrl,
+      email_sent: emailResult.sent,
+      email_reason: emailResult.reason ?? null,
+    });
+  }
+
+  if (action === "staff_invite") {
+    const body = staffInviteSchema.parse(await request.json());
+    const existing = await getStaffProfileByEmail(body.email);
+    if (existing) {
+      return NextResponse.json({ error: "Staff member already exists" }, { status: 400 });
+    }
+    const token = randomUUID();
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 7);
+    const invite = await createStaffInvite({
+      email: body.email,
+      fullName: body.full_name,
+      role: body.role ?? "staff",
+      token,
+      expiresAt,
+    });
+    const inviteUrl = `${getAppUrl()}/accept-staff-invite?token=${token}`;
+    const emailResult = await sendPortalInviteEmail({
+      to: body.email,
+      inviteUrl,
+      role: "staff",
+    });
+    return NextResponse.json({
+      invite,
+      invite_url: inviteUrl,
+      email_sent: emailResult.sent,
+      email_reason: emailResult.reason ?? null,
+    });
   }
 
   return NextResponse.json({ error: "Unknown action" }, { status: 400 });

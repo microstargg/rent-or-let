@@ -3,9 +3,18 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 
-export function AcceptInviteClient({ token, email }: { token: string; email: string }) {
-  const loginUrl = `/login?next=${encodeURIComponent(`/accept-invite/complete?token=${token}`)}`;
-  const signUpUrl = `/sign-up?next=${encodeURIComponent(`/accept-invite/complete?token=${token}`)}&email=${encodeURIComponent(email)}`;
+export function AcceptInviteClient({
+  token,
+  email,
+  completePath = "/accept-invite/complete",
+}: {
+  token: string;
+  email: string;
+  completePath?: string;
+}) {
+  const next = `${completePath}?token=${token}`;
+  const loginUrl = `/login?next=${encodeURIComponent(next)}`;
+  const signUpUrl = `/sign-up?next=${encodeURIComponent(next)}&email=${encodeURIComponent(email)}`;
 
   return (
     <div className="mt-6 space-y-3">

@@ -10,6 +10,7 @@ import {
   branches,
 } from "../schema";
 import { parseBranchSettings } from "@/lib/branch-settings";
+import { sendContractorJobEmail } from "@/lib/email/resend";
 
 export const TICKET_LIST_PAGE_SIZE = 50;
 
@@ -352,8 +353,19 @@ async function notifyContractorOfJob(wo: typeof workOrders.$inferSelect) {
     `Estimate: ${wo.costEstimate ?? "TBC"}`,
   ].join("\n");
 
-  // Log notification; Resend outbound optional
-  console.log("[maintenance] contractor notify", { to: contractor.email, subject });
+  const emailResult = await sendContractorJobEmail({
+    to: contractor.email,
+    name: contractor.name,
+    subject,
+    body,
+  });
+  if (!emailResult.sent) {
+    console.log("[maintenance] contractor notify", {
+      to: contractor.email,
+      subject,
+      reason: emailResult.reason,
+    });
+  }
   await db
     .update(workOrders)
     .set({
@@ -364,12 +376,20 @@ async function notifyContractorOfJob(wo: typeof workOrders.$inferSelect) {
           email: contractor.email,
           subject,
           body,
+          email_sent: emailResult.sent,
+          email_reason: emailResult.reason ?? null,
         },
       },
     })
     .where(eq(workOrders.id, wo.id));
 
-  return { sent: true, email: contractor.email, subject, body };
+  return {
+    sent: emailResult.sent,
+    email: contractor.email,
+    subject,
+    body,
+    reason: emailResult.reason,
+  };
 }
 
 async function postCompletedWorkOrderCost(wo: typeof workOrders.$inferSelect) {

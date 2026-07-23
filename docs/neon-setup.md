@@ -29,7 +29,7 @@ Optional for full functionality:
 | Variable | Purpose |
 |----------|---------|
 | `BLOB_READ_WRITE_TOKEN` | Vercel Blob for property images in production |
-| `CRON_SECRET` | Secures `/api/cron/portal-sync` |
+| `CRON_SECRET` | Secures `/api/cron/rent` and `/api/cron/compliance` |
 | `RESEND_API_KEY` | Outbound email |
 | `NEXT_PUBLIC_SITE_URL` | Canonical site URL |
 
@@ -138,7 +138,12 @@ Visit `/login` and sign in. You should reach `/admin`.
 4. After first deploy, run `npm run db:push` locally against production `DATABASE_URL`, or apply `drizzle/0000_initial.sql` in Neon SQL Editor
 5. Create staff user(s) as in step 5
 
-The cron job in `vercel.json` calls `/api/cron/portal-sync` every 5 minutes.
+The crons in `vercel.json` call:
+
+- `/api/cron/rent` — 1st of each month at 06:00 UTC (generate rent invoices)
+- `/api/cron/compliance` — daily at 07:00 UTC (expiry tasks)
+
+Portal listing sync runs **inline when a property is saved** (Admin → Properties), not via a separate cron.
 
 ## Architecture notes
 
