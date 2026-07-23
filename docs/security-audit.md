@@ -42,4 +42,4 @@
 - Company copy (about, services, contact)
 - Two seed properties from current site (Ferndale Avenue, Howe Street)
 - Office hours and contact details
-- UKALA CMP reference (certificate PDF to be uploaded)
+- UKALA CMP reference — place certificate at `public/documents/ukala-cmp-certificate.pdf` (or update `siteContent.cmp.certificateUrl`)

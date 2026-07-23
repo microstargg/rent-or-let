@@ -18,8 +18,8 @@ export function RenterInviteButton({ renterId, email }: { renterId: string; emai
       const data = await res.json();
       if (data.invite_url) {
         await navigator.clipboard?.writeText(data.invite_url);
-        setLabel("Link copied");
-        setTimeout(() => setLabel("Portal invite"), 2000);
+        setLabel(data.email_sent ? "Sent & copied" : "Link copied");
+        setTimeout(() => setLabel("Portal invite"), 2500);
       }
     } finally {
       setLoading(false);

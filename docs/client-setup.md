@@ -41,7 +41,7 @@ Copy [`.env.example`](../.env.example) to `.env.local` and set:
 - `NEON_AUTH_BASE_URL`, `NEON_AUTH_COOKIE_SECRET`
 - `NEXT_PUBLIC_SITE_URL` — e.g. `https://www.client-agency.co.uk`
 - `BLOB_READ_WRITE_TOKEN`
-- `CRON_SECRET` — for `/api/cron/rent`
+- `CRON_SECRET` — for `/api/cron/rent` and `/api/cron/compliance`
 - `RESEND_*` — inbound webhooks + `RESEND_INBOUND_DOMAIN`
 - `STRIPE_*` — platform secret + webhook secret
 - `RIGHTMOVE_*`, `OTM_*` — portal sync

@@ -8,7 +8,7 @@ Modern property management platform for Property Management Services (rent-or-le
 - **Neon Postgres** + Drizzle ORM
 - **Neon Auth** (Better Auth) for staff login
 - **Vercel Blob** for property images
-- **Vercel** hosting + cron for portal sync
+- **Vercel** hosting + cron for rent invoices and compliance
 
 ## Getting started
 

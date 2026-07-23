@@ -20,8 +20,8 @@ export function LandlordInviteButton({ landlordId }: { landlordId: string }) {
       const data = await res.json();
       if (data.url) {
         await navigator.clipboard?.writeText(data.url);
-        setLabel("Link copied");
-        setTimeout(() => setLabel("Portal invite"), 2000);
+        setLabel(data.email_sent ? "Sent & copied" : "Link copied");
+        setTimeout(() => setLabel("Portal invite"), 2500);
       }
       router.refresh();
     } finally {

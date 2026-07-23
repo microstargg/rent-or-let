@@ -33,6 +33,21 @@ export const staffProfiles = pgTable("staff_profiles", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+export const staffInvites = pgTable(
+  "staff_invites",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    email: text("email").notNull(),
+    fullName: text("full_name").notNull(),
+    role: text("role").notNull().default("staff"),
+    token: text("token").notNull().unique(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    acceptedAt: timestamp("accepted_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("idx_staff_invites_token").on(table.token)]
+);
+
 export const landlords = pgTable(
   "landlords",
   {

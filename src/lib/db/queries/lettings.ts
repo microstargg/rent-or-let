@@ -49,9 +49,12 @@ export async function listViewings(branchId: string) {
     .select({
       viewing: viewings,
       propertyAddress: properties.displayAddress,
+      enquiryName: enquiries.name,
+      enquiryEmail: enquiries.email,
     })
     .from(viewings)
     .innerJoin(properties, eq(viewings.propertyId, properties.id))
+    .leftJoin(enquiries, eq(viewings.enquiryId, enquiries.id))
     .where(eq(viewings.branchId, branchId))
     .orderBy(desc(viewings.scheduledAt));
 }

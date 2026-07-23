@@ -9,6 +9,8 @@ import {
   createLandlordInvite,
   getLandlordById,
 } from "@/lib/db/queries";
+import { getAppUrl } from "@/lib/app-url";
+import { sendPortalInviteEmail } from "@/lib/email/resend";
 import { randomBytes } from "crypto";
 
 export async function POST(request: Request) {
@@ -78,9 +80,17 @@ export async function POST(request: Request) {
       token,
       expiresAt,
     });
+    const url = `${getAppUrl()}/accept-landlord-invite?token=${token}`;
+    const emailResult = await sendPortalInviteEmail({
+      to: landlord.email,
+      inviteUrl: url,
+      role: "landlord",
+    });
     return NextResponse.json({
       invite,
-      url: `${process.env.NEXT_PUBLIC_SITE_URL ?? ""}/accept-landlord-invite?token=${token}`,
+      url,
+      email_sent: emailResult.sent,
+      email_reason: emailResult.reason ?? null,
     });
   }
 

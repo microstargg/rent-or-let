@@ -37,9 +37,7 @@ Before emailing Rightmove, confirm our side is ready:
 | Property type / status / furnished enums | Fixed to Rightmove codes |
 
 | Admin portal on/off toggles | Admin → Portal sync |
-
-| Cron queue (every 5 min) | `/api/cron/portal-sync` |
-
+| Inline sync on property save | `sync-worker` (no portal-sync cron) |
 | Public HTTPS image URLs | Vercel Blob in production |
 | OTM API (mirrors Rightmove v1.4) | Same mapper + mTLS client |
 | EPC / floorplan / virtual tour media | Sent when URLs set on property |
@@ -239,11 +237,9 @@ Rightmove fetches images from URLs you send. They use user-agent `rightmove-data
 
 4. Enable each portal in admin settings
 
-5. Ensure properties are `available` — saving auto-enqueues sync
+5. Ensure properties are `available` — saving a property runs portal sync inline
 
-6. Cron at `/api/cron/portal-sync` processes jobs every 5 minutes
-
-7. Monitor Admin → Portal sync logs
+6. Monitor Admin → Portal sync logs and property sync status
 
 
 
