@@ -12,7 +12,11 @@
     "db:push": "drizzle-kit push",
     "db:generate": "drizzle-kit generate",
     "db:studio": "drizzle-kit studio",
-    "db:setup": "node scripts/setup-db.mjs"
+    "db:setup": "node scripts/setup-db.mjs",
+    "test:e2e": "playwright test",
+    "test:e2e:public": "playwright test e2e/public-visitor.spec.ts e2e/access-control.spec.ts",
+    "test:phase": "npx tsx scripts/run-phase-gates.ts",
+    "seed:e2e": "npx tsx scripts/seed-e2e-personas.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.0.1",
@@ -42,6 +46,7 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.1",
+    "@playwright/test": "^1.61.1",
     "@tailwindcss/postcss": "^4.1.8",
     "@types/node": "^22.15.29",
     "@types/react": "^19.1.6",
