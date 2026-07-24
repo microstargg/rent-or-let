@@ -11,6 +11,11 @@ import {
 } from "@/lib/db/queries";
 import { getAppUrl } from "@/lib/app-url";
 import { getStripe, isStripeConfigured } from "@/lib/stripe/client";
+import {
+  buildTrueLayerAuthUrl,
+  isTrueLayerConfigured,
+} from "@/lib/truelayer/client";
+import { createBankConnection, listBankConnections } from "@/lib/db/queries/bank-feed";
 
 export async function GET() {
   const { error } = await requireAdminApi();
@@ -25,10 +30,21 @@ export async function GET() {
   const inboundDomain = process.env.RESEND_INBOUND_DOMAIN ?? "";
   const token = full?.settings.maintenance_inbox_token;
 
+  const bankConnections = await listBankConnections(branch.id);
+
   return NextResponse.json({
     branch: full,
     maintenance_inbox: token && inboundDomain ? `maintenance+${token}@${inboundDomain}` : null,
     stripe_configured: isStripeConfigured(),
+    truelayer_configured: isTrueLayerConfigured(),
+    bank_connections: bankConnections.map((c) => ({
+      id: c.id,
+      status: c.status,
+      accountName: c.accountName,
+      accountNumberMask: c.accountNumberMask,
+      consentExpiresAt: c.consentExpiresAt,
+      lastSyncedAt: c.lastSyncedAt,
+    })),
   });
 }
 
@@ -100,6 +116,19 @@ export async function POST(request: Request) {
     });
     await updateBranchSettings(branch.id, { stripe_account_id: account.id });
     return NextResponse.json({ url: link.url });
+  }
+
+  if (action === "bank_feed_connect") {
+    if (!isTrueLayerConfigured()) {
+      return NextResponse.json({ error: "TrueLayer not configured" }, { status: 400 });
+    }
+    const connection = await createBankConnection({
+      branchId: branch.id,
+      status: "pending",
+      meta: { startedAt: new Date().toISOString() },
+    });
+    const url = buildTrueLayerAuthUrl(connection.id);
+    return NextResponse.json({ url, connectionId: connection.id });
   }
 
   if (action === "renter_invite") {

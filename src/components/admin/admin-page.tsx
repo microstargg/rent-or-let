@@ -96,6 +96,7 @@ export function StatusBadge({
           status === "let_agreed" ||
           status === "triaged" ||
           status === "investigating" ||
+          status === "unmatched" ||
           status === "high"
         ? "warning"
         : status === "expired" ||

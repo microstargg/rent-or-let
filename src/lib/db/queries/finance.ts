@@ -358,6 +358,7 @@ export async function createPaymentException(data: {
   kind: string;
   amount: number;
   note?: string | null;
+  meta?: Record<string, unknown>;
 }) {
   const [row] = await db
     .insert(paymentExceptions)
@@ -369,6 +370,7 @@ export async function createPaymentException(data: {
       kind: data.kind,
       amount: String(data.amount),
       note: data.note ?? null,
+      meta: data.meta ?? {},
     })
     .returning();
   return row;

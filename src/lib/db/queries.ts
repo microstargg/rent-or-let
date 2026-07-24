@@ -738,6 +738,17 @@ export {
 } from "./queries/finance";
 
 export {
+  createBankConnection,
+  updateBankConnection,
+  getBankConnectionById,
+  listBankConnections,
+  getActiveBankConnection,
+  listPendingBankTransactions,
+  getBankTransactionById,
+  listOpenInvoiceMatchCandidates,
+} from "./queries/bank-feed";
+
+export {
   listTickets,
   searchTickets,
   TICKET_LIST_PAGE_SIZE,

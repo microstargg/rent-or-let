@@ -752,3 +752,68 @@ export const notices = pgTable(
   },
   (table) => [index("idx_notices_tenancy").on(table.tenancyId)]
 );
+
+/** Open Banking AIS — linked client-money accounts (TrueLayer) */
+export const bankConnections = pgTable(
+  "bank_connections",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    branchId: uuid("branch_id")
+      .notNull()
+      .references(() => branches.id),
+    provider: text("provider").notNull().default("truelayer"),
+    status: text("status").notNull().default("pending"),
+    providerUserId: text("provider_user_id"),
+    accountId: text("account_id"),
+    accountName: text("account_name"),
+    accountNumberMask: text("account_number_mask"),
+    sortCodeMask: text("sort_code_mask"),
+    consentExpiresAt: timestamp("consent_expires_at", { withTimezone: true }),
+    lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }),
+    accessTokenEnc: text("access_token_enc"),
+    refreshTokenEnc: text("refresh_token_enc"),
+    meta: jsonb("meta").notNull().default({}),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("idx_bank_connections_branch").on(table.branchId),
+    index("idx_bank_connections_branch_status").on(table.branchId, table.status),
+  ]
+);
+
+export const bankTransactions = pgTable(
+  "bank_transactions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    branchId: uuid("branch_id")
+      .notNull()
+      .references(() => branches.id),
+    connectionId: uuid("connection_id")
+      .notNull()
+      .references(() => bankConnections.id, { onDelete: "cascade" }),
+    providerTxnId: text("provider_txn_id").notNull(),
+    bookedAt: timestamp("booked_at", { withTimezone: true }).notNull(),
+    amount: numeric("amount", { precision: 12, scale: 2 }).notNull(),
+    currency: text("currency").notNull().default("GBP"),
+    description: text("description"),
+    counterparty: text("counterparty"),
+    matchStatus: text("match_status").notNull().default("pending"),
+    paymentId: uuid("payment_id").references(() => payments.id, { onDelete: "set null" }),
+    invoiceId: uuid("invoice_id").references(() => invoices.id, { onDelete: "set null" }),
+    tenancyId: uuid("tenancy_id").references(() => tenancies.id, { onDelete: "set null" }),
+    exceptionId: uuid("exception_id").references(() => paymentExceptions.id, {
+      onDelete: "set null",
+    }),
+    raw: jsonb("raw").notNull().default({}),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("bank_transactions_branch_provider_txn").on(
+      table.branchId,
+      table.providerTxnId
+    ),
+    index("idx_bank_transactions_connection").on(table.connectionId),
+    index("idx_bank_transactions_match_status").on(table.branchId, table.matchStatus),
+  ]
+);
