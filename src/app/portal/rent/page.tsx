@@ -3,9 +3,13 @@ import {
   listInvoicesForRenter,
   getTenancyBalance,
   getActiveTenancyForRenter,
+  getBranchWithSettings,
 } from "@/lib/db/queries";
 import { requireRenterSession } from "@/lib/auth/server";
 import { PayInvoiceButton } from "@/components/portal/pay-invoice-button";
+import { BankTransferInstructions } from "@/components/portal/bank-transfer-instructions";
+import { getClientAccountDetails } from "@/lib/branch-settings";
+import { getPaymentRefFromMetadata } from "@/lib/payment-ref";
 
 export default async function PortalRentPage() {
   const ctx = await requireRenterSession();
@@ -15,6 +19,12 @@ export default async function PortalRentPage() {
   const rows = await listInvoicesForRenter(branchId, renterId);
   const tenancy = await getActiveTenancyForRenter(renterId, branchId);
   const balance = tenancy ? await getTenancyBalance(tenancy.id) : 0;
+  const branch = await getBranchWithSettings(branchId);
+  const account = getClientAccountDetails(branch?.settings ?? {});
+  const paymentRef = tenancy ? getPaymentRefFromMetadata(tenancy.metadata) : null;
+  const openInvoice = rows.find(
+    ({ invoice }) => invoice.status === "due" || invoice.status === "partial"
+  )?.invoice;
 
   return (
     <div>
@@ -25,6 +35,16 @@ export default async function PortalRentPage() {
         <p className="text-sm text-muted-foreground">Current balance</p>
         <p className="text-2xl font-bold">£{balance.toFixed(2)}</p>
         <p className="text-xs text-muted-foreground">Positive = amount owed</p>
+      </div>
+
+      <div className="mt-6">
+        <BankTransferInstructions
+          paymentRef={paymentRef}
+          accountName={account.name}
+          sortCode={account.sortCode}
+          accountNumber={account.accountNumber}
+          amount={openInvoice ? Number(openInvoice.amount) : balance > 0 ? balance : null}
+        />
       </div>
 
       <div className="mt-8 space-y-3">

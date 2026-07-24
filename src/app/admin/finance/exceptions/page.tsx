@@ -13,6 +13,7 @@ import {
   StatusBadge,
   StatPill,
 } from "@/components/admin/admin-page";
+import { StatementCsvImport } from "@/components/admin/statement-csv-import";
 import { formatDate } from "@/lib/utils";
 
 export default async function AdminExceptionsPage() {
@@ -42,6 +43,10 @@ export default async function AdminExceptionsPage() {
         <StatPill label="Unmatched" value={unmatched} tone={unmatched ? "warning" : "neutral"} />
         <StatPill label="Overpayments" value={over} tone={over ? "info" : "neutral"} />
         <StatPill label="Underpayments" value={under} tone={under ? "warning" : "neutral"} />
+      </div>
+
+      <div className="mt-6">
+        <StatementCsvImport />
       </div>
 
       <AdminSection

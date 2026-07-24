@@ -2,6 +2,11 @@ import { eq, and, desc, asc, ilike, or, sql, count, type SQL } from "drizzle-orm
 import { db } from "../index";
 import { landlords, renters, tenancies, properties, branches } from "../schema";
 import { parseBranchSettings, type BranchSettings } from "@/lib/branch-settings";
+import {
+  generatePaymentRefCode,
+  getPaymentRefFromMetadata,
+  withPaymentRef,
+} from "@/lib/payment-ref";
 
 export const ADMIN_LIST_PAGE_SIZE = 50;
 
@@ -361,6 +366,25 @@ export async function getActiveTenancyForRenter(renterId: string, branchId: stri
   return row ?? null;
 }
 
+async function allocateUniquePaymentRef(branchId: string): Promise<string> {
+  const existing = await db
+    .select({ metadata: tenancies.metadata })
+    .from(tenancies)
+    .where(eq(tenancies.branchId, branchId));
+  const used = new Set(
+    existing
+      .map((r) => getPaymentRefFromMetadata(r.metadata))
+      .filter((r): r is string => Boolean(r))
+      .map((r) => r.toUpperCase())
+  );
+
+  for (let attempt = 0; attempt < 40; attempt++) {
+    const code = generatePaymentRefCode();
+    if (!used.has(code.toUpperCase())) return code;
+  }
+  throw new Error("Could not allocate a unique payment reference");
+}
+
 export async function createTenancy(data: {
   branchId: string;
   propertyId: string;
@@ -371,6 +395,7 @@ export async function createTenancy(data: {
   endDate?: string | null;
   depositScheme?: string | null;
 }) {
+  const paymentRef = await allocateUniquePaymentRef(data.branchId);
   const [row] = await db
     .insert(tenancies)
     .values({
@@ -383,6 +408,7 @@ export async function createTenancy(data: {
       endDate: data.endDate,
       depositScheme: data.depositScheme,
       status: "active",
+      metadata: withPaymentRef({}, paymentRef),
     })
     .returning();
 
@@ -399,6 +425,30 @@ export async function createTenancy(data: {
   });
 
   return row;
+}
+
+/** Assign payment_ref to active tenancies that do not have one yet. */
+export async function backfillPaymentRefsForBranch(branchId: string): Promise<number> {
+  const rows = await db
+    .select()
+    .from(tenancies)
+    .where(and(eq(tenancies.branchId, branchId), eq(tenancies.status, "active")));
+
+  let updated = 0;
+  for (const row of rows) {
+    if (getPaymentRefFromMetadata(row.metadata)) continue;
+    const paymentRef = await allocateUniquePaymentRef(branchId);
+    const meta =
+      row.metadata && typeof row.metadata === "object"
+        ? (row.metadata as Record<string, unknown>)
+        : {};
+    await db
+      .update(tenancies)
+      .set({ metadata: withPaymentRef(meta, paymentRef) })
+      .where(eq(tenancies.id, row.id));
+    updated += 1;
+  }
+  return updated;
 }
 
 export async function endTenancy(id: string) {

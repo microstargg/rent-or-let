@@ -50,7 +50,7 @@ Copy [`.env.example`](../.env.example) to `.env.local` and set:
 
 Mirror the same variables in the Vercel project settings.
 
-See also [bank-feed.md](bank-feed.md) for AIS setup details.
+See also [payment-refs-csv.md](payment-refs-csv.md) for standing-order payment references and CSV statement import (preferred free reconciliation path).
 
 ## 5. Database
 

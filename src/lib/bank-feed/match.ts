@@ -6,6 +6,7 @@ export interface MatchCandidate {
   renterName: string;
   propertyAddress: string;
   agentRef: string | null;
+  paymentRef: string | null;
   remaining: number;
 }
 
@@ -62,6 +63,25 @@ export function matchBankTransaction(
 
   const text = haystack(txn);
   const amountMatches = candidates.filter((c) => amountClose(c.remaining, txn.amount));
+
+  // 0) Unique tenancy payment reference (highest priority)
+  const byPaymentRef = candidates.filter((c) => {
+    if (!c.paymentRef) return false;
+    const compactHay = text.replace(/\s+/g, "");
+    const compactRef = normalize(c.paymentRef).replace(/\s+/g, "");
+    return (
+      text.includes(normalize(c.paymentRef)) ||
+      (compactRef.length >= 6 && compactHay.includes(compactRef))
+    );
+  });
+  if (byPaymentRef.length === 1) {
+    return {
+      confidence: "high",
+      invoiceId: byPaymentRef[0].invoiceId,
+      tenancyId: byPaymentRef[0].tenancyId,
+      reason: "Tenancy payment reference",
+    };
+  }
 
   // 1) Invoice id / short id in description
   const byInvoiceId = candidates.filter(

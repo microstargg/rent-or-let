@@ -20,6 +20,10 @@ export interface BranchSettings {
   /** Preferred client-money Open Banking connection id */
   bank_feed_connection_id?: string;
   bank_feed_enabled?: boolean;
+  /** Client money account details shown to tenants for standing orders */
+  client_account_name?: string;
+  client_account_sort_code?: string;
+  client_account_number?: string;
 }
 
 export function parseBranchSettings(raw: unknown): BranchSettings {
@@ -62,4 +66,25 @@ export function getBankFeedConnectionId(settings: BranchSettings): string | null
 
 export function isBankFeedEnabled(settings: BranchSettings): boolean {
   return settings.bank_feed_enabled === true;
+}
+
+export function getClientAccountDetails(settings: BranchSettings): {
+  name: string | null;
+  sortCode: string | null;
+  accountNumber: string | null;
+} {
+  return {
+    name:
+      typeof settings.client_account_name === "string" && settings.client_account_name
+        ? settings.client_account_name
+        : null,
+    sortCode:
+      typeof settings.client_account_sort_code === "string" && settings.client_account_sort_code
+        ? settings.client_account_sort_code
+        : null,
+    accountNumber:
+      typeof settings.client_account_number === "string" && settings.client_account_number
+        ? settings.client_account_number
+        : null,
+  };
 }

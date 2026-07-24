@@ -707,6 +707,7 @@ export {
   getActiveTenancyForRenter,
   createTenancy,
   endTenancy,
+  backfillPaymentRefsForBranch,
   getBranchWithSettings,
   updateBranchSettings,
   ADMIN_LIST_PAGE_SIZE,

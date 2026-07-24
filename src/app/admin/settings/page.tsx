@@ -37,6 +37,9 @@ export default async function AdminSettingsPage({
           alertEmail={full?.settings.alert_email ?? null}
           truelayerConfigured={isTrueLayerConfigured()}
           bankSelectConnectionId={bankSelect}
+          clientAccountName={full?.settings.client_account_name ?? null}
+          clientAccountSortCode={full?.settings.client_account_sort_code ?? null}
+          clientAccountNumber={full?.settings.client_account_number ?? null}
           bankConnections={connections.map((c) => ({
             id: c.id,
             status: c.status,

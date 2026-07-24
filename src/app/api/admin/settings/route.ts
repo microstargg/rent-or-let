@@ -8,6 +8,7 @@ import {
   updateBranchSettings,
   createRenterInvite,
   getRenterById,
+  backfillPaymentRefsForBranch,
 } from "@/lib/db/queries";
 import { getAppUrl } from "@/lib/app-url";
 import { getStripe, isStripeConfigured } from "@/lib/stripe/client";
@@ -52,6 +53,9 @@ const patchSchema = z.object({
   maintenance_inbox_token: z.string().optional(),
   alert_email: z.string().email().optional().nullable(),
   stripe_onboarding_complete: z.boolean().optional(),
+  client_account_name: z.string().max(120).optional().nullable(),
+  client_account_sort_code: z.string().max(20).optional().nullable(),
+  client_account_number: z.string().max(20).optional().nullable(),
 });
 
 export async function PATCH(request: Request) {
@@ -73,6 +77,15 @@ export async function PATCH(request: Request) {
     ...(body.alert_email !== undefined && { alert_email: body.alert_email ?? undefined }),
     ...(body.stripe_onboarding_complete !== undefined && {
       stripe_onboarding_complete: body.stripe_onboarding_complete,
+    }),
+    ...(body.client_account_name !== undefined && {
+      client_account_name: body.client_account_name || undefined,
+    }),
+    ...(body.client_account_sort_code !== undefined && {
+      client_account_sort_code: body.client_account_sort_code || undefined,
+    }),
+    ...(body.client_account_number !== undefined && {
+      client_account_number: body.client_account_number || undefined,
     }),
   };
 
@@ -129,6 +142,11 @@ export async function POST(request: Request) {
     });
     const url = buildTrueLayerAuthUrl(connection.id);
     return NextResponse.json({ url, connectionId: connection.id });
+  }
+
+  if (action === "backfill_payment_refs") {
+    const updated = await backfillPaymentRefsForBranch(branch.id);
+    return NextResponse.json({ ok: true, updated });
   }
 
   if (action === "renter_invite") {

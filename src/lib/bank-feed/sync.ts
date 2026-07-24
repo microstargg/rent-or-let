@@ -120,7 +120,10 @@ export async function matchPendingBankTransactions(branchId: string): Promise<{
     );
 
     if (result.confidence === "high" && result.invoiceId && result.tenancyId) {
-      const externalRef = `tl_${txn.providerTxnId}`;
+      const externalRef =
+        txn.providerTxnId.startsWith("csv_") || txn.providerTxnId.startsWith("tl_")
+          ? txn.providerTxnId
+          : `tl_${txn.providerTxnId}`;
       const existing = await getPaymentByExternalRef(branchId, externalRef);
       if (existing) {
         await updateBankTransaction(txn.id, {

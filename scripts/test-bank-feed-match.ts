@@ -17,6 +17,7 @@ const base: MatchCandidate[] = [
     renterName: "Alice Smith",
     propertyAddress: "12 High Street, London",
     agentRef: "PROP-12",
+    paymentRef: "ROL-AB12CD",
     remaining: 1000,
   },
   {
@@ -27,11 +28,26 @@ const base: MatchCandidate[] = [
     renterName: "Bob Jones",
     propertyAddress: "5 Park Road, Manchester",
     agentRef: "PROP-5",
+    paymentRef: "ROL-XY99ZZ",
     remaining: 850,
   },
 ];
 
 function main() {
+  const byPaymentRef = matchBankTransaction(
+    {
+      amount: 50,
+      description: "FP ROL-AB12CD RENT",
+      counterparty: null,
+      bookedAt: new Date(),
+    },
+    base
+  );
+  assert(
+    byPaymentRef.confidence === "high" && byPaymentRef.invoiceId === base[0].invoiceId,
+    "tenancy payment_ref → high"
+  );
+
   const byRef = matchBankTransaction(
     {
       amount: 1000,
@@ -69,6 +85,7 @@ function main() {
         tenancyId: "cccccccc-cccc-cccc-cccc-cccccccccccc",
         renterName: "Carol Lee",
         agentRef: "PROP-99",
+        paymentRef: "ROL-QQ11WW",
         propertyAddress: "9 Other St",
         remaining: 1000,
       },

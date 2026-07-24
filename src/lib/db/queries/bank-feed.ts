@@ -220,6 +220,7 @@ export async function listOpenInvoiceMatchCandidates(
       renterLastName: renters.lastName,
       propertyAddress: properties.displayAddress,
       agentRef: properties.agentRef,
+      tenancyMetadata: tenancies.metadata,
     })
     .from(invoices)
     .innerJoin(tenancies, eq(invoices.tenancyId, tenancies.id))
@@ -241,6 +242,8 @@ export async function listOpenInvoiceMatchCandidates(
     for (const s of sums) allocated.set(s.invoiceId, Number(s.total));
   }
 
+  const { getPaymentRefFromMetadata } = await import("@/lib/payment-ref");
+
   return rows
     .map((r) => {
       const remaining = Math.max(0, Number(r.amount) - (allocated.get(r.invoiceId) ?? 0));
@@ -252,6 +255,7 @@ export async function listOpenInvoiceMatchCandidates(
         renterName: `${r.renterFirstName} ${r.renterLastName}`.trim(),
         propertyAddress: r.propertyAddress,
         agentRef: r.agentRef,
+        paymentRef: getPaymentRefFromMetadata(r.tenancyMetadata),
         remaining,
       };
     })

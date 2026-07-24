@@ -24,6 +24,9 @@ interface AgencySettingsClientProps {
   truelayerConfigured: boolean;
   bankConnections: BankConnectionSummary[];
   bankSelectConnectionId?: string | null;
+  clientAccountName: string | null;
+  clientAccountSortCode: string | null;
+  clientAccountNumber: string | null;
 }
 
 export function AgencySettingsClient({
@@ -35,15 +38,25 @@ export function AgencySettingsClient({
   truelayerConfigured,
   bankConnections: initialConnections,
   bankSelectConnectionId,
+  clientAccountName: initialAccountName,
+  clientAccountSortCode: initialSortCode,
+  clientAccountNumber: initialAccountNumber,
 }: AgencySettingsClientProps) {
   const [alertEmail, setAlertEmail] = useState(initialAlertEmail ?? "");
+  const [accountName, setAccountName] = useState(initialAccountName ?? "");
+  const [sortCode, setSortCode] = useState(initialSortCode ?? "");
+  const [accountNumber, setAccountNumber] = useState(initialAccountNumber ?? "");
   const [inbox, setInbox] = useState(maintenanceInbox);
   const [loading, setLoading] = useState(false);
   const [connections, setConnections] = useState(initialConnections);
   const [syncMsg, setSyncMsg] = useState<string | null>(null);
+  const [refMsg, setRefMsg] = useState<string | null>(null);
 
   const active = useMemo(
-    () => connections.find((c) => c.status === "active") ?? connections[0] ?? null,
+    () => connections.find((c) => c.status === "active" && c.accountName !== "CSV statement import") ??
+      connections.find((c) => c.status === "active") ??
+      connections[0] ??
+      null,
     [connections]
   );
 
@@ -58,7 +71,12 @@ export function AgencySettingsClient({
     const res = await fetch("/api/admin/settings", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ alert_email: alertEmail || null }),
+      body: JSON.stringify({
+        alert_email: alertEmail || null,
+        client_account_name: accountName || null,
+        client_account_sort_code: sortCode || null,
+        client_account_number: accountNumber || null,
+      }),
     });
     const data = await res.json();
     const token = data.settings?.maintenance_inbox_token;
@@ -110,58 +128,100 @@ export function AgencySettingsClient({
     }
   }
 
+  async function backfillRefs() {
+    setLoading(true);
+    setRefMsg(null);
+    const res = await fetch("/api/admin/settings?action=backfill_payment_refs", { method: "POST" });
+    const data = await res.json();
+    setLoading(false);
+    if (!res.ok) setRefMsg(data.error ?? "Backfill failed");
+    else setRefMsg(`Assigned payment references to ${data.updated ?? 0} active tenancies`);
+  }
+
   return (
     <div className="space-y-6">
       <section className="rounded-xl border p-4">
         <h2 className="font-semibold">Recommended rent rails</h2>
         <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm text-muted-foreground">
           <li>
-            <span className="font-medium text-foreground">Direct Debit via the platform</span>{" "}
-            (GoCardless — coming soon): preferred long-term so payment events are authoritative.
+            <span className="font-medium text-foreground">Standing order + unique payment reference</span>
+            : tenants pay free bank transfer using their ROL-XXXXXX ref; import statements to match.
           </li>
           <li>
-            <span className="font-medium text-foreground">Open Banking bank feed</span> (below):
-            link your client money account so standing orders and bank transfers auto-reconcile.
+            <span className="font-medium text-foreground">CSV statement import</span> (Finance →
+            Exceptions): reconcile without third-party fees.
           </li>
           <li>
-            <span className="font-medium text-foreground">Stripe Connect</span>: optional card
-            “Pay now” for convenience — not required as the overnight primary path.
+            <span className="font-medium text-foreground">Stripe Connect</span>: optional card “Pay
+            now”.
           </li>
           <li>
-            <span className="font-medium text-foreground">Manual mark paid</span>: fallback when a
-            credit cannot be matched.
+            <span className="font-medium text-foreground">Manual mark paid</span>: fallback.
           </li>
         </ol>
       </section>
 
       <section className="rounded-xl border p-4">
-        <h2 className="font-semibold">Client money bank feed</h2>
+        <h2 className="font-semibold">Client money pay-in details</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Link the designated client money account via Open Banking (TrueLayer). Inbound credits are
-          matched to open invoices; ambiguous ones land in Payment exceptions.
+          Shown to tenants in the renter portal for standing orders / bank transfers. Use your
+          designated client money account.
+        </p>
+        <div className="mt-3 space-y-3">
+          <div>
+            <Label htmlFor="client_account_name">Account name</Label>
+            <Input
+              id="client_account_name"
+              value={accountName}
+              onChange={(e) => setAccountName(e.target.value)}
+              className="mt-1"
+            />
+          </div>
+          <div>
+            <Label htmlFor="client_account_sort_code">Sort code</Label>
+            <Input
+              id="client_account_sort_code"
+              value={sortCode}
+              onChange={(e) => setSortCode(e.target.value)}
+              placeholder="00-00-00"
+              className="mt-1"
+            />
+          </div>
+          <div>
+            <Label htmlFor="client_account_number">Account number</Label>
+            <Input
+              id="client_account_number"
+              value={accountNumber}
+              onChange={(e) => setAccountNumber(e.target.value)}
+              className="mt-1"
+            />
+          </div>
+        </div>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Button type="button" size="sm" onClick={saveSettings} disabled={loading}>
+            Save account details
+          </Button>
+          <Button type="button" size="sm" variant="outline" onClick={backfillRefs} disabled={loading}>
+            Backfill payment refs
+          </Button>
+        </div>
+        {refMsg && <p className="mt-2 text-sm text-muted-foreground">{refMsg}</p>}
+      </section>
+
+      <section className="rounded-xl border p-4">
+        <h2 className="font-semibold">Open Banking bank feed (optional)</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Paid TrueLayer AIS feed. Prefer CSV import + payment references unless you have a live
+          quote.
         </p>
         {!truelayerConfigured ? (
-          <p className="mt-2 text-sm text-amber-700">
-            TrueLayer is not configured on this deploy. Add TRUELAYER_CLIENT_ID / SECRET to enable
-            linking.
-          </p>
-        ) : active?.status === "active" ? (
+          <p className="mt-2 text-sm text-muted-foreground">TrueLayer is not configured on this deploy.</p>
+        ) : active?.status === "active" && active.accountName !== "CSV statement import" ? (
           <div className="mt-3 space-y-2 text-sm">
             <p className="text-green-700">
               Connected: {active.accountName ?? "Account"}
               {active.accountNumberMask ? ` (${active.accountNumberMask})` : ""}
             </p>
-            {active.lastSyncedAt && (
-              <p className="text-muted-foreground">
-                Last synced {new Date(active.lastSyncedAt).toLocaleString("en-GB")}
-              </p>
-            )}
-            {active.consentExpiresAt && (
-              <p className="text-muted-foreground">
-                Consent expires {new Date(active.consentExpiresAt).toLocaleDateString("en-GB")} —
-                reconnect before then.
-              </p>
-            )}
             <div className="flex flex-wrap gap-2">
               <Button type="button" size="sm" onClick={syncNow} disabled={loading}>
                 Sync now
@@ -189,7 +249,7 @@ export function AgencySettingsClient({
             ))}
           </div>
         ) : (
-          <Button type="button" className="mt-2" size="sm" onClick={connectBank} disabled={loading}>
+          <Button type="button" className="mt-2" size="sm" variant="outline" onClick={connectBank} disabled={loading}>
             Link client money account
           </Button>
         )}
@@ -213,8 +273,8 @@ export function AgencySettingsClient({
       <section className="rounded-xl border p-4">
         <h2 className="font-semibold">Stripe Connect (optional)</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Card payments in the renter portal. Useful for ad-hoc “Pay now”; Direct Debit + bank feed
-          cover most UK rent collection.
+          Card payments in the renter portal. Prefer standing order + payment reference for day-to-day
+          rent.
         </p>
         {stripeOnboardingComplete ? (
           <p className="mt-2 text-sm text-green-700">Connected {stripeAccountId && `(${stripeAccountId})`}</p>

@@ -23,6 +23,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { displayPersonName } from "@/lib/person-name";
 import { formatCurrency } from "@/lib/utils";
+import { getPaymentRefFromMetadata } from "@/lib/payment-ref";
+import { CopyPaymentRef } from "@/components/admin/copy-payment-ref";
 
 export default async function AdminTenanciesPage({
   searchParams,
@@ -107,7 +109,7 @@ export default async function AdminTenanciesPage({
         {rows.length ? (
           <>
             <AdminTable
-              headers={["Property", "Renter", "Rent", "Dates", "Status", "Actions"]}
+              headers={["Property", "Renter", "Rent", "Payment ref", "Dates", "Status", "Actions"]}
             >
               {rows.map(
                 ({
@@ -116,7 +118,9 @@ export default async function AdminTenanciesPage({
                   propertyAddress,
                   renterFirstName,
                   renterLastName,
-                }) => (
+                }) => {
+                  const paymentRef = getPaymentRefFromMetadata(tenancy.metadata);
+                  return (
                   <tr key={tenancy.id}>
                     <td className="px-4 py-3">
                       <Link
@@ -132,6 +136,11 @@ export default async function AdminTenanciesPage({
                     <td className="px-4 py-3 tabular-nums">
                       {formatCurrency(Number(tenancy.rentAmount))}
                     </td>
+                    <td className="px-4 py-3">
+                      {paymentRef ? <CopyPaymentRef value={paymentRef} /> : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-sm text-muted-foreground">
                       {tenancy.startDate} — {tenancy.endDate ?? "ongoing"}
                     </td>
@@ -142,7 +151,8 @@ export default async function AdminTenanciesPage({
                       {tenancy.status === "active" && <TenancyEndButton id={tenancy.id} />}
                     </td>
                   </tr>
-                )
+                  );
+                }
               )}
             </AdminTable>
             <AdminPagination page={page} total={total} baseHref={baseHref} />
