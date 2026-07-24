@@ -739,14 +739,13 @@ export {
 } from "./queries/finance";
 
 export {
-  createBankConnection,
   updateBankConnection,
   getBankConnectionById,
   listBankConnections,
-  getActiveBankConnection,
   listPendingBankTransactions,
   getBankTransactionById,
   listOpenInvoiceMatchCandidates,
+  getBankFeedSummary,
 } from "./queries/bank-feed";
 
 export {

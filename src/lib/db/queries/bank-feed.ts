@@ -10,67 +10,19 @@ import {
   renters,
   tenancies,
 } from "../schema";
-import { encryptToken, decryptToken } from "@/lib/truelayer/crypto";
-import type { TrueLayerAccount, TrueLayerTokens } from "@/lib/truelayer/client";
 import type { MatchCandidate } from "@/lib/bank-feed/match";
-
-export async function createBankConnection(data: {
-  branchId: string;
-  provider?: string;
-  status?: string;
-  tokens?: TrueLayerTokens;
-  meta?: Record<string, unknown>;
-  consentExpiresAt?: Date | null;
-}) {
-  const [row] = await db
-    .insert(bankConnections)
-    .values({
-      branchId: data.branchId,
-      provider: data.provider ?? "truelayer",
-      status: data.status ?? "pending",
-      accessTokenEnc: data.tokens ? encryptToken(data.tokens.access_token) : null,
-      refreshTokenEnc: data.tokens?.refresh_token
-        ? encryptToken(data.tokens.refresh_token)
-        : null,
-      consentExpiresAt: data.consentExpiresAt ?? null,
-      meta: data.meta ?? {},
-    })
-    .returning();
-  return row;
-}
+import { getPaymentRefFromMetadata } from "@/lib/payment-ref";
 
 export async function updateBankConnection(
   id: string,
   patch: Partial<{
     status: string;
-    providerUserId: string | null;
-    accountId: string | null;
     accountName: string | null;
-    accountNumberMask: string | null;
-    sortCodeMask: string | null;
-    consentExpiresAt: Date | null;
     lastSyncedAt: Date | null;
-    tokens: TrueLayerTokens;
     meta: Record<string, unknown>;
   }>
 ) {
-  const values: Record<string, unknown> = { updatedAt: new Date() };
-  if (patch.status !== undefined) values.status = patch.status;
-  if (patch.providerUserId !== undefined) values.providerUserId = patch.providerUserId;
-  if (patch.accountId !== undefined) values.accountId = patch.accountId;
-  if (patch.accountName !== undefined) values.accountName = patch.accountName;
-  if (patch.accountNumberMask !== undefined) values.accountNumberMask = patch.accountNumberMask;
-  if (patch.sortCodeMask !== undefined) values.sortCodeMask = patch.sortCodeMask;
-  if (patch.consentExpiresAt !== undefined) values.consentExpiresAt = patch.consentExpiresAt;
-  if (patch.lastSyncedAt !== undefined) values.lastSyncedAt = patch.lastSyncedAt;
-  if (patch.meta !== undefined) values.meta = patch.meta;
-  if (patch.tokens) {
-    values.accessTokenEnc = encryptToken(patch.tokens.access_token);
-    if (patch.tokens.refresh_token) {
-      values.refreshTokenEnc = encryptToken(patch.tokens.refresh_token);
-    }
-  }
-
+  const values: Record<string, unknown> = { updatedAt: new Date(), ...patch };
   const [row] = await db
     .update(bankConnections)
     .set(values)
@@ -90,43 +42,6 @@ export async function listBankConnections(branchId: string) {
     .from(bankConnections)
     .where(eq(bankConnections.branchId, branchId))
     .orderBy(desc(bankConnections.createdAt));
-}
-
-export async function getActiveBankConnection(branchId: string) {
-  const [row] = await db
-    .select()
-    .from(bankConnections)
-    .where(and(eq(bankConnections.branchId, branchId), eq(bankConnections.status, "active")))
-    .orderBy(desc(bankConnections.updatedAt))
-    .limit(1);
-  return row ?? null;
-}
-
-export function getConnectionTokens(connection: typeof bankConnections.$inferSelect): {
-  accessToken: string | null;
-  refreshToken: string | null;
-} {
-  return {
-    accessToken: connection.accessTokenEnc ? decryptToken(connection.accessTokenEnc) : null,
-    refreshToken: connection.refreshTokenEnc ? decryptToken(connection.refreshTokenEnc) : null,
-  };
-}
-
-export async function selectBankAccount(
-  connectionId: string,
-  account: TrueLayerAccount
-) {
-  return updateBankConnection(connectionId, {
-    status: "active",
-    accountId: account.account_id,
-    accountName: account.display_name ?? account.account_type ?? "Client money account",
-    accountNumberMask: account.account_number?.number
-      ? `****${account.account_number.number.slice(-4)}`
-      : null,
-    sortCodeMask: account.account_number?.sort_code
-      ? `**-**-${account.account_number.sort_code.replace(/\D/g, "").slice(-2)}`
-      : null,
-  });
 }
 
 export async function insertBankTransaction(data: {
@@ -242,8 +157,6 @@ export async function listOpenInvoiceMatchCandidates(
     for (const s of sums) allocated.set(s.invoiceId, Number(s.total));
   }
 
-  const { getPaymentRefFromMetadata } = await import("@/lib/payment-ref");
-
   return rows
     .map((r) => {
       const remaining = Math.max(0, Number(r.amount) - (allocated.get(r.invoiceId) ?? 0));
@@ -295,4 +208,23 @@ export async function getPaymentExceptionById(id: string) {
     .where(eq(paymentExceptions.id, id))
     .limit(1);
   return row ?? null;
+}
+
+export async function getBankFeedSummary(branchId: string) {
+  const [counts] = await db
+    .select({
+      pending: sql<number>`count(*) filter (where ${bankTransactions.matchStatus} = 'pending')::int`,
+      matched: sql<number>`count(*) filter (where ${bankTransactions.matchStatus} = 'matched')::int`,
+      exception: sql<number>`count(*) filter (where ${bankTransactions.matchStatus} = 'exception')::int`,
+      total: sql<number>`count(*)::int`,
+    })
+    .from(bankTransactions)
+    .where(eq(bankTransactions.branchId, branchId));
+
+  return {
+    pending: counts?.pending ?? 0,
+    matched: counts?.matched ?? 0,
+    exception: counts?.exception ?? 0,
+    total: counts?.total ?? 0,
+  };
 }

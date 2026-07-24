@@ -17,9 +17,6 @@ export interface BranchSettings {
   late_fee_rules?: LateFeeRules;
   work_order_approval_threshold?: number;
   default_maintenance_sla_hours?: number;
-  /** Preferred client-money Open Banking connection id */
-  bank_feed_connection_id?: string;
-  bank_feed_enabled?: boolean;
   /** Client money account details shown to tenants for standing orders */
   client_account_name?: string;
   client_account_sort_code?: string;
@@ -57,15 +54,6 @@ export function getLateFeeRules(settings: BranchSettings): LateFeeRules {
 export function getWorkOrderApprovalThreshold(settings: BranchSettings): number {
   const t = settings.work_order_approval_threshold;
   return typeof t === "number" && t >= 0 ? t : 250;
-}
-
-export function getBankFeedConnectionId(settings: BranchSettings): string | null {
-  const id = settings.bank_feed_connection_id;
-  return typeof id === "string" && id.length > 0 ? id : null;
-}
-
-export function isBankFeedEnabled(settings: BranchSettings): boolean {
-  return settings.bank_feed_enabled === true;
 }
 
 export function getClientAccountDetails(settings: BranchSettings): {

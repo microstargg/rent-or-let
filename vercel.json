@@ -7,10 +7,6 @@
     {
       "path": "/api/cron/compliance",
       "schedule": "0 7 * * *"
-    },
-    {
-      "path": "/api/cron/bank-feed",
-      "schedule": "0 */6 * * *"
     }
   ]
 }

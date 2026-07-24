@@ -753,7 +753,7 @@ export const notices = pgTable(
   (table) => [index("idx_notices_tenancy").on(table.tenancyId)]
 );
 
-/** Open Banking AIS — linked client-money accounts (TrueLayer) */
+/** Statement import connections (CSV) and historical bank links */
 export const bankConnections = pgTable(
   "bank_connections",
   {
@@ -761,7 +761,7 @@ export const bankConnections = pgTable(
     branchId: uuid("branch_id")
       .notNull()
       .references(() => branches.id),
-    provider: text("provider").notNull().default("truelayer"),
+    provider: text("provider").notNull().default("csv"),
     status: text("status").notNull().default("pending"),
     providerUserId: text("provider_user_id"),
     accountId: text("account_id"),

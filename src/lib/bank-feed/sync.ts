@@ -1,99 +1,16 @@
 import {
-  getActiveBankConnection,
-  getBankConnectionById,
-  getConnectionTokens,
-  insertBankTransaction,
   listOpenInvoiceMatchCandidates,
   listPendingBankTransactions,
-  updateBankConnection,
   updateBankTransaction,
   createUnmatchedException,
+  insertBankTransaction,
 } from "@/lib/db/queries/bank-feed";
 import { recordPaymentAndAllocate, getPaymentByExternalRef } from "@/lib/db/queries/finance";
 import { matchBankTransaction } from "@/lib/bank-feed/match";
-import {
-  listTrueLayerTransactions,
-  refreshTrueLayerToken,
-  isTrueLayerConfigured,
-} from "@/lib/truelayer/client";
 
-async function ensureAccessToken(connectionId: string): Promise<string | null> {
-  const connection = await getBankConnectionById(connectionId);
-  if (!connection) return null;
-
-  const tokens = getConnectionTokens(connection);
-  if (!tokens.accessToken) return null;
-
-  if (tokens.refreshToken && isTrueLayerConfigured()) {
-    try {
-      const refreshed = await refreshTrueLayerToken(tokens.refreshToken);
-      await updateBankConnection(connection.id, { tokens: refreshed });
-      return refreshed.access_token;
-    } catch {
-      // Fall back to existing access token
-    }
-  }
-  return tokens.accessToken;
-}
-
-export async function syncBankFeedForBranch(branchId: string): Promise<{
-  synced: number;
-  matched: number;
-  exceptions: number;
-  skipped: number;
-  error?: string;
-}> {
-  const connection = await getActiveBankConnection(branchId);
-  if (!connection || !connection.accountId) {
-    return { synced: 0, matched: 0, exceptions: 0, skipped: 0, error: "No active bank connection" };
-  }
-
-  let created = 0;
-
-  if (isTrueLayerConfigured() && connection.accessTokenEnc) {
-    const accessToken = await ensureAccessToken(connection.id);
-    if (!accessToken) {
-      return { synced: 0, matched: 0, exceptions: 0, skipped: 0, error: "Missing access token" };
-    }
-
-    const to = new Date();
-    const from = connection.lastSyncedAt
-      ? new Date(connection.lastSyncedAt.getTime() - 2 * 86400000)
-      : new Date(to.getTime() - 30 * 86400000);
-
-    const txns = await listTrueLayerTransactions(
-      accessToken,
-      connection.accountId,
-      from.toISOString(),
-      to.toISOString()
-    );
-
-    for (const txn of txns) {
-      if (txn.amount <= 0) continue;
-      const result = await insertBankTransaction({
-        branchId,
-        connectionId: connection.id,
-        providerTxnId: txn.transaction_id,
-        bookedAt: new Date(txn.timestamp),
-        amount: txn.amount,
-        currency: txn.currency || "GBP",
-        description: txn.description ?? null,
-        counterparty: txn.merchant_name ?? null,
-        raw: txn as unknown as Record<string, unknown>,
-      });
-      if (result.created) created += 1;
-    }
-
-    await updateBankConnection(connection.id, { lastSyncedAt: new Date() });
-  }
-
-  const matchResult = await matchPendingBankTransactions(branchId);
-  return {
-    synced: created,
-    matched: matchResult.matched,
-    exceptions: matchResult.exceptions,
-    skipped: matchResult.skipped,
-  };
+function paymentExternalRef(providerTxnId: string): string {
+  if (providerTxnId.startsWith("csv_") || providerTxnId.startsWith("tl_")) return providerTxnId;
+  return `csv_${providerTxnId}`;
 }
 
 export async function matchPendingBankTransactions(branchId: string): Promise<{
@@ -120,10 +37,7 @@ export async function matchPendingBankTransactions(branchId: string): Promise<{
     );
 
     if (result.confidence === "high" && result.invoiceId && result.tenancyId) {
-      const externalRef =
-        txn.providerTxnId.startsWith("csv_") || txn.providerTxnId.startsWith("tl_")
-          ? txn.providerTxnId
-          : `tl_${txn.providerTxnId}`;
+      const externalRef = paymentExternalRef(txn.providerTxnId);
       const existing = await getPaymentByExternalRef(branchId, externalRef);
       if (existing) {
         await updateBankTransaction(txn.id, {
@@ -189,7 +103,7 @@ export async function matchPendingBankTransactions(branchId: string): Promise<{
   return { matched, exceptions, skipped };
 }
 
-/** Insert a synthetic credit (tests / manual ingest) then run matching. */
+/** Insert a synthetic credit then run matching. */
 export async function ingestAndMatchBankCredit(data: {
   branchId: string;
   connectionId: string;
