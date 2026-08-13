@@ -35,7 +35,7 @@ export default async function AdminInvoicesPage() {
     <div>
       <AdminPageHeader
         title="Invoices"
-        description="Rent charges for tenants, plus works invoices from approved jobs. Works are deducted from the landlord when you generate statements."
+        description="Rent charges for tenants, plus works invoices from completed jobs. Works are deducted from the landlord when you generate statements."
       />
       <FinanceSubnav />
 
@@ -121,7 +121,7 @@ export default async function AdminInvoicesPage() {
         ) : (
           <AdminEmptyState
             title="No invoices yet"
-            description="Monthly rent cron creates rent invoices. Approved maintenance jobs create works invoices dated to the work."
+            description="Monthly rent cron creates rent invoices. Completed jobs create works invoices dated to the work."
           />
         )}
       </AdminSection>

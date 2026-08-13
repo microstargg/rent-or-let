@@ -27,7 +27,7 @@ export default async function LandlordStatementsPage() {
     <div>
       <AdminPageHeader
         title="Landlord statements"
-        description="Generate period statements from the landlord ledger. Approved jobs dated in the period appear as works deductions."
+        description="Generate period statements from the landlord ledger. Completed jobs dated in the period appear as works deductions."
         actions={
           <Button asChild variant="outline" size="sm">
             <Link href="/admin/finance/payouts">Go to payouts</Link>

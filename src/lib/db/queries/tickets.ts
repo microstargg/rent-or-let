@@ -11,10 +11,7 @@ import {
   invoices,
 } from "../schema";
 import { parseBranchSettings } from "@/lib/branch-settings";
-import {
-  postCompletedWorkOrderCost,
-  upsertWorkOrderInvoice,
-} from "@/lib/operations/maintenance/work-order-invoice";
+import { postCompletedWorkOrderCost } from "@/lib/operations/maintenance/work-order-invoice";
 
 export const TICKET_LIST_PAGE_SIZE = 50;
 
@@ -327,12 +324,8 @@ export async function updateWorkOrder(
     await notifyContractorOfJob(updated!);
   }
 
-  if (updated && ["approved", "assigned", "completed"].includes(updated.status)) {
-    await upsertWorkOrderInvoice(updated);
-  }
-
-  // Post cost on completion so the next landlord statement can charge it
-  if (updated?.status === "completed" && updated.finalCost && existing.status !== "completed") {
+  // Invoice and landlord charge only when the job is actually completed
+  if (updated?.status === "completed" && existing.status !== "completed") {
     await postCompletedWorkOrderCost(updated);
   }
 

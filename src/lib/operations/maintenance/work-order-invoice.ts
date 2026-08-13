@@ -53,10 +53,14 @@ export async function getInvoiceForWorkOrder(workOrderId: string) {
 }
 
 /**
- * Create or refresh a landlord works invoice for an approved/completed job.
+ * Create or refresh a landlord works invoice for a completed job only.
  * Dated to the scheduled work date so it falls on the matching statement period.
  */
 export async function upsertWorkOrderInvoice(wo: typeof workOrders.$inferSelect) {
+  if (wo.status !== "completed") {
+    return getInvoiceForWorkOrder(wo.id);
+  }
+
   const amount = workOrderInvoiceAmount(wo);
   if (amount <= 0) return null;
 
@@ -120,6 +124,8 @@ export async function upsertWorkOrderInvoice(wo: typeof workOrders.$inferSelect)
 }
 
 export async function postCompletedWorkOrderCost(wo: typeof workOrders.$inferSelect) {
+  if (wo.status !== "completed") return null;
+
   const invoice = await upsertWorkOrderInvoice(wo);
   const [ticket] = await db.select().from(tickets).where(eq(tickets.id, wo.ticketId)).limit(1);
   if (!ticket) return null;

@@ -135,21 +135,10 @@ async function main() {
   await approveWorkOrder(wo.id);
   const [afterApprove] = await db.select().from(workOrders).where(eq(workOrders.id, wo.id));
   assert(afterApprove.status === "approved", "approved after staff approval");
-
-  const invoiceAfterApprove = await getInvoiceForWorkOrder(wo.id);
-  assert(invoiceAfterApprove, "approved job created a works invoice");
-  assert(invoiceAfterApprove.type === WORKS_INVOICE_TYPE, "invoice type is maintenance");
-  assert(invoiceAfterApprove.dueDate === "2026-03-15", "invoice dated to scheduled work date");
-  assert(Number(invoiceAfterApprove.amount) === 500, "invoice uses estimate until complete");
-  assert(invoiceAfterApprove.landlordId === landlord.id, "invoice linked to landlord");
-  assert(invoiceAfterApprove.propertyId === property.id, "invoice linked to property");
-  assert(invoiceAfterApprove.tenancyId === tenancy.id, "invoice linked to tenancy");
-
-  const tenantCharges = await db
-    .select()
-    .from(ledgerEntries)
-    .where(eq(ledgerEntries.invoiceId, invoiceAfterApprove.id));
-  assert(tenantCharges.length === 0, "works invoice is not a tenant ledger charge");
+  assert(
+    !(await getInvoiceForWorkOrder(wo.id)),
+    "approved but incomplete jobs are not invoiced"
+  );
 
   // Assign triggers notify log
   await updateWorkOrder(wo.id, { contractorId: contractor.id, status: "assigned" });
@@ -168,8 +157,19 @@ async function main() {
   );
 
   const invoiceAfterComplete = await getInvoiceForWorkOrder(wo.id);
-  assert(Number(invoiceAfterComplete?.amount) === 480, "invoice updated to final cost");
-  assert(invoiceAfterComplete?.dueDate === "2026-03-15", "invoice still dated to the work");
+  assert(invoiceAfterComplete, "completed job created a works invoice");
+  assert(invoiceAfterComplete.type === WORKS_INVOICE_TYPE, "invoice type is maintenance");
+  assert(Number(invoiceAfterComplete.amount) === 480, "invoice uses final cost");
+  assert(invoiceAfterComplete.dueDate === "2026-03-15", "invoice dated to the scheduled work");
+  assert(invoiceAfterComplete.landlordId === landlord.id, "invoice linked to landlord");
+  assert(invoiceAfterComplete.propertyId === property.id, "invoice linked to property");
+  assert(invoiceAfterComplete.tenancyId === tenancy.id, "invoice linked to tenancy");
+
+  const tenantCharges = await db
+    .select()
+    .from(ledgerEntries)
+    .where(eq(ledgerEntries.invoiceId, invoiceAfterComplete.id));
+  assert(tenantCharges.length === 0, "works invoice is not a tenant ledger charge");
 
   const stmts = await generateLandlordStatements(branch.id, "2026-03-01", "2026-03-31");
   const stmt = stmts.find((s) => s.statement.landlordId === landlord.id);

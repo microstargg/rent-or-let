@@ -93,7 +93,7 @@ export default async function JobsBoardPage({
     <div>
       <AdminPageHeader
         title="Jobs board"
-        description="Field and office view of work orders. Approved jobs create a works invoice dated to the job, charged on the landlord statement."
+        description="Field and office view of work orders. Completed jobs create a works invoice dated to the job, charged on the landlord statement."
         actions={
           <Button asChild variant="outline" size="sm" className="min-h-11">
             <Link href="/admin/tickets">Tickets</Link>
