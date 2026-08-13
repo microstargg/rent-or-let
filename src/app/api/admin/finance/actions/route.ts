@@ -63,6 +63,9 @@ export async function POST(request: Request) {
     if (!invoice || invoice.branchId !== branch.id) {
       return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
     }
+    if (!invoice.tenancyId) {
+      return NextResponse.json({ error: "Invoice has no tenancy" }, { status: 400 });
+    }
     if (invoice.status === "paid" || invoice.status === "void") {
       return NextResponse.json({ error: "Invoice not open" }, { status: 400 });
     }

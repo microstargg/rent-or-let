@@ -1,6 +1,6 @@
-import Link from "next/link";
 import { requireLandlordSession } from "@/lib/auth/server";
 import { listLandlordStatements } from "@/lib/db/queries";
+import { statementDownloadPath } from "@/lib/pdf/landlord-statement";
 
 export default async function LandlordPortalStatements() {
   const ctx = await requireLandlordSession();
@@ -13,7 +13,7 @@ export default async function LandlordPortalStatements() {
     <div>
       <h1 className="text-3xl font-bold">Statements</h1>
       <div className="mt-8 space-y-3">
-        {mine.map(({ statement, document }) => (
+        {mine.map(({ statement }) => (
           <div key={statement.id} className="rounded-xl border p-4">
             <p className="font-semibold">
               {statement.periodFrom} to {statement.periodTo}
@@ -21,11 +21,12 @@ export default async function LandlordPortalStatements() {
             <p className="text-sm text-muted-foreground">
               Net £{Number((statement.totals as { net?: number })?.net ?? 0).toFixed(2)}
             </p>
-            {document?.url && (
-              <Link href={document.url} className="text-sm text-primary underline" target="_blank">
-                Download
-              </Link>
-            )}
+            <a
+              href={statementDownloadPath(statement.id)}
+              className="text-sm text-primary underline"
+            >
+              Download PDF
+            </a>
           </div>
         ))}
         {!mine.length && <p className="text-muted-foreground">No statements yet</p>}

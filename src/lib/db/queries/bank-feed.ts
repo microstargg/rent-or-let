@@ -141,7 +141,13 @@ export async function listOpenInvoiceMatchCandidates(
     .innerJoin(tenancies, eq(invoices.tenancyId, tenancies.id))
     .innerJoin(properties, eq(tenancies.propertyId, properties.id))
     .innerJoin(renters, eq(tenancies.primaryRenterId, renters.id))
-    .where(and(eq(invoices.branchId, branchId), inArray(invoices.status, ["due", "partial"])));
+    .where(
+      and(
+        eq(invoices.branchId, branchId),
+        inArray(invoices.status, ["due", "partial"]),
+        inArray(invoices.type, ["rent", "late_fee"])
+      )
+    );
 
   const invoiceIds = rows.map((r) => r.invoiceId);
   const allocated = new Map<string, number>();
@@ -158,6 +164,7 @@ export async function listOpenInvoiceMatchCandidates(
   }
 
   return rows
+    .filter((r): r is typeof r & { tenancyId: string } => Boolean(r.tenancyId))
     .map((r) => {
       const remaining = Math.max(0, Number(r.amount) - (allocated.get(r.invoiceId) ?? 0));
       return {

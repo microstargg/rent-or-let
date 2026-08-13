@@ -7,11 +7,13 @@ import {
   landlords,
   branches,
   documents,
+  invoices,
+  properties,
 } from "../schema";
 import { getManagementFeePercent, parseBranchSettings } from "@/lib/branch-settings";
 import { createDocument } from "./compliance";
-import { writeFile, mkdir } from "fs/promises";
-import { join } from "path";
+import { parseStatementUploadFilename, statementDownloadPath } from "@/lib/pdf/landlord-statement";
+import { WORKS_INVOICE_BILLED } from "@/lib/operations/maintenance/constants";
 
 export async function insertLandlordLedgerEntry(data: {
   branchId: string;
@@ -22,6 +24,7 @@ export async function insertLandlordLedgerEntry(data: {
   amount: number;
   paymentId?: string | null;
   workOrderId?: string | null;
+  invoiceId?: string | null;
   statementId?: string | null;
   memo?: string | null;
   meta?: Record<string, unknown>;
@@ -38,6 +41,7 @@ export async function insertLandlordLedgerEntry(data: {
       amount: String(data.amount),
       paymentId: data.paymentId ?? null,
       workOrderId: data.workOrderId ?? null,
+      invoiceId: data.invoiceId ?? null,
       statementId: data.statementId ?? null,
       memo: data.memo ?? null,
       meta: data.meta ?? {},
@@ -118,8 +122,10 @@ export async function postWorkOrderCostToLandlord(data: {
   propertyId?: string | null;
   tenancyId?: string | null;
   workOrderId: string;
+  invoiceId?: string | null;
   amount: number;
   memo?: string;
+  occurredAt?: Date;
 }) {
   return insertLandlordLedgerEntry({
     branchId: data.branchId,
@@ -129,7 +135,9 @@ export async function postWorkOrderCostToLandlord(data: {
     entryType: "work_order_cost",
     amount: -Math.abs(data.amount),
     workOrderId: data.workOrderId,
+    invoiceId: data.invoiceId ?? null,
     memo: data.memo ?? "Maintenance cost",
+    occurredAt: data.occurredAt,
   });
 }
 
@@ -168,6 +176,11 @@ export async function generateLandlordStatements(
   from: string,
   to: string
 ) {
+  const { chargeUnbilledWorkInvoicesForPeriod } = await import(
+    "@/lib/operations/maintenance/work-order-invoice"
+  );
+  await chargeUnbilledWorkInvoicesForPeriod(branchId, to);
+
   const fromIso = `${from}T00:00:00.000Z`;
   const toIso = `${to}T23:59:59.999Z`;
 
@@ -184,7 +197,15 @@ export async function generateLandlordStatements(
 
   const byLandlord = new Map<
     string,
-    { rent: number; fees: number; costs: number; adjustments: number; net: number; count: number }
+    {
+      rent: number;
+      fees: number;
+      costs: number;
+      adjustments: number;
+      net: number;
+      count: number;
+      works: typeof entries;
+    }
   >();
 
   for (const e of entries) {
@@ -195,38 +216,95 @@ export async function generateLandlordStatements(
       adjustments: 0,
       net: 0,
       count: 0,
+      works: [],
     };
     const amt = Number(e.amount);
     cur.net += amt;
     cur.count += 1;
     if (e.entryType === "rent_received") cur.rent += amt;
     else if (e.entryType === "management_fee") cur.fees += amt;
-    else if (e.entryType === "work_order_cost") cur.costs += amt;
-    else cur.adjustments += amt;
+    else if (e.entryType === "work_order_cost") {
+      cur.costs += amt;
+      cur.works.push(e);
+    } else cur.adjustments += amt;
     byLandlord.set(e.landlordId, cur);
   }
 
   const created = [];
   for (const [landlordId, totals] of byLandlord) {
     const [ll] = await db.select().from(landlords).where(eq(landlords.id, landlordId)).limit(1);
-    const body = [
-      `Landlord statement`,
-      `Landlord: ${ll ? `${ll.firstName} ${ll.lastName}` : landlordId}`,
-      `Period: ${from} to ${to}`,
-      `Rent received: £${totals.rent.toFixed(2)}`,
-      `Management fees: £${totals.fees.toFixed(2)}`,
-      `Costs: £${totals.costs.toFixed(2)}`,
-      `Adjustments: £${totals.adjustments.toFixed(2)}`,
-      `Net: £${totals.net.toFixed(2)}`,
-      `Entries: ${totals.count}`,
-    ].join("\n");
+    const billedInvoiceIds = new Set<string>();
+    const works: Array<{
+      dated: string;
+      address: string;
+      summary: string;
+      amount: number;
+    }> = [];
 
-    const dir = join(process.cwd(), "public", "uploads", "statements", landlordId);
-    await mkdir(dir, { recursive: true });
-    const filename = `statement-${from}-${to}-${Date.now()}.txt`;
-    await writeFile(join(dir, filename), body);
-    const url = `/uploads/statements/${landlordId}/${filename}`;
+    for (const work of totals.works) {
+      let inv =
+        work.invoiceId != null
+          ? (
+              await db.select().from(invoices).where(eq(invoices.id, work.invoiceId)).limit(1)
+            )[0]
+          : null;
+      if (!inv && work.workOrderId) {
+        const [byJob] = await db
+          .select()
+          .from(invoices)
+          .where(eq(invoices.workOrderId, work.workOrderId))
+          .limit(1);
+        inv = byJob ?? null;
+      }
+      if (inv) billedInvoiceIds.add(inv.id);
 
+      const meta =
+        inv && typeof inv.meta === "object" && inv.meta
+          ? (inv.meta as Record<string, unknown>)
+          : {};
+      const [prop] = work.propertyId
+        ? await db.select().from(properties).where(eq(properties.id, work.propertyId)).limit(1)
+        : [null];
+      const dated = inv?.dueDate ?? work.occurredAt.toISOString().slice(0, 10);
+      const summary =
+        (typeof meta.ticket_summary === "string" && meta.ticket_summary) ||
+        work.memo ||
+        "Maintenance";
+      const address =
+        (typeof meta.property_address === "string" && meta.property_address) ||
+        prop?.displayAddress ||
+        "";
+      works.push({
+        dated,
+        address,
+        summary,
+        amount: Math.abs(Number(work.amount)),
+      });
+    }
+
+    const [stmt] = await db
+      .insert(landlordStatements)
+      .values({
+        branchId,
+        landlordId,
+        periodFrom: from,
+        periodTo: to,
+        totals: {
+          rent: totals.rent,
+          fees: totals.fees,
+          costs: totals.costs,
+          adjustments: totals.adjustments,
+          net: totals.net,
+          count: totals.count,
+          works,
+        },
+        status: "issued",
+        issuedAt: new Date(),
+      })
+      .returning();
+
+    const filename = `statement-${from}-${to}.pdf`;
+    const url = statementDownloadPath(stmt.id);
     const doc = await createDocument({
       branchId,
       entityType: "landlord",
@@ -236,20 +314,40 @@ export async function generateLandlordStatements(
       filename,
     });
 
-    const [stmt] = await db
-      .insert(landlordStatements)
-      .values({
-        branchId,
-        landlordId,
-        periodFrom: from,
-        periodTo: to,
-        totals,
-        documentId: doc.id,
-        status: "issued",
-        issuedAt: new Date(),
-      })
+    const [updated] = await db
+      .update(landlordStatements)
+      .set({ documentId: doc.id })
+      .where(eq(landlordStatements.id, stmt.id))
       .returning();
-    created.push({ statement: stmt, document: doc, name: ll ? `${ll.firstName} ${ll.lastName}` : "" });
+
+    for (const work of totals.works) {
+      await db
+        .update(landlordLedgerEntries)
+        .set({ statementId: stmt.id })
+        .where(eq(landlordLedgerEntries.id, work.id));
+    }
+
+    for (const invoiceId of billedInvoiceIds) {
+      const [existing] = await db.select().from(invoices).where(eq(invoices.id, invoiceId)).limit(1);
+      if (!existing) continue;
+      const meta =
+        typeof existing.meta === "object" && existing.meta
+          ? (existing.meta as Record<string, unknown>)
+          : {};
+      await db
+        .update(invoices)
+        .set({
+          status: WORKS_INVOICE_BILLED,
+          meta: { ...meta, statement_id: stmt.id },
+        })
+        .where(eq(invoices.id, invoiceId));
+    }
+
+    created.push({
+      statement: updated ?? stmt,
+      document: doc,
+      name: ll ? `${ll.firstName} ${ll.lastName}` : "",
+    });
   }
 
   return created;
@@ -300,6 +398,44 @@ export async function createLandlordPayout(data: {
   });
 
   return payout;
+}
+
+export async function getLandlordStatementForDownload(id: string) {
+  const [row] = await db
+    .select({
+      statement: landlordStatements,
+      firstName: landlords.firstName,
+      lastName: landlords.lastName,
+    })
+    .from(landlordStatements)
+    .innerJoin(landlords, eq(landlordStatements.landlordId, landlords.id))
+    .where(eq(landlordStatements.id, id))
+    .limit(1);
+  return row ?? null;
+}
+
+export async function findLandlordStatementByUpload(landlordId: string, filename: string) {
+  const parsed = parseStatementUploadFilename(filename);
+  if (!parsed) return null;
+
+  const [row] = await db
+    .select({
+      statement: landlordStatements,
+      firstName: landlords.firstName,
+      lastName: landlords.lastName,
+    })
+    .from(landlordStatements)
+    .innerJoin(landlords, eq(landlordStatements.landlordId, landlords.id))
+    .where(
+      and(
+        eq(landlordStatements.landlordId, landlordId),
+        eq(landlordStatements.periodFrom, parsed.from),
+        eq(landlordStatements.periodTo, parsed.to)
+      )
+    )
+    .orderBy(desc(landlordStatements.createdAt))
+    .limit(1);
+  return row ?? null;
 }
 
 export async function listLandlordPayouts(branchId: string) {

@@ -14,6 +14,7 @@ import {
   branches,
 } from "../schema";
 import { getLateFeeRules, parseBranchSettings } from "@/lib/branch-settings";
+import { isTenantPayableInvoiceType } from "@/lib/operations/maintenance/constants";
 
 export async function listInvoices(branchId?: string) {
   const base = db
@@ -22,11 +23,20 @@ export async function listInvoices(branchId?: string) {
       propertyAddress: properties.displayAddress,
       renterFirstName: renters.firstName,
       renterLastName: renters.lastName,
+      landlordFirstName: landlords.firstName,
+      landlordLastName: landlords.lastName,
     })
     .from(invoices)
-    .innerJoin(tenancies, eq(invoices.tenancyId, tenancies.id))
-    .innerJoin(properties, eq(tenancies.propertyId, properties.id))
-    .innerJoin(renters, eq(tenancies.primaryRenterId, renters.id));
+    .leftJoin(tenancies, eq(invoices.tenancyId, tenancies.id))
+    .leftJoin(
+      properties,
+      eq(properties.id, sql`coalesce(${invoices.propertyId}, ${tenancies.propertyId})`)
+    )
+    .leftJoin(renters, eq(tenancies.primaryRenterId, renters.id))
+    .leftJoin(
+      landlords,
+      eq(landlords.id, sql`coalesce(${invoices.landlordId}, ${properties.landlordId})`)
+    );
 
   if (branchId) {
     return base.where(eq(invoices.branchId, branchId)).orderBy(desc(invoices.dueDate));
@@ -48,7 +58,8 @@ export async function getInvoiceForRenter(invoiceId: string, branchId: string, r
       and(
         eq(invoices.id, invoiceId),
         eq(invoices.branchId, branchId),
-        eq(tenancies.primaryRenterId, renterId)
+        eq(tenancies.primaryRenterId, renterId),
+        inArray(invoices.type, ["rent", "late_fee"])
       )
     )
     .limit(1);
@@ -60,7 +71,13 @@ export async function listInvoicesForRenter(branchId: string, renterId: string) 
     .select({ invoice: invoices })
     .from(invoices)
     .innerJoin(tenancies, eq(invoices.tenancyId, tenancies.id))
-    .where(and(eq(invoices.branchId, branchId), eq(tenancies.primaryRenterId, renterId)))
+    .where(
+      and(
+        eq(invoices.branchId, branchId),
+        eq(tenancies.primaryRenterId, renterId),
+        inArray(invoices.type, ["rent", "late_fee"])
+      )
+    )
     .orderBy(desc(invoices.dueDate));
 }
 
@@ -130,35 +147,46 @@ export async function getTenancyBalance(tenancyId: string): Promise<number> {
 export async function createInvoices(
   rows: {
     branchId: string;
-    tenancyId: string;
+    tenancyId?: string | null;
+    propertyId?: string | null;
+    landlordId?: string | null;
+    workOrderId?: string | null;
     type: string;
     dueDate: string;
     amount: number;
     status?: string;
+    meta?: Record<string, unknown>;
   }[]
 ) {
   if (rows.length === 0) return [];
-  const created = await db
-    .insert(invoices)
-    .values(
-      rows.map((r) => ({
-        branchId: r.branchId,
-        tenancyId: r.tenancyId,
-        type: r.type,
-        dueDate: r.dueDate,
-        amount: String(r.amount),
-        status: r.status ?? "due",
-      }))
-    )
-    .returning();
+
+  const values = [];
+  for (const r of rows) {
+    const ctx = r.tenancyId ? await getTenancyContext(r.tenancyId) : null;
+    values.push({
+      branchId: r.branchId,
+      tenancyId: r.tenancyId ?? ctx?.tenancyId ?? null,
+      propertyId: r.propertyId ?? ctx?.propertyId ?? null,
+      landlordId: r.landlordId ?? ctx?.landlordId ?? null,
+      workOrderId: r.workOrderId ?? null,
+      type: r.type,
+      dueDate: r.dueDate,
+      amount: String(r.amount),
+      status: r.status ?? "due",
+      meta: r.meta ?? {},
+    });
+  }
+
+  const created = await db.insert(invoices).values(values).returning();
 
   for (const inv of created) {
+    if (!inv.tenancyId || !isTenantPayableInvoiceType(inv.type)) continue;
     const ctx = await getTenancyContext(inv.tenancyId);
     await insertLedgerEntry({
       branchId: inv.branchId,
       tenancyId: inv.tenancyId,
-      propertyId: ctx?.propertyId,
-      landlordId: ctx?.landlordId,
+      propertyId: ctx?.propertyId ?? inv.propertyId,
+      landlordId: ctx?.landlordId ?? inv.landlordId,
       entryType: "charge",
       amount: Number(inv.amount),
       invoiceId: inv.id,
@@ -201,6 +229,7 @@ export async function recordPaymentAndAllocate(data: {
 }) {
   const invoice = await getInvoiceById(data.invoiceId);
   if (!invoice) return null;
+  if (!isTenantPayableInvoiceType(invoice.type) || !invoice.tenancyId) return null;
   if (invoice.status === "paid" || invoice.status === "void") {
     return { payment: null, invoice, exception: null };
   }
@@ -302,6 +331,7 @@ export async function recordPaymentAndAllocate(data: {
 export async function markInvoicePaid(invoiceId: string, method = "bank_transfer") {
   const invoice = await getInvoiceById(invoiceId);
   if (!invoice || invoice.status === "paid" || invoice.status === "void") return null;
+  if (!isTenantPayableInvoiceType(invoice.type) || !invoice.tenancyId) return null;
 
   const already = await getAllocatedTotalForInvoice(invoiceId);
   const remaining = Number(invoice.amount) - already;
@@ -327,6 +357,7 @@ export async function markInvoicePartialPaid(
 ) {
   const invoice = await getInvoiceById(invoiceId);
   if (!invoice || invoice.status === "paid" || invoice.status === "void") return null;
+  if (!isTenantPayableInvoiceType(invoice.type) || !invoice.tenancyId) return null;
 
   const result = await recordPaymentAndAllocate({
     branchId: invoice.branchId,
@@ -437,6 +468,7 @@ export async function listArrears(branchId: string) {
 
   const oldestDueByTenancy = new Map<string, string>();
   for (const inv of openInvoices) {
+    if (!inv.tenancyId) continue;
     const cur = oldestDueByTenancy.get(inv.tenancyId);
     if (!cur || inv.dueDate < cur) oldestDueByTenancy.set(inv.tenancyId, inv.dueDate);
   }
@@ -513,6 +545,7 @@ export async function applyLateFeesForBranch(branchId: string) {
 
   let applied = 0;
   for (const inv of overdue) {
+    if (!inv.tenancyId) continue;
     const existingFee = await db
       .select({ id: invoices.id })
       .from(invoices)
@@ -619,7 +652,8 @@ export async function countOverdueInvoices(branchId: string) {
       and(
         eq(invoices.branchId, branchId),
         inArray(invoices.status, ["due", "partial"]),
-        lte(invoices.dueDate, today)
+        lte(invoices.dueDate, today),
+        inArray(invoices.type, ["rent", "late_fee"])
       )
     );
   return r?.value ?? 0;
