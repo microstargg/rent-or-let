@@ -37,6 +37,7 @@ export function LandlordStatementActions() {
       <h3 className="font-semibold">Generate period statements</h3>
       <p className="mt-1 text-sm text-muted-foreground">
         Creates downloadable statements from the landlord ledger for the selected dates.
+        Works invoices dated in that period are itemised and marked billed.
       </p>
       <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div>

@@ -36,6 +36,7 @@ export async function createRentCheckoutSession(
 
   const invoice = await getInvoiceForRenter(invoiceId, branchId, renterId);
   if (!invoice) return { ok: false, error: "Invoice not found." };
+  if (!invoice.tenancyId) return { ok: false, error: "Invoice not found." };
   if (invoice.status !== "due") return { ok: false, error: "This invoice is not payable." };
 
   const branch = await getBranchWithSettings(branchId);

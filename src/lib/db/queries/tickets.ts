@@ -8,8 +8,13 @@ import {
   properties,
   tenancies,
   branches,
+  invoices,
 } from "../schema";
 import { parseBranchSettings } from "@/lib/branch-settings";
+import {
+  postCompletedWorkOrderCost,
+  upsertWorkOrderInvoice,
+} from "@/lib/operations/maintenance/work-order-invoice";
 
 export const TICKET_LIST_PAGE_SIZE = 50;
 
@@ -210,11 +215,13 @@ export async function listWorkOrders(opts?: { branchId?: string; ticketId?: stri
       contractorName: contractors.name,
       ticketSummary: tickets.summary,
       propertyAddress: properties.displayAddress,
+      invoice: invoices,
     })
     .from(workOrders)
     .innerJoin(tickets, eq(workOrders.ticketId, tickets.id))
     .innerJoin(properties, eq(tickets.propertyId, properties.id))
-    .leftJoin(contractors, eq(workOrders.contractorId, contractors.id));
+    .leftJoin(contractors, eq(workOrders.contractorId, contractors.id))
+    .leftJoin(invoices, eq(invoices.workOrderId, workOrders.id));
 
   if (opts?.ticketId) {
     return base.where(eq(workOrders.ticketId, opts.ticketId)).orderBy(desc(workOrders.createdAt));
@@ -320,7 +327,11 @@ export async function updateWorkOrder(
     await notifyContractorOfJob(updated!);
   }
 
-  // Post cost on completion
+  if (updated && ["approved", "assigned", "completed"].includes(updated.status)) {
+    await upsertWorkOrderInvoice(updated);
+  }
+
+  // Post cost on completion so the next landlord statement can charge it
   if (updated?.status === "completed" && updated.finalCost && existing.status !== "completed") {
     await postCompletedWorkOrderCost(updated);
   }
@@ -370,35 +381,6 @@ async function notifyContractorOfJob(wo: typeof workOrders.$inferSelect) {
     .where(eq(workOrders.id, wo.id));
 
   return { sent: true, email: contractor.email, subject, body };
-}
-
-async function postCompletedWorkOrderCost(wo: typeof workOrders.$inferSelect) {
-  const ticket = await getTicketById(wo.ticketId);
-  if (!ticket) return;
-  const [prop] = await db
-    .select()
-    .from(properties)
-    .where(eq(properties.id, ticket.ticket.propertyId))
-    .limit(1);
-  if (!prop?.landlordId || !wo.finalCost) return;
-
-  const { postWorkOrderCostToLandlord } = await import("./landlord-finance");
-  const meta = typeof wo.meta === "object" && wo.meta ? (wo.meta as Record<string, unknown>) : {};
-  if (meta.cost_posted) return;
-
-  await postWorkOrderCostToLandlord({
-    branchId: wo.branchId,
-    landlordId: prop.landlordId,
-    propertyId: prop.id,
-    tenancyId: ticket.ticket.tenancyId,
-    workOrderId: wo.id,
-    amount: Number(wo.finalCost),
-  });
-
-  await db
-    .update(workOrders)
-    .set({ meta: { ...meta, cost_posted: true } })
-    .where(eq(workOrders.id, wo.id));
 }
 
 export async function approveWorkOrder(id: string) {

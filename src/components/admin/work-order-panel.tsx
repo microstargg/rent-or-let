@@ -16,6 +16,12 @@ interface WorkOrderRow {
     finalCost: string | null;
   };
   contractorName: string | null;
+  invoice: {
+    id: string;
+    amount: string;
+    dueDate: string;
+    status: string;
+  } | null;
 }
 
 export function WorkOrderPanel({
@@ -120,7 +126,7 @@ export function WorkOrderPanel({
       </div>
 
       <div className="mt-4 space-y-3">
-        {workOrders.map(({ workOrder, contractorName }) => {
+        {workOrders.map(({ workOrder, contractorName, invoice }) => {
           const costValue =
             finalCosts[workOrder.id] ??
             workOrder.finalCost ??
@@ -140,6 +146,12 @@ export function WorkOrderPanel({
                     {workOrder.scheduledFor &&
                       ` · ${new Date(workOrder.scheduledFor).toLocaleDateString("en-GB")}`}
                   </p>
+                  {invoice && (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Invoice £{Number(invoice.amount).toFixed(2)} · {invoice.dueDate} ·{" "}
+                      {invoice.status.replaceAll("_", " ")}
+                    </p>
+                  )}
                 </div>
                 <StatusBadge status={workOrder.status} />
               </div>

@@ -80,14 +80,15 @@ export function StatusBadge({
 }) {
   const resolved =
     tone ??
-    (status === "paid" ||
+    (    status === "paid" ||
     status === "valid" ||
     status === "completed" ||
     status === "approved" ||
     status === "available" ||
     status === "active" ||
     status === "resolved" ||
-    status === "scheduled"
+    status === "scheduled" ||
+    status === "billed"
       ? "success"
       : status === "partial" ||
           status === "expiring" ||
@@ -97,7 +98,8 @@ export function StatusBadge({
           status === "triaged" ||
           status === "investigating" ||
           status === "unmatched" ||
-          status === "high"
+          status === "high" ||
+          status === "pending_statement"
         ? "warning"
         : status === "expired" ||
             status === "overpayment" ||
