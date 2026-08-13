@@ -17,9 +17,17 @@ import {
   isTenantPayableInvoiceType,
   isWorksInvoiceType,
 } from "@/lib/operations/maintenance/constants";
+import { seedDemoWorkInvoices } from "@/lib/operations/maintenance/seed-demo-work-invoices";
 
 export default async function AdminInvoicesPage() {
   const branch = await getDefaultBranch();
+  if (branch) {
+    try {
+      await seedDemoWorkInvoices(branch.id);
+    } catch (err) {
+      console.error("[invoices] demo works seed failed", err);
+    }
+  }
   const rows = await listInvoices(branch?.id);
   const open = rows.filter(
     (r) =>
