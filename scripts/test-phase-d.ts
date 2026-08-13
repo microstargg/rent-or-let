@@ -13,6 +13,7 @@ import {
   tenancies,
   contractors,
   workOrders,
+  ledgerEntries,
 } from "../src/lib/db/schema";
 import { eq } from "drizzle-orm";
 import {
@@ -24,7 +25,9 @@ import {
   attachDocumentToTicket,
   listWorkOrders,
 } from "../src/lib/db/queries/tickets";
-import { getLandlordBalance } from "../src/lib/db/queries/landlord-finance";
+import { getLandlordBalance, generateLandlordStatements } from "../src/lib/db/queries/landlord-finance";
+import { getInvoiceForWorkOrder } from "../src/lib/operations/maintenance/work-order-invoice";
+import { WORKS_INVOICE_BILLED, WORKS_INVOICE_TYPE } from "../src/lib/operations/maintenance/constants";
 import { updateBranchSettings } from "../src/lib/db/queries/operations";
 import { listDocumentsForEntity } from "../src/lib/db/queries/compliance";
 import { writeFile, mkdir } from "fs/promises";
@@ -120,6 +123,7 @@ async function main() {
     ticketId: ticket.id,
     contractorId: contractor.id,
     costEstimate: 500,
+    scheduledFor: new Date("2026-03-15T12:00:00.000Z"),
   });
 
   const blocked = await updateWorkOrder(wo.id, { status: "completed", finalCost: 500 });
@@ -131,6 +135,10 @@ async function main() {
   await approveWorkOrder(wo.id);
   const [afterApprove] = await db.select().from(workOrders).where(eq(workOrders.id, wo.id));
   assert(afterApprove.status === "approved", "approved after staff approval");
+  assert(
+    !(await getInvoiceForWorkOrder(wo.id)),
+    "approved but incomplete jobs are not invoiced"
+  );
 
   // Assign triggers notify log
   await updateWorkOrder(wo.id, { contractorId: contractor.id, status: "assigned" });
@@ -146,6 +154,38 @@ async function main() {
   assert(
     Math.abs(balAfter - (balBefore - 480)) < 0.01,
     `landlord ledger debited 480 (before ${balBefore}, after ${balAfter})`
+  );
+
+  const invoiceAfterComplete = await getInvoiceForWorkOrder(wo.id);
+  assert(invoiceAfterComplete, "completed job created a works invoice");
+  assert(invoiceAfterComplete.type === WORKS_INVOICE_TYPE, "invoice type is maintenance");
+  assert(Number(invoiceAfterComplete.amount) === 480, "invoice uses final cost");
+  assert(invoiceAfterComplete.dueDate === "2026-03-15", "invoice dated to the scheduled work");
+  assert(invoiceAfterComplete.landlordId === landlord.id, "invoice linked to landlord");
+  assert(invoiceAfterComplete.propertyId === property.id, "invoice linked to property");
+  assert(invoiceAfterComplete.tenancyId === tenancy.id, "invoice linked to tenancy");
+
+  const tenantCharges = await db
+    .select()
+    .from(ledgerEntries)
+    .where(eq(ledgerEntries.invoiceId, invoiceAfterComplete.id));
+  assert(tenantCharges.length === 0, "works invoice is not a tenant ledger charge");
+
+  const stmts = await generateLandlordStatements(branch.id, "2026-03-01", "2026-03-31");
+  const stmt = stmts.find((s) => s.statement.landlordId === landlord.id);
+  assert(stmt, "statement generated for landlord covering the work date");
+  const billed = await getInvoiceForWorkOrder(wo.id);
+  assert(billed?.status === WORKS_INVOICE_BILLED, "works invoice marked billed on statement");
+  const stmtTotals = (stmt?.statement.totals ?? {}) as {
+    works?: Array<{ summary?: string; amount?: number }>;
+  };
+  assert(
+    stmtTotals.works?.some((w) => w.summary === "Leaking tap" && Number(w.amount) === 480),
+    "statement itemises the job"
+  );
+  assert(
+    stmt?.document?.url?.includes(`/api/statements/${stmt.statement.id}/download`),
+    "statement download URL is the API route, not a local /uploads file"
   );
 
   const board = await listWorkOrders({ branchId: branch.id });

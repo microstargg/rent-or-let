@@ -67,6 +67,32 @@ function main() {
     "download path uses statement id"
   );
 
+  const withWorks = renderLandlordStatementPdf({
+    landlordName: "Test Landlord",
+    periodFrom: "2026-03-01",
+    periodTo: "2026-03-31",
+    totals: {
+      rent: 1000,
+      fees: -100,
+      costs: -480,
+      adjustments: 0,
+      net: 420,
+      count: 3,
+      works: [
+        {
+          dated: "2026-03-15",
+          address: "1 High Street",
+          summary: "Leaking tap",
+          amount: 480,
+        },
+      ],
+    },
+    issuedAt: new Date("2026-04-01T12:00:00Z"),
+  });
+  const worksText = asText(withWorks);
+  assert(worksText.includes("Leaking tap"), "PDF itemises completed works");
+  assert(worksText.includes("1 High Street"), "PDF includes works property address");
+
   const many = buildSimplePdf(
     "Landlord statement",
     Array.from({ length: 80 }, (_, i) => `Line ${i + 1} with (parens) and £ amounts`)

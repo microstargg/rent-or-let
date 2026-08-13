@@ -1,6 +1,13 @@
 import { buildSimplePdf } from "./simple-pdf";
 import { siteContent } from "@/lib/content/site";
 
+export interface LandlordStatementWorkLine {
+  dated: string;
+  address: string;
+  summary: string;
+  amount: number;
+}
+
 export interface LandlordStatementTotals {
   rent?: number;
   fees?: number;
@@ -8,6 +15,7 @@ export interface LandlordStatementTotals {
   adjustments?: number;
   net?: number;
   count?: number;
+  works?: LandlordStatementWorkLine[];
 }
 
 export interface LandlordStatementPdfInput {
@@ -26,6 +34,18 @@ const GBP = new Intl.NumberFormat("en-GB", {
 
 function money(value: number | undefined): string {
   return GBP.format(Number(value ?? 0));
+}
+
+function worksPdfLines(works: LandlordStatementWorkLine[] | undefined): string[] {
+  if (!works?.length) return [];
+  const lines = ["Works:"];
+  for (const work of works) {
+    const address = work.address ? `  ${work.address}` : "";
+    lines.push(
+      `  ${work.dated}${address}  ${work.summary}  ${money(Math.abs(work.amount))}`
+    );
+  }
+  return lines;
 }
 
 function formatIssuedAt(value: Date | string | null | undefined): string {
@@ -93,6 +113,7 @@ export function renderLandlordStatementPdf(input: LandlordStatementPdfInput): Ui
     `Rent received: ${money(totals.rent)}`,
     `Management fees: ${money(totals.fees)}`,
     `Maintenance / costs: ${money(totals.costs)}`,
+    ...worksPdfLines(totals.works),
     `Adjustments: ${money(totals.adjustments)}`,
     `Net due to landlord: ${money(totals.net)}`,
     `Ledger entries in period: ${Number(totals.count ?? 0)}`,

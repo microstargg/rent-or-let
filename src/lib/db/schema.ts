@@ -11,6 +11,7 @@ import {
   uniqueIndex,
   index,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 
 export const branches = pgTable("branches", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -275,9 +276,10 @@ export const invoices = pgTable(
     branchId: uuid("branch_id")
       .notNull()
       .references(() => branches.id),
-    tenancyId: uuid("tenancy_id")
-      .notNull()
-      .references(() => tenancies.id, { onDelete: "cascade" }),
+    tenancyId: uuid("tenancy_id").references(() => tenancies.id, { onDelete: "cascade" }),
+    propertyId: uuid("property_id").references(() => properties.id, { onDelete: "set null" }),
+    landlordId: uuid("landlord_id").references(() => landlords.id, { onDelete: "set null" }),
+    workOrderId: uuid("work_order_id"),
     type: text("type").notNull(),
     dueDate: date("due_date").notNull(),
     amount: numeric("amount", { precision: 12, scale: 2 }).notNull(),
@@ -288,6 +290,11 @@ export const invoices = pgTable(
   (table) => [
     index("idx_invoices_branch_due").on(table.branchId, table.dueDate),
     index("idx_invoices_tenancy").on(table.tenancyId),
+    index("idx_invoices_property").on(table.propertyId),
+    index("idx_invoices_landlord").on(table.landlordId),
+    uniqueIndex("invoices_work_order")
+      .on(table.workOrderId)
+      .where(sql`${table.workOrderId} is not null`),
   ]
 );
 
@@ -600,6 +607,7 @@ export const landlordLedgerEntries = pgTable(
     occurredAt: timestamp("occurred_at", { withTimezone: true }).notNull().defaultNow(),
     paymentId: uuid("payment_id").references(() => payments.id, { onDelete: "set null" }),
     workOrderId: uuid("work_order_id"),
+    invoiceId: uuid("invoice_id").references(() => invoices.id, { onDelete: "set null" }),
     statementId: uuid("statement_id"),
     memo: text("memo"),
     meta: jsonb("meta").notNull().default({}),

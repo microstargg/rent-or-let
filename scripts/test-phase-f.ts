@@ -25,6 +25,8 @@ import { listDocumentsForEntity, listComplianceItems } from "../src/lib/db/queri
 import { createInvoices, markInvoicePaid } from "../src/lib/db/queries/finance";
 import { getLandlordBalance } from "../src/lib/db/queries/landlord-finance";
 import { createTicket, createWorkOrder, completeWorkOrder, approveWorkOrder, updateWorkOrder } from "../src/lib/db/queries/tickets";
+import { getInvoiceForWorkOrder } from "../src/lib/operations/maintenance/work-order-invoice";
+import { WORKS_INVOICE_TYPE } from "../src/lib/operations/maintenance/constants";
 import { updateBranchSettings } from "../src/lib/db/queries/operations";
 import { refreshComplianceStatuses } from "../src/lib/db/queries/compliance";
 
@@ -160,6 +162,9 @@ async function main() {
   await completeWorkOrder(wo.id, 50);
   const llBal2 = await getLandlordBalance(landlord.id);
   assert(llBal2 < llBal, "work order cost posted to landlord");
+  const worksInv = await getInvoiceForWorkOrder(wo.id);
+  assert(worksInv?.type === WORKS_INVOICE_TYPE, "completed job created a works invoice");
+  assert(Number(worksInv?.amount) === 50, "works invoice uses final cost");
 
   // Regression: compliance refresh
   const refresh = await refreshComplianceStatuses(branch.id);

@@ -93,7 +93,7 @@ export default async function JobsBoardPage({
     <div>
       <AdminPageHeader
         title="Jobs board"
-        description="Field and office view of work orders. Complete jobs, post updates, or open the ticket."
+        description="Field and office view of work orders. Completed jobs create a works invoice dated to the job, charged on the landlord statement."
         actions={
           <Button asChild variant="outline" size="sm" className="min-h-11">
             <Link href="/admin/tickets">Tickets</Link>
@@ -160,7 +160,8 @@ export default async function JobsBoardPage({
       <AdminSection title="Jobs">
         {filtered.length ? (
           <div className="space-y-3">
-            {filtered.map(({ workOrder, contractorName, ticketSummary, propertyAddress }) => (
+            {filtered.map(
+              ({ workOrder, contractorName, ticketSummary, propertyAddress, invoice }) => (
               <article
                 key={workOrder.id}
                 className="rounded-xl border bg-card p-4 shadow-sm"
@@ -182,6 +183,14 @@ export default async function JobsBoardPage({
                     {workOrder.scheduledFor && (
                       <p className="mt-1 text-xs text-muted-foreground">
                         Scheduled {formatDate(workOrder.scheduledFor)}
+                      </p>
+                    )}
+                    {invoice && (
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Works invoice £{Number(invoice.amount).toFixed(2)} dated {invoice.dueDate}
+                        {invoice.status === "billed"
+                          ? " · on landlord statement"
+                          : " · awaiting statement"}
                       </p>
                     )}
                   </div>

@@ -7,10 +7,13 @@ import {
   landlords,
   branches,
   documents,
+  invoices,
+  properties,
 } from "../schema";
 import { getManagementFeePercent, parseBranchSettings } from "@/lib/branch-settings";
 import { createDocument } from "./compliance";
 import { parseStatementUploadFilename, statementDownloadPath } from "@/lib/pdf/landlord-statement";
+import { WORKS_INVOICE_BILLED } from "@/lib/operations/maintenance/constants";
 
 export async function insertLandlordLedgerEntry(data: {
   branchId: string;
@@ -21,6 +24,7 @@ export async function insertLandlordLedgerEntry(data: {
   amount: number;
   paymentId?: string | null;
   workOrderId?: string | null;
+  invoiceId?: string | null;
   statementId?: string | null;
   memo?: string | null;
   meta?: Record<string, unknown>;
@@ -37,6 +41,7 @@ export async function insertLandlordLedgerEntry(data: {
       amount: String(data.amount),
       paymentId: data.paymentId ?? null,
       workOrderId: data.workOrderId ?? null,
+      invoiceId: data.invoiceId ?? null,
       statementId: data.statementId ?? null,
       memo: data.memo ?? null,
       meta: data.meta ?? {},
@@ -117,8 +122,10 @@ export async function postWorkOrderCostToLandlord(data: {
   propertyId?: string | null;
   tenancyId?: string | null;
   workOrderId: string;
+  invoiceId?: string | null;
   amount: number;
   memo?: string;
+  occurredAt?: Date;
 }) {
   return insertLandlordLedgerEntry({
     branchId: data.branchId,
@@ -128,7 +135,9 @@ export async function postWorkOrderCostToLandlord(data: {
     entryType: "work_order_cost",
     amount: -Math.abs(data.amount),
     workOrderId: data.workOrderId,
+    invoiceId: data.invoiceId ?? null,
     memo: data.memo ?? "Maintenance cost",
+    occurredAt: data.occurredAt,
   });
 }
 
@@ -167,6 +176,11 @@ export async function generateLandlordStatements(
   from: string,
   to: string
 ) {
+  const { chargeUnbilledWorkInvoicesForPeriod } = await import(
+    "@/lib/operations/maintenance/work-order-invoice"
+  );
+  await chargeUnbilledWorkInvoicesForPeriod(branchId, to);
+
   const fromIso = `${from}T00:00:00.000Z`;
   const toIso = `${to}T23:59:59.999Z`;
 
@@ -183,7 +197,15 @@ export async function generateLandlordStatements(
 
   const byLandlord = new Map<
     string,
-    { rent: number; fees: number; costs: number; adjustments: number; net: number; count: number }
+    {
+      rent: number;
+      fees: number;
+      costs: number;
+      adjustments: number;
+      net: number;
+      count: number;
+      works: typeof entries;
+    }
   >();
 
   for (const e of entries) {
@@ -194,20 +216,72 @@ export async function generateLandlordStatements(
       adjustments: 0,
       net: 0,
       count: 0,
+      works: [],
     };
     const amt = Number(e.amount);
     cur.net += amt;
     cur.count += 1;
     if (e.entryType === "rent_received") cur.rent += amt;
     else if (e.entryType === "management_fee") cur.fees += amt;
-    else if (e.entryType === "work_order_cost") cur.costs += amt;
-    else cur.adjustments += amt;
+    else if (e.entryType === "work_order_cost") {
+      cur.costs += amt;
+      cur.works.push(e);
+    } else cur.adjustments += amt;
     byLandlord.set(e.landlordId, cur);
   }
 
   const created = [];
   for (const [landlordId, totals] of byLandlord) {
     const [ll] = await db.select().from(landlords).where(eq(landlords.id, landlordId)).limit(1);
+    const billedInvoiceIds = new Set<string>();
+    const works: Array<{
+      dated: string;
+      address: string;
+      summary: string;
+      amount: number;
+    }> = [];
+
+    for (const work of totals.works) {
+      let inv =
+        work.invoiceId != null
+          ? (
+              await db.select().from(invoices).where(eq(invoices.id, work.invoiceId)).limit(1)
+            )[0]
+          : null;
+      if (!inv && work.workOrderId) {
+        const [byJob] = await db
+          .select()
+          .from(invoices)
+          .where(eq(invoices.workOrderId, work.workOrderId))
+          .limit(1);
+        inv = byJob ?? null;
+      }
+      if (inv) billedInvoiceIds.add(inv.id);
+
+      const meta =
+        inv && typeof inv.meta === "object" && inv.meta
+          ? (inv.meta as Record<string, unknown>)
+          : {};
+      const [prop] = work.propertyId
+        ? await db.select().from(properties).where(eq(properties.id, work.propertyId)).limit(1)
+        : [null];
+      const dated = inv?.dueDate ?? work.occurredAt.toISOString().slice(0, 10);
+      const summary =
+        (typeof meta.ticket_summary === "string" && meta.ticket_summary) ||
+        work.memo ||
+        "Maintenance";
+      const address =
+        (typeof meta.property_address === "string" && meta.property_address) ||
+        prop?.displayAddress ||
+        "";
+      works.push({
+        dated,
+        address,
+        summary,
+        amount: Math.abs(Number(work.amount)),
+      });
+    }
+
     const [stmt] = await db
       .insert(landlordStatements)
       .values({
@@ -215,7 +289,15 @@ export async function generateLandlordStatements(
         landlordId,
         periodFrom: from,
         periodTo: to,
-        totals,
+        totals: {
+          rent: totals.rent,
+          fees: totals.fees,
+          costs: totals.costs,
+          adjustments: totals.adjustments,
+          net: totals.net,
+          count: totals.count,
+          works,
+        },
         status: "issued",
         issuedAt: new Date(),
       })
@@ -237,6 +319,29 @@ export async function generateLandlordStatements(
       .set({ documentId: doc.id })
       .where(eq(landlordStatements.id, stmt.id))
       .returning();
+
+    for (const work of totals.works) {
+      await db
+        .update(landlordLedgerEntries)
+        .set({ statementId: stmt.id })
+        .where(eq(landlordLedgerEntries.id, work.id));
+    }
+
+    for (const invoiceId of billedInvoiceIds) {
+      const [existing] = await db.select().from(invoices).where(eq(invoices.id, invoiceId)).limit(1);
+      if (!existing) continue;
+      const meta =
+        typeof existing.meta === "object" && existing.meta
+          ? (existing.meta as Record<string, unknown>)
+          : {};
+      await db
+        .update(invoices)
+        .set({
+          status: WORKS_INVOICE_BILLED,
+          meta: { ...meta, statement_id: stmt.id },
+        })
+        .where(eq(invoices.id, invoiceId));
+    }
 
     created.push({
       statement: updated ?? stmt,
