@@ -15,8 +15,9 @@ import {
 } from "../schema";
 import { getLateFeeRules, parseBranchSettings } from "@/lib/branch-settings";
 import { isTenantPayableInvoiceType } from "@/lib/operations/maintenance/constants";
+import { ensureJobInvoiceSchema, isMissingInvoiceColumnError } from "@/lib/db/ensure-schema";
 
-export async function listInvoices(branchId?: string) {
+function listInvoicesQuery(branchId?: string) {
   const base = db
     .select({
       invoice: invoices,
@@ -42,6 +43,17 @@ export async function listInvoices(branchId?: string) {
     return base.where(eq(invoices.branchId, branchId)).orderBy(desc(invoices.dueDate));
   }
   return base.orderBy(desc(invoices.dueDate));
+}
+
+export async function listInvoices(branchId?: string) {
+  await ensureJobInvoiceSchema();
+  try {
+    return await listInvoicesQuery(branchId);
+  } catch (err) {
+    if (!isMissingInvoiceColumnError(err)) throw err;
+    await ensureJobInvoiceSchema({ force: true });
+    return await listInvoicesQuery(branchId);
+  }
 }
 
 export async function getInvoiceById(id: string) {
@@ -159,6 +171,7 @@ export async function createInvoices(
   }[]
 ) {
   if (rows.length === 0) return [];
+  await ensureJobInvoiceSchema();
 
   const values = [];
   for (const r of rows) {

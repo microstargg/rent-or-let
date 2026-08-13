@@ -14,6 +14,7 @@ import { getManagementFeePercent, parseBranchSettings } from "@/lib/branch-setti
 import { createDocument } from "./compliance";
 import { parseStatementUploadFilename, statementDownloadPath } from "@/lib/pdf/landlord-statement";
 import { WORKS_INVOICE_BILLED } from "@/lib/operations/maintenance/constants";
+import { ensureJobInvoiceSchema } from "@/lib/db/ensure-schema";
 
 export async function insertLandlordLedgerEntry(data: {
   branchId: string;
@@ -30,6 +31,7 @@ export async function insertLandlordLedgerEntry(data: {
   meta?: Record<string, unknown>;
   occurredAt?: Date;
 }) {
+  await ensureJobInvoiceSchema();
   const [row] = await db
     .insert(landlordLedgerEntries)
     .values({

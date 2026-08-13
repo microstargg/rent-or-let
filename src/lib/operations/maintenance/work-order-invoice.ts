@@ -2,6 +2,7 @@ import { and, eq, inArray, lte } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { invoices, properties, tickets, workOrders } from "@/lib/db/schema";
 import { postWorkOrderCostToLandlord } from "@/lib/db/queries/landlord-finance";
+import { ensureJobInvoiceSchema } from "@/lib/db/ensure-schema";
 import {
   WORKS_INVOICE_BILLED,
   WORKS_INVOICE_PENDING,
@@ -57,6 +58,7 @@ export async function getInvoiceForWorkOrder(workOrderId: string) {
  * Dated to the scheduled work date so it falls on the matching statement period.
  */
 export async function upsertWorkOrderInvoice(wo: typeof workOrders.$inferSelect) {
+  await ensureJobInvoiceSchema();
   if (wo.status !== "completed") {
     return getInvoiceForWorkOrder(wo.id);
   }
