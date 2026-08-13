@@ -1,14 +1,16 @@
 import { NextResponse } from "next/server";
 import { requireStaffSession, requireLandlordSession } from "@/lib/auth/server";
+import { statementTotalsForDownload } from "@/lib/db/queries/landlord-finance";
 import {
   contentDispositionAttachment,
   renderLandlordStatementPdf,
   statementDownloadFilename,
-  type LandlordStatementTotals,
 } from "@/lib/pdf/landlord-statement";
 
 interface StatementDownloadRow {
   statement: {
+    id?: string;
+    branchId: string;
     landlordId: string;
     periodFrom: string;
     periodTo: string;
@@ -34,13 +36,16 @@ export async function authorizeStatementDownload(row: {
   };
 }
 
-export function landlordStatementPdfResponse(row: StatementDownloadRow): NextResponse {
+export async function landlordStatementPdfResponse(
+  row: StatementDownloadRow
+): Promise<NextResponse> {
   const landlordName = `${row.firstName} ${row.lastName}`.trim();
+  const totals = await statementTotalsForDownload(row.statement);
   const pdf = renderLandlordStatementPdf({
     landlordName,
     periodFrom: row.statement.periodFrom,
     periodTo: row.statement.periodTo,
-    totals: (row.statement.totals ?? {}) as LandlordStatementTotals,
+    totals,
     issuedAt: row.statement.issuedAt,
   });
   const filename = statementDownloadFilename(
@@ -56,4 +61,3 @@ export function landlordStatementPdfResponse(row: StatementDownloadRow): NextRes
     },
   });
 }
-

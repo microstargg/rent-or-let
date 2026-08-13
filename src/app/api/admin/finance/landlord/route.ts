@@ -30,11 +30,24 @@ export async function POST(request: Request) {
     landlord_id?: string;
     amount?: number;
     memo?: string;
+    statement_id?: string;
   };
 
   if (body.action === "generate_statements" && body.from && body.to) {
     const rows = await generateLandlordStatements(branch.id, body.from, body.to);
     return NextResponse.json({ created: rows.length, rows });
+  }
+
+  if (body.action === "email_statement" && body.statement_id) {
+    const { emailLandlordStatement } = await import(
+      "@/lib/operations/finance/email-statement"
+    );
+    const result = await emailLandlordStatement({
+      branchId: branch.id,
+      statementId: body.statement_id,
+    });
+    if (!result.ok) return NextResponse.json({ error: result.error }, { status: 400 });
+    return NextResponse.json(result);
   }
 
   if (body.action === "payout" && body.landlord_id) {

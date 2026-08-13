@@ -2,6 +2,7 @@
 
 import { auth } from "@/lib/auth/server";
 import { redirect } from "next/navigation";
+import { safeNextPath } from "@/lib/auth/redirect";
 
 export async function signInWithEmail(
   _prev: { error: string } | null,
@@ -14,7 +15,8 @@ export async function signInWithEmail(
 
   if (error) return { error: error.message || "Failed to sign in" };
 
-  redirect("/admin");
+  const next = safeNextPath(String(formData.get("next") ?? ""));
+  redirect(next ? `/login/continue?next=${encodeURIComponent(next)}` : "/login/continue");
 }
 
 export async function signOutAction() {

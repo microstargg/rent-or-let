@@ -811,6 +811,7 @@ export {
   listLandlordStatements,
   getLandlordStatementForDownload,
   findLandlordStatementByUpload,
+  statementTotalsForDownload,
   createLandlordPayout,
   listLandlordPayouts,
 } from "./queries/landlord-finance";
@@ -824,7 +825,9 @@ export {
   convertApplicationToTenancy,
   createLandlordProfile,
   getLandlordProfileByUserId,
+  getLandlordProfileByLandlordId,
   createLandlordInvite,
+  issueLandlordPortalInvite,
   getLandlordInviteByToken,
   acceptLandlordInvite,
   listPropertiesForLandlord,

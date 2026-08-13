@@ -16,6 +16,7 @@ import {
 } from "@/components/admin/admin-page";
 import { formatCurrency } from "@/lib/utils";
 import { statementDownloadPath } from "@/lib/pdf/landlord-statement";
+import { StatementShareActions } from "@/components/admin/statement-share-actions";
 
 export default async function LandlordStatementsPage() {
   const branch = await getDefaultBranch();
@@ -81,11 +82,12 @@ export default async function LandlordStatementsPage() {
                     {Number((statement.totals as { net?: number })?.net ?? 0).toFixed(2)}
                   </p>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex flex-col items-end gap-2 sm:flex-row sm:items-center">
                   <StatusBadge status={statement.status} />
                   <Button asChild variant="outline" size="sm">
                     <a href={statementDownloadPath(statement.id)}>Download PDF</a>
                   </Button>
+                  <StatementShareActions statementId={statement.id} />
                 </div>
               </div>
             ))}

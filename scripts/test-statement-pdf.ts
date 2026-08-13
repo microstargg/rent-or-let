@@ -72,18 +72,47 @@ function main() {
     periodFrom: "2026-03-01",
     periodTo: "2026-03-31",
     totals: {
-      rent: 1000,
-      fees: -100,
-      costs: -480,
+      rent: 1650,
+      fees: -165,
+      costs: -185,
       adjustments: 0,
-      net: 420,
-      count: 3,
+      net: 1300,
+      count: 5,
       works: [
         {
           dated: "2026-03-15",
           address: "1 High Street",
           summary: "Leaking tap",
-          amount: 480,
+          amount: 185,
+        },
+      ],
+      properties: [
+        {
+          id: "p1",
+          address: "1 High Street",
+          rent: 750,
+          fees: -75,
+          costs: -185,
+          adjustments: 0,
+          net: 490,
+          works: [
+            {
+              dated: "2026-03-15",
+              address: "1 High Street",
+              summary: "Leaking tap",
+              amount: 185,
+            },
+          ],
+        },
+        {
+          id: "p2",
+          address: "2 Low Road",
+          rent: 900,
+          fees: -90,
+          costs: 0,
+          adjustments: 0,
+          net: 810,
+          works: [],
         },
       ],
     },
@@ -91,7 +120,12 @@ function main() {
   });
   const worksText = asText(withWorks);
   assert(worksText.includes("Leaking tap"), "PDF itemises completed works");
-  assert(worksText.includes("1 High Street"), "PDF includes works property address");
+  assert(worksText.includes("1 High Street"), "PDF includes first property address");
+  assert(worksText.includes("2 Low Road"), "PDF includes second property address");
+  assert(worksText.includes("Portfolio summary"), "PDF has portfolio summary");
+  assert(worksText.includes("Property net"), "PDF has per-property net");
+  assert(worksText.includes("/Helvetica-Bold"), "PDF uses bold type for headings");
+  assert(worksText.includes("\\243") || worksText.includes("£"), "PDF includes sterling amounts");
 
   const many = buildSimplePdf(
     "Landlord statement",
