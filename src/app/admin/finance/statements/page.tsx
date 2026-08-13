@@ -15,6 +15,7 @@ import {
   StatPill,
 } from "@/components/admin/admin-page";
 import { formatCurrency } from "@/lib/utils";
+import { statementDownloadPath } from "@/lib/pdf/landlord-statement";
 
 export default async function LandlordStatementsPage() {
   const branch = await getDefaultBranch();
@@ -66,7 +67,7 @@ export default async function LandlordStatementsPage() {
       <AdminSection title="Issued statements">
         {statements.length ? (
           <div className="space-y-2">
-            {statements.map(({ statement, firstName, lastName, document }) => (
+            {statements.map(({ statement, firstName, lastName }) => (
               <div
                 key={statement.id}
                 className="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-card p-4 shadow-sm"
@@ -82,13 +83,9 @@ export default async function LandlordStatementsPage() {
                 </div>
                 <div className="flex items-center gap-3">
                   <StatusBadge status={statement.status} />
-                  {document?.url && (
-                    <Button asChild variant="outline" size="sm">
-                      <Link href={document.url} target="_blank">
-                        Download
-                      </Link>
-                    </Button>
-                  )}
+                  <Button asChild variant="outline" size="sm">
+                    <a href={statementDownloadPath(statement.id)}>Download PDF</a>
+                  </Button>
                 </div>
               </div>
             ))}

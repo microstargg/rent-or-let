@@ -104,6 +104,14 @@ async function main() {
     "statement generated for landlord"
   );
   assert(stmts[0]?.document?.url, "statement has downloadable document");
+  assert(
+    stmts.some(
+      (s) =>
+        s.statement.landlordId === landlord.id &&
+        s.document?.url?.includes(`/api/statements/${s.statement.id}/download`)
+    ),
+    "statement download URL is the API route, not a local /uploads file"
+  );
 
   const listed = await listLandlordStatements(branch.id);
   assert(

@@ -10,8 +10,7 @@ import {
 } from "../schema";
 import { getManagementFeePercent, parseBranchSettings } from "@/lib/branch-settings";
 import { createDocument } from "./compliance";
-import { writeFile, mkdir } from "fs/promises";
-import { join } from "path";
+import { parseStatementUploadFilename, statementDownloadPath } from "@/lib/pdf/landlord-statement";
 
 export async function insertLandlordLedgerEntry(data: {
   branchId: string;
@@ -209,24 +208,21 @@ export async function generateLandlordStatements(
   const created = [];
   for (const [landlordId, totals] of byLandlord) {
     const [ll] = await db.select().from(landlords).where(eq(landlords.id, landlordId)).limit(1);
-    const body = [
-      `Landlord statement`,
-      `Landlord: ${ll ? `${ll.firstName} ${ll.lastName}` : landlordId}`,
-      `Period: ${from} to ${to}`,
-      `Rent received: £${totals.rent.toFixed(2)}`,
-      `Management fees: £${totals.fees.toFixed(2)}`,
-      `Costs: £${totals.costs.toFixed(2)}`,
-      `Adjustments: £${totals.adjustments.toFixed(2)}`,
-      `Net: £${totals.net.toFixed(2)}`,
-      `Entries: ${totals.count}`,
-    ].join("\n");
+    const [stmt] = await db
+      .insert(landlordStatements)
+      .values({
+        branchId,
+        landlordId,
+        periodFrom: from,
+        periodTo: to,
+        totals,
+        status: "issued",
+        issuedAt: new Date(),
+      })
+      .returning();
 
-    const dir = join(process.cwd(), "public", "uploads", "statements", landlordId);
-    await mkdir(dir, { recursive: true });
-    const filename = `statement-${from}-${to}-${Date.now()}.txt`;
-    await writeFile(join(dir, filename), body);
-    const url = `/uploads/statements/${landlordId}/${filename}`;
-
+    const filename = `statement-${from}-${to}.pdf`;
+    const url = statementDownloadPath(stmt.id);
     const doc = await createDocument({
       branchId,
       entityType: "landlord",
@@ -236,20 +232,17 @@ export async function generateLandlordStatements(
       filename,
     });
 
-    const [stmt] = await db
-      .insert(landlordStatements)
-      .values({
-        branchId,
-        landlordId,
-        periodFrom: from,
-        periodTo: to,
-        totals,
-        documentId: doc.id,
-        status: "issued",
-        issuedAt: new Date(),
-      })
+    const [updated] = await db
+      .update(landlordStatements)
+      .set({ documentId: doc.id })
+      .where(eq(landlordStatements.id, stmt.id))
       .returning();
-    created.push({ statement: stmt, document: doc, name: ll ? `${ll.firstName} ${ll.lastName}` : "" });
+
+    created.push({
+      statement: updated ?? stmt,
+      document: doc,
+      name: ll ? `${ll.firstName} ${ll.lastName}` : "",
+    });
   }
 
   return created;
@@ -300,6 +293,44 @@ export async function createLandlordPayout(data: {
   });
 
   return payout;
+}
+
+export async function getLandlordStatementForDownload(id: string) {
+  const [row] = await db
+    .select({
+      statement: landlordStatements,
+      firstName: landlords.firstName,
+      lastName: landlords.lastName,
+    })
+    .from(landlordStatements)
+    .innerJoin(landlords, eq(landlordStatements.landlordId, landlords.id))
+    .where(eq(landlordStatements.id, id))
+    .limit(1);
+  return row ?? null;
+}
+
+export async function findLandlordStatementByUpload(landlordId: string, filename: string) {
+  const parsed = parseStatementUploadFilename(filename);
+  if (!parsed) return null;
+
+  const [row] = await db
+    .select({
+      statement: landlordStatements,
+      firstName: landlords.firstName,
+      lastName: landlords.lastName,
+    })
+    .from(landlordStatements)
+    .innerJoin(landlords, eq(landlordStatements.landlordId, landlords.id))
+    .where(
+      and(
+        eq(landlordStatements.landlordId, landlordId),
+        eq(landlordStatements.periodFrom, parsed.from),
+        eq(landlordStatements.periodTo, parsed.to)
+      )
+    )
+    .orderBy(desc(landlordStatements.createdAt))
+    .limit(1);
+  return row ?? null;
 }
 
 export async function listLandlordPayouts(branchId: string) {

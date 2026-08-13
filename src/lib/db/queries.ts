@@ -809,6 +809,8 @@ export {
   listLandlordBalances,
   generateLandlordStatements,
   listLandlordStatements,
+  getLandlordStatementForDownload,
+  findLandlordStatementByUpload,
   createLandlordPayout,
   listLandlordPayouts,
 } from "./queries/landlord-finance";
