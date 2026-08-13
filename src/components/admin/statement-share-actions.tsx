@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { statementPortalLoginUrl } from "@/lib/finance/statement-format";
 
 export function StatementShareActions({ statementId }: { statementId: string }) {
   const [emailLabel, setEmailLabel] = useState("Email landlord");
@@ -29,14 +30,14 @@ export function StatementShareActions({ statementId }: { statementId: string }) 
   }
 
   async function copyPortalLink() {
-    const url = `${window.location.origin}/login?next=${encodeURIComponent("/landlord-portal/statements")}`;
+    const url = statementPortalLoginUrl(window.location.origin, statementId);
     await navigator.clipboard?.writeText(url);
     setCopyLabel("Link copied");
     setTimeout(() => setCopyLabel("Copy portal link"), 2000);
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="flex flex-wrap items-center gap-2 print:hidden">
       <Button type="button" size="sm" variant="outline" onClick={emailLandlord} disabled={loading}>
         {loading ? "Sending…" : emailLabel}
       </Button>

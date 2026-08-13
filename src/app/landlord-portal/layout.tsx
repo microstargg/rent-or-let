@@ -18,7 +18,7 @@ export default async function LandlordPortalLayout({
 
   return (
     <div className="min-h-screen">
-      <header className="border-b px-4 py-3">
+      <header className="border-b px-4 py-3 print:hidden">
         <div className="mx-auto flex max-w-5xl items-center justify-between">
           <Link href="/landlord-portal" className="font-bold text-primary">
             Landlord portal

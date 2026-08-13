@@ -462,6 +462,19 @@ export async function getLandlordStatementForDownload(id: string) {
   return row ?? null;
 }
 
+export async function getLandlordStatementForView(id: string) {
+  const row = await getLandlordStatementForDownload(id);
+  if (!row) return null;
+  const totals = await statementTotalsForDownload(row.statement);
+  return {
+    statement: row.statement,
+    firstName: row.firstName,
+    lastName: row.lastName,
+    landlordName: `${row.firstName} ${row.lastName}`.trim() || "Landlord",
+    totals,
+  };
+}
+
 export async function findLandlordStatementByUpload(landlordId: string, filename: string) {
   const parsed = parseStatementUploadFilename(filename);
   if (!parsed) return null;

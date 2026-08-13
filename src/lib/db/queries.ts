@@ -810,6 +810,7 @@ export {
   generateLandlordStatements,
   listLandlordStatements,
   getLandlordStatementForDownload,
+  getLandlordStatementForView,
   findLandlordStatementByUpload,
   statementTotalsForDownload,
   createLandlordPayout,

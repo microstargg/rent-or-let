@@ -51,3 +51,12 @@
     @apply bg-background text-foreground antialiased;
   }
 }
+
+@media print {
+  @page {
+    margin: 16mm;
+  }
+  body {
+    background: white;
+  }
+}

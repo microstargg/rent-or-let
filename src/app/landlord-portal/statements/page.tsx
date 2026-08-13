@@ -1,5 +1,7 @@
+import Link from "next/link";
 import { requireLandlordSession } from "@/lib/auth/server";
 import { listLandlordStatements } from "@/lib/db/queries";
+import { statementPortalPath } from "@/lib/finance/statement-format";
 import { statementDownloadPath } from "@/lib/pdf/landlord-statement";
 
 export default async function LandlordPortalStatements() {
@@ -21,12 +23,17 @@ export default async function LandlordPortalStatements() {
             <p className="text-sm text-muted-foreground">
               Net £{Number((statement.totals as { net?: number })?.net ?? 0).toFixed(2)}
             </p>
-            <a
-              href={statementDownloadPath(statement.id)}
-              className="text-sm text-primary underline"
-            >
-              Download PDF
-            </a>
+            <div className="mt-2 flex flex-wrap gap-4 text-sm">
+              <Link
+                href={statementPortalPath(statement.id)}
+                className="font-medium text-primary underline"
+              >
+                View statement
+              </Link>
+              <a href={statementDownloadPath(statement.id)} className="text-primary underline">
+                Download PDF
+              </a>
+            </div>
           </div>
         ))}
         {!mine.length && <p className="text-muted-foreground">No statements yet</p>}

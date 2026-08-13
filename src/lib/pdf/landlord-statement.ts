@@ -1,5 +1,6 @@
 import { buildStyledPdf, type PdfBlock } from "./simple-pdf";
 import { siteContent } from "@/lib/content/site";
+import { formatStatementIssuedAt, formatStatementMoney } from "@/lib/finance/statement-format";
 
 export interface LandlordStatementWorkLine {
   dated: string;
@@ -39,25 +40,15 @@ export interface LandlordStatementPdfInput {
   agencyName?: string;
 }
 
-const GBP = new Intl.NumberFormat("en-GB", {
-  style: "currency",
-  currency: "GBP",
-});
-
-function money(value: number | undefined): string {
-  return GBP.format(Number(value ?? 0));
-}
-
 function row(
   label: string,
   value: number | undefined,
   opts?: { bold?: boolean; indent?: boolean; abs?: boolean }
 ): PdfBlock {
-  const n = Number(value ?? 0);
   return {
     kind: "row",
     label,
-    value: money(opts?.abs ? Math.abs(n) : n),
+    value: formatStatementMoney(value, { abs: opts?.abs }),
     bold: opts?.bold,
     indent: opts?.indent,
   };
@@ -79,7 +70,7 @@ export function renderLandlordStatementPdf(input: LandlordStatementPdfInput): Ui
     { kind: "rule" },
     { kind: "text", text: input.landlordName || "—", bold: true },
     { kind: "text", text: `Period ${input.periodFrom} to ${input.periodTo}` },
-    { kind: "text", text: `Issued ${formatIssuedAt(input.issuedAt)}` },
+    { kind: "text", text: `Issued ${formatStatementIssuedAt(input.issuedAt)}` },
     { kind: "spacer" },
     { kind: "heading", text: "Portfolio summary" },
     row("Rent received", totals.rent),
@@ -131,17 +122,6 @@ export function renderLandlordStatementPdf(input: LandlordStatementPdfInput): Ui
   });
 
   return buildStyledPdf(blocks);
-}
-
-function formatIssuedAt(value: Date | string | null | undefined): string {
-  if (!value) return "—";
-  const d = typeof value === "string" ? new Date(value) : value;
-  if (Number.isNaN(d.getTime())) return "—";
-  return new Intl.DateTimeFormat("en-GB", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  }).format(d);
 }
 
 export function parseStatementUploadFilename(

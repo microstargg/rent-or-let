@@ -15,6 +15,7 @@ import {
   StatPill,
 } from "@/components/admin/admin-page";
 import { formatCurrency } from "@/lib/utils";
+import { statementAdminPath } from "@/lib/finance/statement-format";
 import { statementDownloadPath } from "@/lib/pdf/landlord-statement";
 import { StatementShareActions } from "@/components/admin/statement-share-actions";
 
@@ -29,7 +30,7 @@ export default async function LandlordStatementsPage() {
     <div>
       <AdminPageHeader
         title="Landlord statements"
-        description="Generate period statements from the landlord ledger. Completed jobs dated in the period appear as works deductions."
+        description="Generate period statements from the landlord ledger. Open a statement to review it on the platform before downloading, emailing, or sending the portal link. Completed jobs dated in the period appear as works deductions."
         actions={
           <Button asChild variant="outline" size="sm">
             <Link href="/admin/finance/payouts">Go to payouts</Link>
@@ -75,7 +76,9 @@ export default async function LandlordStatementsPage() {
               >
                 <div>
                   <p className="font-semibold">
-                    {firstName} {lastName}
+                    <Link href={statementAdminPath(statement.id)} className="hover:underline">
+                      {firstName} {lastName}
+                    </Link>
                   </p>
                   <p className="text-sm text-muted-foreground">
                     {statement.periodFrom} → {statement.periodTo} · Net £
@@ -84,6 +87,9 @@ export default async function LandlordStatementsPage() {
                 </div>
                 <div className="flex flex-col items-end gap-2 sm:flex-row sm:items-center">
                   <StatusBadge status={statement.status} />
+                  <Button asChild size="sm">
+                    <Link href={statementAdminPath(statement.id)}>View</Link>
+                  </Button>
                   <Button asChild variant="outline" size="sm">
                     <a href={statementDownloadPath(statement.id)}>Download PDF</a>
                   </Button>

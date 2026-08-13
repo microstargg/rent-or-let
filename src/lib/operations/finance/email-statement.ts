@@ -1,6 +1,7 @@
 import { getAppUrl } from "@/lib/app-url";
 import { siteContent } from "@/lib/content/site";
 import { sendPlainEmail } from "@/lib/email/send";
+import { statementPortalLoginUrl } from "@/lib/finance/statement-format";
 import {
   getLandlordById,
   getLandlordProfileByLandlordId,
@@ -24,7 +25,7 @@ export async function emailLandlordStatement(opts: {
 
   const name = `${landlord.firstName} ${landlord.lastName}`.trim() || "Landlord";
   const period = `${row.statement.periodFrom} to ${row.statement.periodTo}`;
-  const portalUrl = `${getAppUrl()}/login?next=${encodeURIComponent("/landlord-portal/statements")}`;
+  const portalUrl = statementPortalLoginUrl(getAppUrl(), row.statement.id);
   const profile = await getLandlordProfileByLandlordId(landlord.id);
 
   let inviteLine = "";
