@@ -6,10 +6,9 @@ import {
   createViewing,
   convertApplicationToTenancy,
   updateApplicationReferencing,
-  createLandlordInvite,
+  issueLandlordPortalInvite,
   getLandlordById,
 } from "@/lib/db/queries";
-import { randomBytes } from "crypto";
 
 export async function POST(request: Request) {
   const { error } = await requireAdminApi();
@@ -68,20 +67,12 @@ export async function POST(request: Request) {
     if (!landlord?.email) {
       return NextResponse.json({ error: "Landlord needs an email" }, { status: 400 });
     }
-    const token = randomBytes(24).toString("hex");
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 14);
-    const invite = await createLandlordInvite({
+    const issued = await issueLandlordPortalInvite({
       branchId: branch.id,
       landlordId: landlord.id,
       email: landlord.email,
-      token,
-      expiresAt,
     });
-    return NextResponse.json({
-      invite,
-      url: `${process.env.NEXT_PUBLIC_SITE_URL ?? ""}/accept-landlord-invite?token=${token}`,
-    });
+    return NextResponse.json(issued);
   }
 
   return NextResponse.json({ error: "Unknown action" }, { status: 400 });

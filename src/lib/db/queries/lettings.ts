@@ -1,4 +1,5 @@
 import { eq, and, desc, gt, isNull } from "drizzle-orm";
+import { randomBytes } from "crypto";
 import { db } from "../index";
 import {
   enquiries,
@@ -10,6 +11,7 @@ import {
   properties,
 } from "../schema";
 import { createRenter, createTenancy } from "./operations";
+import { getAppUrl } from "@/lib/app-url";
 
 export async function updateEnquiryPipeline(id: string, pipelineStage: string) {
   const [row] = await db
@@ -137,6 +139,19 @@ export async function getLandlordProfileByUserId(userId: string) {
   return row ?? null;
 }
 
+export async function getLandlordProfileByLandlordId(landlordId: string) {
+  const [row] = await db
+    .select({
+      profile: landlordProfiles,
+      landlord: landlords,
+    })
+    .from(landlordProfiles)
+    .innerJoin(landlords, eq(landlordProfiles.landlordId, landlords.id))
+    .where(eq(landlordProfiles.landlordId, landlordId))
+    .limit(1);
+  return row ?? null;
+}
+
 export async function createLandlordInvite(data: {
   branchId: string;
   landlordId: string;
@@ -146,6 +161,27 @@ export async function createLandlordInvite(data: {
 }) {
   const [row] = await db.insert(landlordInvites).values(data).returning();
   return row;
+}
+
+export async function issueLandlordPortalInvite(data: {
+  branchId: string;
+  landlordId: string;
+  email: string;
+}) {
+  const token = randomBytes(24).toString("hex");
+  const expiresAt = new Date();
+  expiresAt.setDate(expiresAt.getDate() + 14);
+  const invite = await createLandlordInvite({
+    branchId: data.branchId,
+    landlordId: data.landlordId,
+    email: data.email,
+    token,
+    expiresAt,
+  });
+  return {
+    invite,
+    url: `${getAppUrl()}/accept-landlord-invite?token=${token}`,
+  };
 }
 
 export async function getLandlordInviteByToken(token: string) {

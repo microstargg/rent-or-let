@@ -178,10 +178,17 @@ async function main() {
   assert(billed?.status === WORKS_INVOICE_BILLED, "works invoice marked billed on statement");
   const stmtTotals = (stmt?.statement.totals ?? {}) as {
     works?: Array<{ summary?: string; amount?: number }>;
+    properties?: Array<{ address?: string; works?: Array<{ summary?: string; amount?: number }> }>;
   };
   assert(
     stmtTotals.works?.some((w) => w.summary === "Leaking tap" && Number(w.amount) === 480),
     "statement itemises the job"
+  );
+  assert(
+    stmtTotals.properties?.some((p) =>
+      p.works?.some((w) => w.summary === "Leaking tap" && Number(w.amount) === 480)
+    ),
+    "statement groups the job under a property"
   );
   assert(
     stmt?.document?.url?.includes(`/api/statements/${stmt.statement.id}/download`),

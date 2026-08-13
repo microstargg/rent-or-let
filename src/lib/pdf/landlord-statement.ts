@@ -1,4 +1,4 @@
-import { buildSimplePdf } from "./simple-pdf";
+import { buildStyledPdf, type PdfBlock } from "./simple-pdf";
 import { siteContent } from "@/lib/content/site";
 
 export interface LandlordStatementWorkLine {
@@ -6,6 +6,17 @@ export interface LandlordStatementWorkLine {
   address: string;
   summary: string;
   amount: number;
+}
+
+export interface LandlordStatementPropertyTotals {
+  id: string | null;
+  address: string;
+  rent: number;
+  fees: number;
+  costs: number;
+  adjustments: number;
+  net: number;
+  works: LandlordStatementWorkLine[];
 }
 
 export interface LandlordStatementTotals {
@@ -16,6 +27,7 @@ export interface LandlordStatementTotals {
   net?: number;
   count?: number;
   works?: LandlordStatementWorkLine[];
+  properties?: LandlordStatementPropertyTotals[];
 }
 
 export interface LandlordStatementPdfInput {
@@ -36,16 +48,89 @@ function money(value: number | undefined): string {
   return GBP.format(Number(value ?? 0));
 }
 
-function worksPdfLines(works: LandlordStatementWorkLine[] | undefined): string[] {
-  if (!works?.length) return [];
-  const lines = ["Works:"];
-  for (const work of works) {
-    const address = work.address ? `  ${work.address}` : "";
-    lines.push(
-      `  ${work.dated}${address}  ${work.summary}  ${money(Math.abs(work.amount))}`
-    );
+function row(
+  label: string,
+  value: number | undefined,
+  opts?: { bold?: boolean; indent?: boolean; abs?: boolean }
+): PdfBlock {
+  const n = Number(value ?? 0);
+  return {
+    kind: "row",
+    label,
+    value: money(opts?.abs ? Math.abs(n) : n),
+    bold: opts?.bold,
+    indent: opts?.indent,
+  };
+}
+
+export function renderLandlordStatementPdf(input: LandlordStatementPdfInput): Uint8Array {
+  const agency =
+    input.agencyName ?? siteContent.contact.address.line1 ?? "Property Management Services";
+  const totals = input.totals ?? {};
+  const properties = totals.properties ?? [];
+  const blocks: PdfBlock[] = [
+    { kind: "title", text: "Landlord statement" },
+    { kind: "text", text: agency, bold: true },
+    {
+      kind: "text",
+      text: `${siteContent.contact.address.line2}, ${siteContent.contact.address.city} ${siteContent.contact.address.postcode}`,
+    },
+    { kind: "text", text: `Tel ${siteContent.contact.phone}  ·  ${siteContent.contact.email}` },
+    { kind: "rule" },
+    { kind: "text", text: input.landlordName || "—", bold: true },
+    { kind: "text", text: `Period ${input.periodFrom} to ${input.periodTo}` },
+    { kind: "text", text: `Issued ${formatIssuedAt(input.issuedAt)}` },
+    { kind: "spacer" },
+    { kind: "heading", text: "Portfolio summary" },
+    row("Rent received", totals.rent),
+    row("Management fees", totals.fees),
+    row("Maintenance / costs", totals.costs),
+    row("Adjustments", totals.adjustments),
+    { kind: "rule" },
+    row("Net due to landlord", totals.net, { bold: true }),
+  ];
+
+  for (const property of properties) {
+    blocks.push({ kind: "spacer" });
+    blocks.push({ kind: "heading", text: property.address || "Property" });
+    blocks.push(row("Rent received", property.rent));
+    blocks.push(row("Management fee", property.fees));
+    if (property.works.length) {
+      blocks.push({ kind: "text", text: "Works", bold: true });
+      for (const work of property.works) {
+        blocks.push(
+          row(`${work.dated}  ${work.summary}`, work.amount, { indent: true, abs: true })
+        );
+      }
+    }
+    if (property.adjustments) blocks.push(row("Adjustments", property.adjustments));
+    blocks.push({ kind: "rule" });
+    blocks.push(row("Property net", property.net, { bold: true }));
   }
-  return lines;
+
+  if (!properties.length && totals.works?.length) {
+    blocks.push({ kind: "spacer" });
+    blocks.push({ kind: "heading", text: "Works" });
+    for (const work of totals.works) {
+      const label = [work.dated, work.address, work.summary].filter(Boolean).join("  ");
+      blocks.push(row(label, work.amount, { abs: true }));
+    }
+  }
+
+  blocks.push({ kind: "spacer" });
+  blocks.push({ kind: "rule" });
+  blocks.push(row("Total net due to landlord", totals.net, { bold: true }));
+  blocks.push({ kind: "spacer" });
+  blocks.push({
+    kind: "text",
+    text: "This statement is generated from the landlord ledger for the dates above.",
+  });
+  blocks.push({
+    kind: "text",
+    text: "Positive net is owed to the landlord; negative means the landlord owes the agency.",
+  });
+
+  return buildStyledPdf(blocks);
 }
 
 function formatIssuedAt(value: Date | string | null | undefined): string {
@@ -94,32 +179,4 @@ export function contentDispositionAttachment(filename: string): string {
 
 export function statementDownloadPath(statementId: string): string {
   return `/api/statements/${statementId}/download`;
-}
-
-export function renderLandlordStatementPdf(input: LandlordStatementPdfInput): Uint8Array {
-  const agency =
-    input.agencyName ?? siteContent.contact.address.line1 ?? "Property Management Services";
-  const totals = input.totals ?? {};
-  const lines = [
-    agency,
-    `${siteContent.contact.address.line2}, ${siteContent.contact.address.city} ${siteContent.contact.address.postcode}`,
-    `Tel ${siteContent.contact.phone}  ·  ${siteContent.contact.email}`,
-    "",
-    `Landlord: ${input.landlordName || "—"}`,
-    `Period: ${input.periodFrom} to ${input.periodTo}`,
-    `Issued: ${formatIssuedAt(input.issuedAt)}`,
-    "",
-    "Summary",
-    `Rent received: ${money(totals.rent)}`,
-    `Management fees: ${money(totals.fees)}`,
-    `Maintenance / costs: ${money(totals.costs)}`,
-    ...worksPdfLines(totals.works),
-    `Adjustments: ${money(totals.adjustments)}`,
-    `Net due to landlord: ${money(totals.net)}`,
-    `Ledger entries in period: ${Number(totals.count ?? 0)}`,
-    "",
-    "This statement is generated from the landlord ledger for the dates above.",
-    "Positive net means an amount is owed to the landlord; negative means the landlord owes the agency.",
-  ];
-  return buildSimplePdf("Landlord statement", lines);
 }

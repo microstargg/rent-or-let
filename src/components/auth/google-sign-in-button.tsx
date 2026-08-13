@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 
 type GoogleSignInButtonProps = {
   label?: string;
+  next?: string;
 };
 
 function getSiteOrigin() {
@@ -15,6 +16,7 @@ function getSiteOrigin() {
 
 export function GoogleSignInButton({
   label = "Continue with Google",
+  next,
 }: GoogleSignInButtonProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -24,11 +26,14 @@ export function GoogleSignInButton({
     setError(null);
 
     const origin = getSiteOrigin();
+    const continuePath = next
+      ? `/login/continue?next=${encodeURIComponent(next)}`
+      : "/login/continue";
 
     try {
       const { error: authError } = await authClient.signIn.social({
         provider: "google",
-        callbackURL: `${origin}/admin`,
+        callbackURL: `${origin}${continuePath}`,
         newUserCallbackURL: `${origin}/login?registered=1`,
         errorCallbackURL: `${origin}/login?error=oauth`,
       });

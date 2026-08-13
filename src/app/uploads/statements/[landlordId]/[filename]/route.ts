@@ -24,5 +24,5 @@ export async function GET(
   const auth = await authorizeStatementDownload({ landlordId: row.statement.landlordId });
   if (!auth.ok) return auth.response;
 
-  return landlordStatementPdfResponse(row);
+  return await landlordStatementPdfResponse(row);
 }
