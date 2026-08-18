@@ -2,6 +2,7 @@ import {
   getPropertyWithBranch,
   insertPortalSyncLog,
   updateProperty,
+  getPropertyMetadata,
 } from "@/lib/db/queries";
 import {
   PORTAL_CONFIGS,
@@ -10,6 +11,10 @@ import {
 } from "./rtdf-mapper";
 import { sendProperty, removeProperty } from "./rtdf-client";
 import type { PortalName } from "@/types";
+import {
+  listingScanOverrideValid,
+  scanListingCopy,
+} from "@/lib/listings/discrimination-scan";
 
 function enabledPortalsForBranch(branch: {
   rightmoveSyncEnabled: boolean;
@@ -24,11 +29,30 @@ function enabledPortalsForBranch(branch: {
 export async function syncPropertyToPortals(
   propertyId: string,
   action: "send" | "remove"
-): Promise<void> {
-  if (!process.env.DATABASE_URL) return;
+): Promise<{ blocked?: boolean; message?: string; hits?: { phrase: string; reason: string }[] }> {
+  if (!process.env.DATABASE_URL) return {};
 
   const result = await getPropertyWithBranch(propertyId);
-  if (!result) return;
+  if (!result) return { message: "Property not found" };
+
+  if (action === "send") {
+    const scan = scanListingCopy({
+      summary: result.property.summary,
+      description: result.property.description,
+      features: result.property.features,
+    });
+    if (scan.blocked) {
+      const meta = await getPropertyMetadata(propertyId);
+      const override = meta.listing_scan_override as { hash?: string; at?: string } | undefined;
+      if (!listingScanOverrideValid(override, scan.hash)) {
+        return {
+          blocked: true,
+          message: "Listing copy failed the discrimination scan. Edit the copy or record a staff override.",
+          hits: scan.hits,
+        };
+      }
+    }
+  }
 
   for (const portal of enabledPortalsForBranch(result.branch)) {
     try {
@@ -37,6 +61,7 @@ export async function syncPropertyToPortals(
       console.error(`Portal sync failed for ${propertyId} (${portal}):`, error);
     }
   }
+  return {};
 }
 
 export async function syncPropertyToPortal(

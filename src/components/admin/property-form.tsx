@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,6 +9,7 @@ import { PropertyPortalChecklist } from "@/components/admin/property-portal-chec
 import { PORTAL_LIMITS } from "@/lib/portals/portal-readiness";
 import type { Property } from "@/types";
 import { slugify } from "@/lib/utils";
+import { ListingAssist } from "@/components/admin/listing-assist";
 
 interface PropertyFormProps {
   property?: Property;
@@ -44,6 +45,7 @@ function CharCount({
 }
 
 export function PropertyForm({ property, imageCount = 0, onSuccess }: PropertyFormProps) {
+  const formRef = useRef<HTMLFormElement>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [landlords, setLandlords] = useState<{ id: string; firstName: string; lastName: string }[]>([]);
@@ -145,7 +147,7 @@ export function PropertyForm({ property, imageCount = 0, onSuccess }: PropertyFo
   }
 
   return (
-    <form onSubmit={handleSubmit} className="mt-6 max-w-2xl space-y-6">
+    <form ref={formRef} onSubmit={handleSubmit} className="mt-6 max-w-2xl space-y-6">
       <PropertyPortalChecklist
         input={{
           agent_ref: draft.agent_ref,
@@ -391,6 +393,21 @@ export function PropertyForm({ property, imageCount = 0, onSuccess }: PropertyFo
           warnAt={12000}
         />
       </div>
+
+      <ListingAssist
+        propertyId={property?.id}
+        summary={draft.summary}
+        description={draft.description}
+        features={featureList}
+        formRef={formRef}
+        onCopy={(copy) => {
+          setDraft((current) => ({
+            ...current,
+            summary: copy.summary,
+            description: copy.description,
+          }));
+        }}
+      />
 
       <div>
         <Label htmlFor="features">Features (one per line)</Label>

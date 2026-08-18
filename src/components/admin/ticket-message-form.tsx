@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { TicketPhotoUpload } from "@/components/admin/ticket-photo-upload";
+import { TicketAiPanel } from "@/components/admin/ticket-ai-panel";
 
 export function TicketMessageForm({ ticketId }: { ticketId: string }) {
   const router = useRouter();
@@ -27,6 +28,7 @@ export function TicketMessageForm({ ticketId }: { ticketId: string }) {
 
   return (
     <div className="space-y-4">
+      <TicketAiPanel ticketId={ticketId} onDraft={setBody} />
       <form onSubmit={submit} className="space-y-2">
         <Textarea
           value={body}

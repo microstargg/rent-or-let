@@ -1,3 +1,4 @@
+import Link from "next/link";
 import {
   getDefaultBranch,
   listDepositRegister,
@@ -99,9 +100,12 @@ export default async function AdminLifecyclePage() {
                 className="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-card p-4 shadow-sm"
               >
                 <div>
-                  <p className="font-semibold capitalize">
+                  <Link
+                    href={`/admin/inspections/${inspection.id}`}
+                    className="font-semibold capitalize text-primary"
+                  >
                     {inspection.type.replaceAll("_", " ")}
-                  </p>
+                  </Link>
                   <p className="text-sm text-muted-foreground">{propertyAddress}</p>
                   {inspection.summary && (
                     <p className="mt-1 text-sm">{inspection.summary}</p>
@@ -124,7 +128,7 @@ export default async function AdminLifecyclePage() {
 
       <AdminSection title="Notices">
         {notices.length ? (
-          <AdminTable headers={["Type", "Property", "Served", "Effective"]}>
+          <AdminTable headers={["Type", "Property", "Served", "Effective", "Download"]}>
             {notices.map(({ notice, propertyAddress }) => (
               <tr key={notice.id}>
                 <td className="px-4 py-3 capitalize font-medium">
@@ -134,8 +138,15 @@ export default async function AdminLifecyclePage() {
                 <td className="px-4 py-3 text-muted-foreground">
                   {notice.servedAt ? formatDate(notice.servedAt) : "—"}
                 </td>
-                <td className="px-4 py-3 text-muted-foreground">
-                  {notice.effectiveAt ? formatDate(notice.effectiveAt) : "—"}
+                <td className="px-4 py-3">
+                  <a
+                    className="text-primary underline"
+                    href={`/api/admin/notices/${notice.id}/pdf`}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    PDF
+                  </a>
                 </td>
               </tr>
             ))}

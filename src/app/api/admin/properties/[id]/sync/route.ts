@@ -10,6 +10,9 @@ export async function POST(
   const session = await requireStaffSession();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  await syncPropertyToPortals(id, "send");
+  const result = await syncPropertyToPortals(id, "send");
+  if (result.blocked) {
+    return NextResponse.json(result, { status: 409 });
+  }
   return NextResponse.json({ success: true });
 }

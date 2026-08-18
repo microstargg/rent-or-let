@@ -297,6 +297,7 @@ export async function updateProperty(
     portalSync: Record<string, unknown>;
     landlordId: string | null;
     isVacant: boolean;
+    metadata: Record<string, unknown>;
   }>
 ) {
   await db
@@ -332,6 +333,7 @@ export async function updateProperty(
       ...(data.portalSync && { portalSync: data.portalSync }),
       ...(data.landlordId !== undefined && { landlordId: data.landlordId }),
       ...(data.isVacant !== undefined && { isVacant: data.isVacant }),
+      ...(data.metadata && { metadata: data.metadata }),
       updatedAt: new Date(),
     })
     .where(eq(properties.id, id));
@@ -356,7 +358,25 @@ export async function getPropertyWithBranch(id: string) {
   return {
     property: mapProperty(row.property, images.map(mapImage)),
     branch: row.branch,
+    metadata: (row.property.metadata ?? {}) as Record<string, unknown>,
   };
+}
+
+export async function getPropertyMetadata(id: string): Promise<Record<string, unknown>> {
+  const [row] = await db
+    .select({ metadata: properties.metadata })
+    .from(properties)
+    .where(eq(properties.id, id))
+    .limit(1);
+  return (row?.metadata ?? {}) as Record<string, unknown>;
+}
+
+export async function mergePropertyMetadata(id: string, patch: Record<string, unknown>) {
+  const current = await getPropertyMetadata(id);
+  await db
+    .update(properties)
+    .set({ metadata: { ...current, ...patch }, updatedAt: new Date() })
+    .where(eq(properties.id, id));
 }
 
 export async function addPropertyImage(data: {
@@ -757,6 +777,7 @@ export {
   getTicketForRenter,
   createTicket,
   updateTicketStatus,
+  updateTicketTriage,
   listTicketMessages,
   addTicketMessage,
   listWorkOrders,
@@ -796,6 +817,7 @@ export {
   refreshComplianceStatuses,
   markComplianceServed,
   countComplianceIssues,
+  upsertEpcForProperty,
   TENANCY_COMPLIANCE_TYPES,
 } from "./queries/compliance";
 
@@ -840,10 +862,26 @@ export {
   createInspection,
   completeInspection,
   listInspections,
+  getInspectionById,
+  saveInspectionReport,
+  scheduleInterimInspections,
+  listInspectionsForLandlord,
+  listOverdueInspections,
+  getTenancyNoticeContext,
   createNotice,
   listNotices,
   bulkServeRraInfoSheet,
   setRentReviewDate,
+  listTenancyEvidence,
 } from "./queries/lifecycle";
+
+export {
+  listPetRequests,
+  listPetRequestsForRenter,
+  getPetRequestById,
+  createPetRequest,
+  decidePetRequest,
+  listOverduePetRequests,
+} from "./queries/pets";
 
 export { mapProperty };

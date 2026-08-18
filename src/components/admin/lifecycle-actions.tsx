@@ -21,6 +21,10 @@ export function LifecycleActions({
   const [tenancyId, setTenancyId] = useState(tenancies[0]?.id ?? "");
   const [scheme, setScheme] = useState("DPS");
   const [reference, setReference] = useState("");
+  const [proposedRent, setProposedRent] = useState("");
+  const [effectiveAt, setEffectiveAt] = useState(
+    new Date(Date.now() + 61 * 86400000).toISOString().slice(0, 10)
+  );
   const [loading, setLoading] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -38,8 +42,12 @@ export function LifecycleActions({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setMessage("Action failed — check the selected tenancy and try again");
+        const issueText = Array.isArray(data.issues)
+          ? data.issues.map((i: { message: string }) => i.message).join(" ")
+          : "";
+        setMessage(data.error ? `${data.error}${issueText ? ` — ${issueText}` : ""}` : "Action failed");
         return;
       }
       setMessage("Saved");
@@ -141,19 +149,67 @@ export function LifecycleActions({
           <Button
             type="button"
             variant="outline"
-            disabled={!tenancyId || loading === "notice"}
+            disabled={!selected || loading === "interim"}
+            onClick={() =>
+              post("interim", {
+                action: "create_inspection",
+                property_id: selected!.propertyId,
+                tenancy_id: selected!.id,
+                type: "interim",
+                scheduled_at: new Date().toISOString(),
+              })
+            }
+          >
+            Schedule interim now
+          </Button>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <div>
+              <Label htmlFor="proposed_rent">Proposed rent (pcm)</Label>
+              <Input
+                id="proposed_rent"
+                className="mt-1.5"
+                inputMode="decimal"
+                value={proposedRent}
+                onChange={(e) => setProposedRent(e.target.value)}
+                placeholder="e.g. 850"
+              />
+            </div>
+            <div>
+              <Label htmlFor="effective_at">Effective date</Label>
+              <Input
+                id="effective_at"
+                className="mt-1.5"
+                type="date"
+                value={effectiveAt}
+                onChange={(e) => setEffectiveAt(e.target.value)}
+              />
+            </div>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={!tenancyId || !proposedRent || loading === "notice"}
             onClick={() =>
               post("notice", {
                 action: "create_notice",
                 tenancy_id: tenancyId,
                 type: "section_13",
                 serve: true,
-                effective_at: new Date(Date.now() + 60 * 86400000).toISOString().slice(0, 10),
+                proposed_rent: Number(proposedRent),
+                effective_at: effectiveAt,
+                acknowledge_warnings: true,
               })
             }
           >
             Serve Section 13 notice
           </Button>
+          {tenancyId && (
+            <Button asChild variant="secondary">
+              <a href={`/api/admin/tenancies/${tenancyId}/evidence`} target="_blank" rel="noreferrer">
+                Download evidence pack
+              </a>
+            </Button>
+          )}
           <Button
             type="button"
             variant="secondary"

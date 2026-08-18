@@ -15,7 +15,15 @@ export function PropertyEditClient({ property }: PropertyEditClientProps) {
   const router = useRouter();
 
   async function syncToPortals() {
-    await fetch(`/api/admin/properties/${property.id}/sync`, { method: "POST" });
+    const res = await fetch(`/api/admin/properties/${property.id}/sync`, { method: "POST" });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const hits = Array.isArray(data.hits)
+        ? data.hits.map((h: { phrase: string }) => h.phrase).join(", ")
+        : "";
+      window.alert(data.message ? `${data.message}${hits ? `\n${hits}` : ""}` : "Sync failed");
+      return;
+    }
     router.refresh();
   }
 

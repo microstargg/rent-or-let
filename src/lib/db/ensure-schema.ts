@@ -104,3 +104,52 @@ export async function ensureJobInvoiceSchema(opts?: { force?: boolean }): Promis
   }
   await pending;
 }
+
+const PET_REQUEST_DDL = `
+CREATE TABLE IF NOT EXISTS pet_requests (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  branch_id uuid NOT NULL REFERENCES branches(id),
+  tenancy_id uuid NOT NULL REFERENCES tenancies(id) ON DELETE CASCADE,
+  renter_id uuid REFERENCES renters(id) ON DELETE SET NULL,
+  pet_description text NOT NULL,
+  requested_at timestamptz NOT NULL DEFAULT now(),
+  due_at timestamptz NOT NULL,
+  status text NOT NULL DEFAULT 'open',
+  decision_at timestamptz,
+  decision_notes text,
+  info_requested_at timestamptz,
+  superior_requested_at timestamptz,
+  document_id uuid REFERENCES documents(id) ON DELETE SET NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+)`.replace(/\s+/g, " ").trim();
+
+let petPending: Promise<void> | null = null;
+
+async function applyPetRequestMigration(): Promise<void> {
+  const url = process.env.DATABASE_URL;
+  if (!url) return;
+  const sql = neon(url);
+  try {
+    await sql(PET_REQUEST_DDL);
+    await sql(`CREATE INDEX IF NOT EXISTS idx_pet_requests_tenancy ON pet_requests(tenancy_id)`);
+    await sql(
+      `CREATE INDEX IF NOT EXISTS idx_pet_requests_branch_status ON pet_requests(branch_id, status)`
+    );
+  } catch (err) {
+    const msg = messageOf(err);
+    if (!isIgnorableDdlError(msg) && !/does not exist/i.test(msg)) {
+      console.warn("pet_requests migration:", msg);
+    }
+  }
+}
+
+export async function ensurePetRequestsSchema(): Promise<void> {
+  if (!petPending) {
+    petPending = applyPetRequestMigration().catch((err) => {
+      petPending = null;
+      throw err;
+    });
+  }
+  await petPending;
+}

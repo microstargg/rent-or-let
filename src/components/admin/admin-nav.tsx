@@ -21,6 +21,8 @@ import {
   Banknote,
   AlertTriangle,
   ShieldCheck,
+  Camera,
+  PawPrint,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -64,6 +66,7 @@ const navSections: NavSection[] = [
     items: [
       { href: "/admin/compliance", label: "Certificates", icon: ShieldCheck },
       { href: "/admin/lifecycle", label: "Deposits & notices", icon: FileText },
+      { href: "/admin/pets", label: "Pet requests", icon: PawPrint },
     ],
   },
   {
@@ -78,6 +81,7 @@ const navSections: NavSection[] = [
     items: [
       { href: "/admin/tickets", label: "Tickets", icon: Wrench },
       { href: "/admin/jobs/board", label: "Jobs board", icon: ClipboardList },
+      { href: "/admin/inspections", label: "Inspections", icon: Camera },
       { href: "/admin/complaints", label: "Complaints", icon: AlertCircle },
       { href: "/admin/portals", label: "Portal sync", icon: RefreshCw },
     ],

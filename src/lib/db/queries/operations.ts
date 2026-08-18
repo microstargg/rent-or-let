@@ -424,6 +424,9 @@ export async function createTenancy(data: {
     tenancyId: row.id,
   });
 
+  const { scheduleInterimInspections } = await import("./lifecycle");
+  await scheduleInterimInspections(row.id);
+
   return row;
 }
 

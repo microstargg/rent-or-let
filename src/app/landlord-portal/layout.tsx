@@ -25,6 +25,7 @@ export default async function LandlordPortalLayout({
           </Link>
           <nav className="flex gap-4 text-sm">
             <Link href="/landlord-portal">Overview</Link>
+            <Link href="/landlord-portal/inspections">Inspections</Link>
             <Link href="/landlord-portal/statements">Statements</Link>
             <Link href="/landlord-portal/compliance">Compliance</Link>
           </nav>

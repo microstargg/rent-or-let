@@ -30,6 +30,10 @@ export async function POST(request: Request) {
     effective_at?: string;
     grounds?: string;
     serve?: boolean;
+    proposed_rent?: number;
+    served_to?: string;
+    acknowledge_warnings?: boolean;
+    meta?: Record<string, unknown>;
     rent_review_date?: string;
   };
 
@@ -62,6 +66,45 @@ export async function POST(request: Request) {
   }
 
   if (body.action === "create_notice" && body.tenancy_id && body.type) {
+    if (body.type === "section_13") {
+      const { getTenancyNoticeContext } = await import("@/lib/db/queries");
+      const { validateRentIncrease } = await import("@/lib/rra/rent-increase");
+      const ctx = await getTenancyNoticeContext(body.tenancy_id);
+      if (!ctx) return NextResponse.json({ error: "Tenancy not found" }, { status: 404 });
+      const proposed = Number(body.proposed_rent);
+      const last =
+        ctx.tenancy.rentReviewDate ??
+        ctx.lastSection13?.effectiveAt ??
+        ctx.lastSection13?.servedAt?.toISOString().slice(0, 10) ??
+        null;
+      const validation = validateRentIncrease({
+        currentRent: Number(ctx.tenancy.rentAmount),
+        proposedRent: proposed,
+        tenancyStart: ctx.tenancy.startDate,
+        lastIncreaseDate: last,
+        serveDate: new Date().toISOString().slice(0, 10),
+        effectiveDate: body.effective_at ?? "",
+        epcRating: ctx.property.epcRating,
+      });
+      if (!validation.ok) {
+        return NextResponse.json({ error: "Rent increase failed validation", issues: validation.issues }, { status: 422 });
+      }
+      if (validation.issues.length && !body.acknowledge_warnings) {
+        return NextResponse.json({ issues: validation.issues, needsAck: true }, { status: 409 });
+      }
+      const row = await createNotice({
+        branchId: branch.id,
+        tenancyId: body.tenancy_id,
+        type: body.type,
+        effectiveAt: body.effective_at,
+        grounds: body.grounds,
+        serve: body.serve ?? true,
+        servedTo: body.served_to,
+        meta: { proposedRent: proposed },
+      });
+      if (body.effective_at) await setRentReviewDate(body.tenancy_id, body.effective_at);
+      return NextResponse.json({ notice: row, issues: validation.issues }, { status: 201 });
+    }
     const row = await createNotice({
       branchId: branch.id,
       tenancyId: body.tenancy_id,
@@ -69,6 +112,8 @@ export async function POST(request: Request) {
       effectiveAt: body.effective_at,
       grounds: body.grounds,
       serve: body.serve ?? true,
+      servedTo: body.served_to,
+      meta: body.meta,
     });
     return NextResponse.json(row, { status: 201 });
   }

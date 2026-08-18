@@ -6,3 +6,4 @@ export * from "./compliance";
 export * from "./landlord-finance";
 export * from "./lettings";
 export * from "./lifecycle";
+export * from "./pets";

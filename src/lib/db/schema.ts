@@ -761,6 +761,35 @@ export const notices = pgTable(
   (table) => [index("idx_notices_tenancy").on(table.tenancyId)]
 );
 
+export const petRequests = pgTable(
+  "pet_requests",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    branchId: uuid("branch_id")
+      .notNull()
+      .references(() => branches.id),
+    tenancyId: uuid("tenancy_id")
+      .notNull()
+      .references(() => tenancies.id, { onDelete: "cascade" }),
+    renterId: uuid("renter_id").references(() => renters.id, { onDelete: "set null" }),
+    petDescription: text("pet_description").notNull(),
+    requestedAt: timestamp("requested_at", { withTimezone: true }).notNull().defaultNow(),
+    dueAt: timestamp("due_at", { withTimezone: true }).notNull(),
+    status: text("status").notNull().default("open"),
+    decisionAt: timestamp("decision_at", { withTimezone: true }),
+    decisionNotes: text("decision_notes"),
+    infoRequestedAt: timestamp("info_requested_at", { withTimezone: true }),
+    superiorRequestedAt: timestamp("superior_requested_at", { withTimezone: true }),
+    documentId: uuid("document_id").references(() => documents.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("idx_pet_requests_tenancy").on(table.tenancyId),
+    index("idx_pet_requests_branch_status").on(table.branchId, table.status),
+  ]
+);
+
 /** Statement import connections (CSV) and historical bank links */
 export const bankConnections = pgTable(
   "bank_connections",

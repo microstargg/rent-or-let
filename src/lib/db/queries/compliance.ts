@@ -302,6 +302,39 @@ export async function markComplianceServed(
   return { item: await getComplianceItemById(itemId), document: served };
 }
 
+export async function upsertEpcForProperty(data: {
+  branchId: string;
+  propertyId: string;
+  rating: string;
+  issuedAt?: string | null;
+  expiresAt?: string | null;
+  certificateUrl?: string | null;
+  reference?: string | null;
+}) {
+  const existing = await db
+    .select()
+    .from(complianceItems)
+    .where(and(eq(complianceItems.propertyId, data.propertyId), eq(complianceItems.type, "epc")))
+    .limit(1);
+
+  if (existing[0]) {
+    return updateComplianceItem(existing[0].id, {
+      issuedAt: data.issuedAt ?? existing[0].issuedAt,
+      expiresAt: data.expiresAt ?? existing[0].expiresAt,
+      reference: data.reference ?? existing[0].reference,
+    });
+  }
+
+  return createComplianceItem({
+    branchId: data.branchId,
+    propertyId: data.propertyId,
+    type: "epc",
+    issuedAt: data.issuedAt,
+    expiresAt: data.expiresAt,
+    reference: data.reference ?? data.rating,
+  });
+}
+
 export async function countComplianceIssues(branchId: string) {
   const [row] = await db
     .select({ value: sql<number>`count(*)::int` })

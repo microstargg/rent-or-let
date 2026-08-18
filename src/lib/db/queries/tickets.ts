@@ -175,6 +175,23 @@ export async function updateTicketStatus(id: string, status: string) {
     .where(eq(tickets.id, id));
 }
 
+export async function updateTicketTriage(
+  id: string,
+  data: { priority?: string | null; category?: string | null; isEmergency?: boolean }
+) {
+  const [row] = await db
+    .update(tickets)
+    .set({
+      ...(data.priority !== undefined && { priority: data.priority }),
+      ...(data.category !== undefined && { category: data.category }),
+      ...(data.isEmergency !== undefined && { isEmergency: data.isEmergency }),
+      updatedAt: new Date(),
+    })
+    .where(eq(tickets.id, id))
+    .returning();
+  return row ?? null;
+}
+
 export async function listTicketMessages(ticketId: string) {
   return db
     .select()
