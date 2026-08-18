@@ -40,6 +40,6 @@
 ## Content migrated
 
 - Company copy (about, services, contact)
-- Two seed properties from current site (Ferndale Avenue, Howe Street)
+- Three seed properties from current site (Ferndale Avenue, Howe Street, Brogden Green)
 - Office hours and contact details
 - UKALA CMP reference (certificate PDF to be uploaded)
