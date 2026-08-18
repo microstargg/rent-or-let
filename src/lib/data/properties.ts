@@ -6,6 +6,7 @@ import {
 
 const FERNDALE_SLUG = "ferndale-avenue-middlesbrough-ts3-9ds";
 const HOWE_STREET_SLUG = "howe-street-middlesbrough-ts1-4ld";
+const BROGDEN_GREEN_SLUG = "brogden-green-middlesbrough-ts3";
 
 function propertyImages(
   propertyId: string,
@@ -120,6 +121,54 @@ Council Tax Band A`,
     updated_at: new Date().toISOString(),
     published_at: new Date().toISOString(),
     images: propertyImages("seed-2", HOWE_STREET_SLUG, 6, "Howe Street, Middlesbrough, TS1 4LD"),
+  },
+  {
+    id: "seed-3",
+    branch_id: "00000000-0000-0000-0000-000000000001",
+    agent_ref: "PMS-003",
+    slug: BROGDEN_GREEN_SLUG,
+    display_address: "Brogden Green, Middlesbrough, TS3",
+    house_name_number: "",
+    street: "Brogden Green",
+    town: "Middlesbrough",
+    postcode: "TS3",
+    price_pcm: 680,
+    deposit: 680,
+    available_from: "2026-06-22",
+    bedrooms: 2,
+    bathrooms: 1,
+    property_type: "terraced",
+    furnished: "part_furnished",
+    status: "available",
+    description: `This property benefits from double glazing, gas central heating, new flooring/carpets, a new bathroom suite, newly fitted blinds & new decoration throughout.
+
+The ground floor briefly comprises a hall/lobby, lounge with wooden flooring, kitchen and outside storage. On the first floor are two bedrooms and a family bathroom with an electric shower over the bath. Gardens to the front and rear of the property.
+
+The bond is £680.00, and references are required.
+
+EPC Rating C`,
+    summary: "£680.00 Per Calendar Month, 2 Bedroom Terraced House, Part Furnished.",
+    features: [
+      "Double glazing",
+      "Gas central heating",
+      "Part furnished",
+      "New flooring/carpets",
+      "New bathroom suite",
+      "Newly fitted blinds",
+      "New decoration throughout",
+      "Lounge with wooden flooring",
+      "Kitchen and outside storage",
+      "Two bedrooms",
+      "Family bathroom with electric shower over bath",
+      "Gardens to front and rear",
+      "EPC Rating C",
+    ],
+    epc_rating: "C",
+    portal_sync: {},
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    published_at: new Date().toISOString(),
+    images: propertyImages("seed-3", BROGDEN_GREEN_SLUG, 8, "Brogden Green, Middlesbrough, TS3"),
   },
 ];
 
