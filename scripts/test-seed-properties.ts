@@ -8,6 +8,10 @@ import {
   getAvailableProperties,
   getPropertyBySlug,
 } from "../src/lib/data/properties";
+import {
+  BROGDEN_GREEN_SEED_STATEMENTS,
+  BROGDEN_GREEN_SLUG,
+} from "../src/lib/db/ensure-seed-properties";
 
 function assert(cond: unknown, msg: string) {
   if (!cond) throw new Error(`FAIL: ${msg}`);
@@ -56,6 +60,17 @@ async function main() {
     assert(existsSync(file), `${file} exists`);
     assert(statSync(file).size > 50_000, `${file} is a real photo`);
   }
+
+  assert(BROGDEN_GREEN_SLUG === SLUG, "runtime seed slug matches listing");
+  assert(BROGDEN_GREEN_SEED_STATEMENTS.length === 3, "runtime seed has insert, image delete, image insert");
+  assert(
+    BROGDEN_GREEN_SEED_STATEMENTS[0].includes("ON CONFLICT (slug) DO UPDATE"),
+    "runtime seed upserts on slug"
+  );
+  assert(
+    BROGDEN_GREEN_SEED_STATEMENTS[2].includes("/properties/brogden-green-middlesbrough-ts3/08.jpg"),
+    "runtime seed attaches eight photos"
+  );
 
   console.log("\nSeed properties: ALL CHECKS PASSED");
 }
