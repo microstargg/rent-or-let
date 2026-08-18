@@ -15,6 +15,7 @@
     "db:setup": "node scripts/setup-db.mjs"
   },
   "dependencies": {
+    "@ai-sdk/google": "^4.0.45",
     "@hookform/resolvers": "^5.0.1",
     "@neondatabase/neon-js": "0.6.1-beta",
     "@neondatabase/serverless": "^0.10.4",
