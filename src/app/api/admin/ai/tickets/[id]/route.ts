@@ -3,6 +3,7 @@ import { requireAdminApi } from "@/lib/api-auth";
 import { getTicketById, listTicketMessages, updateTicketTriage } from "@/lib/db/queries";
 import { draftTicketReply, suggestTicketTriage } from "@/lib/ai/ticket-assist";
 import { isAiConfigured, aiUnavailableMessage } from "@/lib/ai/client";
+import { toClientSafeAiError } from "@/lib/ai/models";
 
 export async function POST(
   request: Request,
@@ -53,8 +54,9 @@ export async function POST(
     }
     return NextResponse.json({ error: "Unknown action" }, { status: 400 });
   } catch (err) {
+    console.error("ticket AI failed", err);
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "AI failed" },
+      { error: toClientSafeAiError(err, aiUnavailableMessage()).message },
       { status: 502 }
     );
   }

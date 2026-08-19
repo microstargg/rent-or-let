@@ -12,7 +12,8 @@
     "db:push": "drizzle-kit push",
     "db:generate": "drizzle-kit generate",
     "db:studio": "drizzle-kit studio",
-    "db:setup": "node scripts/setup-db.mjs"
+    "db:setup": "node scripts/setup-db.mjs",
+    "test": "tsx --test src/lib/ai/models.test.ts"
   },
   "dependencies": {
     "@ai-sdk/google": "^4.0.45",
