@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireAdminApi } from "@/lib/api-auth";
 import { generateListingCopy } from "@/lib/ai/listing-copy";
 import { isAiConfigured, aiUnavailableMessage } from "@/lib/ai/client";
+import { toClientSafeAiError } from "@/lib/ai/models";
 
 const Body = z.object({
   town: z.string().min(1),
@@ -30,8 +31,9 @@ export async function POST(request: Request) {
     const copy = await generateListingCopy(parsed.data);
     return NextResponse.json(copy);
   } catch (err) {
+    console.error("listing-copy AI failed", err);
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "AI generation failed" },
+      { error: toClientSafeAiError(err, aiUnavailableMessage()).message },
       { status: 502 }
     );
   }
