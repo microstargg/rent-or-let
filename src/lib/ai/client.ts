@@ -2,10 +2,24 @@ import { generateObject, generateText, type LanguageModel } from "ai";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import type { z } from "zod";
 
-/** Google AI Studio free-tier Flash. Swap via AI_MODEL when you move to paid. */
-const GOOGLE_FREE_MODEL = "gemini-2.5-flash";
+/** Google AI Studio Flash. Swap via AI_MODEL when you move to paid. */
+const GOOGLE_FLASH_MODEL = "gemini-3.6-flash";
 /** Vercel AI Gateway slug when no Google key is set (Vercel deploy / paid path). */
-const GATEWAY_MODEL = "google/gemini-3.7-flash";
+const GATEWAY_MODEL = `google/${GOOGLE_FLASH_MODEL}`;
+
+/** IDs Google has retired for new AI Studio keys — remap so leftover env vars cannot keep 2.5 live. */
+const RETIRED_GOOGLE_MODELS: Record<string, string> = {
+  "gemini-2.5-flash": GOOGLE_FLASH_MODEL,
+  "gemini-2.5-flash-lite": GOOGLE_FLASH_MODEL,
+  "gemini-2.5-pro": GOOGLE_FLASH_MODEL,
+  "gemini-2.0-flash": GOOGLE_FLASH_MODEL,
+  "gemini-2.0-flash-001": GOOGLE_FLASH_MODEL,
+};
+
+export function resolveGoogleModelId(requested?: string | null): string {
+  const raw = (requested?.trim() || GOOGLE_FLASH_MODEL).replace(/^google\//, "");
+  return RETIRED_GOOGLE_MODELS[raw] ?? raw;
+}
 
 function googleApiKey(): string | undefined {
   return process.env.GOOGLE_GENERATIVE_AI_API_KEY?.trim() || process.env.GOOGLE_API_KEY?.trim();
@@ -34,11 +48,14 @@ function resolveModel(): LanguageModel | string {
 
   if (googleKey) {
     const google = createGoogleGenerativeAI({ apiKey: googleKey });
-    const modelId = override ? override.replace(/^google\//, "") : GOOGLE_FREE_MODEL;
-    return google(modelId);
+    return google(resolveGoogleModelId(override));
   }
 
-  return override || GATEWAY_MODEL;
+  if (!override) return GATEWAY_MODEL;
+  const googleId = resolveGoogleModelId(override);
+  return override.startsWith("google/") || !override.includes("/")
+    ? `google/${googleId}`
+    : override;
 }
 
 export async function generateAiText(prompt: string, system?: string): Promise<string> {

@@ -6,6 +6,7 @@ import { scanListingCopy, listingScanOverrideValid } from "../src/lib/listings/d
 import { validateRentIncrease } from "../src/lib/rra/rent-increase";
 import { defaultInspectionReport, parseInspectionReport } from "../src/lib/inspections/report";
 import { initialPetDueAt, isPetRequestOverdue, addDays } from "../src/lib/rra/pet-request";
+import { resolveGoogleModelId } from "../src/lib/ai/client";
 
 function assert(cond: unknown, msg: string) {
   if (!cond) throw new Error(`FAIL: ${msg}`);
@@ -75,6 +76,20 @@ function main() {
   assert(
     !isPetRequestOverdue({ status: "approved", dueAt: requested, now: new Date("2026-08-30") }),
     "approved request is not overdue"
+  );
+
+  assert(resolveGoogleModelId() === "gemini-3.6-flash", "default Google model is gemini-3.6-flash");
+  assert(
+    resolveGoogleModelId("gemini-2.5-flash") === "gemini-3.6-flash",
+    "retired gemini-2.5-flash remaps to 3.6"
+  );
+  assert(
+    resolveGoogleModelId("google/gemini-2.5-flash") === "gemini-3.6-flash",
+    "gateway-prefixed retired ID remaps"
+  );
+  assert(
+    resolveGoogleModelId("gemini-3.6-flash") === "gemini-3.6-flash",
+    "current Flash ID is left unchanged"
   );
 
   console.log("All phase G unit tests passed");
