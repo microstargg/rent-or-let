@@ -33,6 +33,19 @@ const properties = [
       "https://www.rent-or-let.co.uk/wp-content/uploads/2020/11/Bedroom1-1-1536x1152.jpg",
     ],
   },
+  {
+    slug: "brogden-green-middlesbrough-ts3",
+    images: [
+      "https://www.rent-or-let.co.uk/wp-content/uploads/2021/05/IMG_1903-scaled.jpg",
+      "https://www.rent-or-let.co.uk/wp-content/uploads/2021/05/IMG_5651-scaled.jpg",
+      "https://www.rent-or-let.co.uk/wp-content/uploads/2021/05/IMG_5652-scaled.jpg",
+      "https://www.rent-or-let.co.uk/wp-content/uploads/2021/05/IMG_5656-scaled.jpg",
+      "https://www.rent-or-let.co.uk/wp-content/uploads/2021/05/BROGDEN-GREEN-LOUNGE.jpeg",
+      "https://www.rent-or-let.co.uk/wp-content/uploads/2021/05/IMG_5657-scaled.jpg",
+      "https://www.rent-or-let.co.uk/wp-content/uploads/2021/05/IMG_5658-scaled.jpg",
+      "https://www.rent-or-let.co.uk/wp-content/uploads/2021/05/IMG_1776-scaled.jpg",
+    ],
+  },
 ];
 
 for (const property of properties) {

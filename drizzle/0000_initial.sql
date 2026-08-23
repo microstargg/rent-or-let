@@ -183,4 +183,14 @@ INSERT INTO properties (
   'Furnished three-bedroom terraced house. Rent £750.00 PCM. Bills not included.',
   'Furnished 3 bed terraced house',
   '["Three bedrooms", "Fully furnished", "Central Middlesbrough"]'::jsonb, now()
+),
+(
+  '00000000-0000-0000-0000-000000000001', 'PMS-003',
+  'brogden-green-middlesbrough-ts3',
+  'Brogden Green, Middlesbrough, TS3',
+  '', 'Brogden Green', 'Middlesbrough', 'TS3',
+  680, 680, CURRENT_DATE, 2, 1, 'terraced', 'part_furnished', 'available',
+  'Two bedroom terraced house available in Middlesbrough. Part furnished with double glazing, gas central heating and gardens to the front and rear.',
+  '2 bed terraced house, part furnished',
+  '["Two bedrooms", "Part furnished", "Teesside location"]'::jsonb, now()
 ) ON CONFLICT DO NOTHING;

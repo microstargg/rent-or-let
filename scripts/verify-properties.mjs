@@ -16,7 +16,8 @@ const rows = await sql`
   FROM properties
   WHERE slug IN (
     'ferndale-avenue-middlesbrough-ts3-9ds',
-    'howe-street-middlesbrough-ts1-4ld'
+    'howe-street-middlesbrough-ts1-4ld',
+    'brogden-green-middlesbrough-ts3'
   )
 `;
 
@@ -26,7 +27,8 @@ const imgs = await sql`
   LEFT JOIN property_images pi ON pi.property_id = p.id
   WHERE p.slug IN (
     'ferndale-avenue-middlesbrough-ts3-9ds',
-    'howe-street-middlesbrough-ts1-4ld'
+    'howe-street-middlesbrough-ts1-4ld',
+    'brogden-green-middlesbrough-ts3'
   )
   GROUP BY p.slug
 `;

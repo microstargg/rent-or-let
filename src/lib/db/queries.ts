@@ -13,6 +13,7 @@ import {
   landlords,
 } from "./schema";
 import type { Property, PropertyImage } from "@/types";
+import { ensureSeedLiveProperties } from "./ensure-seed-properties";
 
 function mapProperty(
   row: typeof properties.$inferSelect,
@@ -71,6 +72,7 @@ export async function getAvailableProperties(filters?: {
   maxRent?: number;
   town?: string;
 }): Promise<Property[]> {
+  await ensureSeedLiveProperties();
   const conditions = [eq(properties.status, "available")];
   if (filters?.minBedrooms) conditions.push(gte(properties.bedrooms, filters.minBedrooms));
   if (filters?.maxRent) conditions.push(lte(properties.pricePcm, String(filters.maxRent)));
@@ -95,6 +97,7 @@ export async function getAvailableProperties(filters?: {
 }
 
 export async function getPropertyBySlug(slug: string): Promise<Property | null> {
+  await ensureSeedLiveProperties();
   const [row] = await db
     .select()
     .from(properties)
@@ -126,6 +129,7 @@ export async function getPropertyById(id: string) {
 }
 
 export async function listAllProperties() {
+  await ensureSeedLiveProperties();
   return db.select().from(properties).orderBy(desc(properties.updatedAt));
 }
 
@@ -136,6 +140,7 @@ export async function searchProperties(opts: {
   page?: number;
   pageSize?: number;
 } = {}) {
+  await ensureSeedLiveProperties();
   const pageSize = opts.pageSize ?? 50;
   const page = Math.max(1, opts.page ?? 1);
   const offset = (page - 1) * pageSize;
