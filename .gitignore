@@ -14,6 +14,12 @@
 # next.js
 /.next/
 /out/
+apps/web/.next/
+
+# generated tenant assets (prepare-tenant.mjs)
+apps/web/src/app/tenant-theme.css
+apps/web/src/app/icon.svg
+apps/web/src/app/apple-icon.svg
 
 # production
 /build
@@ -41,4 +47,6 @@ yarn-error.log*
 next-env.d.ts
 
 /public/uploads
+apps/web/public/uploads
 
+.env*

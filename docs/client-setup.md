@@ -1,76 +1,86 @@
 # Client setup playbook
 
-Use this checklist when cloning rent-or-let for a new letting agency client.
+Use this checklist when onboarding a new letting agency on the shared platform monorepo.
 
-## 1. Fork or duplicate the repository
+**Current tenants:** `pms` (Property Management Services), `veri-properties` (Veri Properties).
 
-```bash
-git clone https://github.com/your-org/rent-or-let.git new-agency-site
-cd new-agency-site
-```
+## Architecture
 
-Or use GitHub **Use this template** if enabled.
+- **Shared code:** `apps/web`, `packages/*` — features and bug fixes deploy to all clients
+- **Per-client branding:** `tenants/<tenant-id>/` — copy, theme, logo, payment ref prefix
+- **Per-client data:** separate Neon database per Vercel deployment
 
-## 2. Rebrand
+## 1. Add a tenant folder
 
-| Item | File |
-|------|------|
-| Marketing copy, contact, fees | [`src/lib/content/site.ts`](../src/lib/content/site.ts) |
-| Site title / metadata | [`src/app/layout.tsx`](../src/app/layout.tsx) |
-| Admin label | [`src/app/admin/layout.tsx`](../src/app/admin/layout.tsx) |
-| Logo / favicon | [`public/`](../public/) |
+Create `tenants/<tenant-id>/` with:
 
-## 3. Provision infrastructure
+| File | Purpose |
+|------|---------|
+| `config.ts` | `TenantConfig` (name, domain, colours, payment ref prefix) |
+| `site.ts` | Marketing copy, contact, fees |
+| `theme.css` | CSS variable overrides |
+| `assets/icon.svg` | Favicon (copied to app at build time) |
+| `seed.sql` | Initial branch row and optional sample properties |
+
+Register the tenant in [`packages/config/src/registry.ts`](../packages/config/src/registry.ts).
+
+Add the tenant id to the CI matrix in [`.github/workflows/ci.yml`](../.github/workflows/ci.yml).
+
+## 2. Provision infrastructure
 
 Each client gets **isolated** resources:
 
 | Service | Purpose |
 |---------|---------|
 | **Neon** project | Postgres + Auth |
-| **Vercel** project | Hosting + cron |
+| **Vercel** project | Hosting + cron (root: `apps/web`) |
 | **Vercel Blob** | Property images |
 | **Resend** | Inbound email + optional outbound |
 | **Stripe Connect** | Optional card “Pay now” in the renter portal |
 | **Rightmove / OTM** | Portal sync mTLS credentials |
 
-## 4. Environment variables
+See [veri-properties-deploy.md](veri-properties-deploy.md) for a full Vercel + env example.
 
-Copy [`.env.example`](../.env.example) to `.env.local` and set:
+## 3. Environment variables
 
+Copy [`.env.example`](../.env.example) to `apps/web/.env.local` and set:
+
+- `TENANT_ID` — e.g. `pms` or `veri-properties`
 - `DATABASE_URL` — Neon connection string
 - `NEON_AUTH_BASE_URL`, `NEON_AUTH_COOKIE_SECRET`
 - `NEXT_PUBLIC_SITE_URL` — e.g. `https://www.client-agency.co.uk`
 - `BLOB_READ_WRITE_TOKEN`
 - `CRON_SECRET` — for `/api/cron/rent` and `/api/cron/compliance`
 - `RESEND_*` — inbound webhooks + `RESEND_INBOUND_DOMAIN`
-- `STRIPE_*` — optional card payments (platform secret + webhook secret)
+- `STRIPE_*` — optional card payments
 - `RIGHTMOVE_*`, `OTM_*` — portal sync
 
-Mirror the same variables in the Vercel project settings.
+Mirror the same variables in the Vercel project settings (`TENANT_ID` included).
 
-See also [payment-refs-csv.md](payment-refs-csv.md) for standing-order payment references and CSV statement import.
-
-## 5. Database
+## 4. Local development
 
 ```bash
 npm install
+TENANT_ID=pms npm run dev
+```
+
+`prepare-tenant.mjs` runs automatically before dev/build to copy favicon and theme.
+
+## 5. Database
+
+Apply shared schema and tenant seed:
+
+```bash
+TENANT_ID=<tenant-id> npm run db:setup
+```
+
+For ongoing schema changes:
+
+```bash
 npm run db:push
 ```
 
-Seed the default branch (adjust for the client):
-
-```sql
-INSERT INTO branches (id, name, address, phone, settings)
-VALUES (
-  gen_random_uuid(),
-  'Agency Name',
-  'Office address',
-  '01onal 000000',
-  '{}'::jsonb
-);
-```
-
-Or update the existing seed branch in [`drizzle/0000_initial.sql`](../drizzle/0000_initial.sql) before first push.
+Migrations live in `packages/database/drizzle/`. Tenant-specific seed data lives in `tenants/<tenant-id>/seed.sql`.
 
 ## 6. Staff access
 
@@ -86,40 +96,28 @@ VALUES ('neon-auth-user-id', 'staff@agency.co.uk', 'Staff Name', 'admin');
 
 In `/admin/settings`:
 
-1. **Recommended rent rails** — standing order + unique payment reference, CSV statement import under Finance → Exceptions, optional Stripe for cards, manual mark paid as fallback.
-2. **Client money pay-in details** — account name, sort code, and account number shown to tenants with their `ROL-XXXXXX` payment reference.
-3. **Stripe Connect** — optional Express account for renter portal card payments.
-4. **Maintenance inbox** — note the `maintenance+{token}@domain` address; configure Resend inbound MX.
-5. Point Resend webhook to `https://your-domain/api/webhooks/inbound-email`.
+1. **Client money pay-in details** — account name, sort code, account number for standing orders
+2. **Stripe Connect** — optional Express account for renter portal card payments
+3. **Maintenance inbox** — configure Resend inbound MX for `maintenance+{token}@domain`
+4. Point Resend webhook to `https://your-domain/api/webhooks/inbound-email`
+
+Payment references use the tenant prefix from `config.ts` (e.g. `ROL-`, `VER-`).
 
 ## 8. Portal sync
 
 See [portal-onboarding.md](portal-onboarding.md) for Rightmove and OnTheMarket RTDF setup.
 
-## 9. Renter portal
+## 9. Deploy
 
-1. Add renters under **Admin → Renters**.
-2. Create tenancies under **Admin → Tenancies**.
-3. Click **Portal invite** on a renter row; send the link to the tenant.
-4. Tenant signs up / signs in and accepts the invite → `/portal`.
+Create a **new Vercel project** pointing at this repo with:
 
-## 10. Deploy
+- **Root Directory:** `apps/web`
+- **`TENANT_ID`** env var set to the client tenant id
 
-```bash
-git push origin main
-```
+Push to `main` — all connected Vercel projects rebuild with the latest platform code. Each project keeps its own branding (`TENANT_ID`) and database.
 
-Connect the Vercel project, add domains (e.g. `www.client-agency.co.uk`), and verify:
+## Rules for developers
 
-- Public site loads
-- `/admin` staff login works
-- Cron runs on the 1st of each month (`vercel.json` → `/api/cron/rent`)
-- Stripe webhook points to `/api/webhooks/stripe` (only if using cards)
-
-## Operational notes
-
-- **Complaints** (formal SLA) and **tickets** (maintenance) are separate — do not merge.
-- **Landlord statements**: Admin → Invoices → Landlord statements → CSV export.
-- Monthly rent invoices are generated by cron; staff can also mark invoices paid manually.
-- **Rent reconciliation**: assign payment refs, then import bank statement CSV under Finance → Exceptions (see [payment-refs-csv.md](payment-refs-csv.md)).
-- One deploy = one agency. Clone again for the next client.
+- Platform changes → edit `apps/web` or `packages/*` → all clients updated on deploy
+- Client branding/copy → edit only `tenants/<client>/` → affects that tenant only
+- Do not hardcode agency names or domains in shared code

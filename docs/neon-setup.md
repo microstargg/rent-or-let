@@ -12,14 +12,15 @@ The platform uses **Neon Postgres** (not Supabase) with **Drizzle ORM** and **Ne
 
 ## 2. Environment variables
 
-Copy `.env.example` to `.env.local`:
+Copy `.env.example` to `apps/web/.env.local` and set `TENANT_ID=pms`:
 
 ```bash
-cp .env.example .env.local
+cp .env.example apps/web/.env.local
 ```
 
 | Variable | Source |
 |----------|--------|
+| `TENANT_ID` | `pms` (or `veri-properties` for Veri Properties) |
 | `DATABASE_URL` | Neon Console → Connect → connection string (pooler recommended) |
 | `NEON_AUTH_BASE_URL` | Neon Console → Auth → Enable Auth → copy Auth URL |
 | `NEON_AUTH_COOKIE_SECRET` | Run `openssl rand -base64 32` (Windows: use Git Bash or WSL) |
@@ -46,7 +47,7 @@ Alternative — run the initial SQL migration directly:
 npm run db:setup
 ```
 
-This applies `drizzle/0000_initial.sql`, including seed branch and sample properties.
+This applies `packages/database/drizzle/0000_initial.sql` plus tenant seed from `tenants/<TENANT_ID>/seed.sql`.
 
 Inspect the database with Drizzle Studio:
 
@@ -126,8 +127,9 @@ Visit `/login` and sign in. You should reach `/admin`.
 
 ## 7. Deploy to Vercel
 
-1. Link the repo to Vercel
+1. Link the repo to Vercel with **Root Directory** `apps/web`
 2. Add environment variables in **Project Settings → Environment Variables**:
+   - `TENANT_ID` (`pms` or `veri-properties`)
    - `DATABASE_URL`
    - `NEON_AUTH_BASE_URL`
    - `NEON_AUTH_COOKIE_SECRET`
@@ -147,7 +149,7 @@ The cron job in `vercel.json` calls `/api/cron/portal-sync` every 5 minutes.
 | Database | Neon Postgres via `@neondatabase/serverless` + Drizzle |
 | Auth | Neon Auth (Better Auth) — session cookies |
 | Staff authorization | `staff_profiles` table checked in admin layout and API routes |
-| Migrations | Drizzle schema in `src/lib/db/schema.ts`, SQL in `drizzle/` |
+| Migrations | Drizzle schema in `apps/web/src/lib/db/schema.ts`, SQL in `packages/database/drizzle/` |
 | Legacy Supabase | Removed — do not use `supabase/` folder if present |
 
 ## Troubleshooting
