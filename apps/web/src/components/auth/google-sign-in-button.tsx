@@ -27,8 +27,8 @@ export function GoogleSignInButton({
 
     const origin = getSiteOrigin();
     const continuePath = next
-      ? `/login/continue?next=${encodeURIComponent(next)}`
-      : "/login/continue";
+      ? `/auth/continue?next=${encodeURIComponent(next)}`
+      : "/auth/continue";
 
     try {
       const { error: authError } = await authClient.signIn.social({

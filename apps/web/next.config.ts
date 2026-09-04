@@ -13,7 +13,15 @@ const nextConfig: NextConfig = {
     ],
   },
   async redirects() {
-    return [{ source: "/auth/sign-up", destination: "/sign-up", permanent: true }];
+    return [
+      { source: "/auth/sign-up", destination: "/sign-up", permanent: true },
+      // Legacy OAuth/email continue path — must land outside `/login` for Neon Auth middleware
+      {
+        source: "/login/continue",
+        destination: "/auth/continue",
+        permanent: false,
+      },
+    ];
   },
   async headers() {
     return [

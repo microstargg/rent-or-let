@@ -16,7 +16,7 @@ export async function signInWithEmail(
   if (error) return { error: error.message || "Failed to sign in" };
 
   const next = safeNextPath(String(formData.get("next") ?? ""));
-  redirect(next ? `/login/continue?next=${encodeURIComponent(next)}` : "/login/continue");
+  redirect(next ? `/auth/continue?next=${encodeURIComponent(next)}` : "/auth/continue");
 }
 
 export async function signOutAction() {

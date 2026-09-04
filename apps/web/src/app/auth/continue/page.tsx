@@ -4,7 +4,12 @@ import { resolvePostLoginPath, safeNextPath } from "@/lib/auth/redirect";
 
 export const dynamic = "force-dynamic";
 
-export default async function LoginContinuePage({
+/**
+ * Post-login / OAuth return landing.
+ * Must NOT live under `/login/*` — Neon Auth middleware skips OAuth verifier
+ * exchange for any path that starts with `loginUrl` (`/login`).
+ */
+export default async function AuthContinuePage({
   searchParams,
 }: {
   searchParams: Promise<{ next?: string }>;

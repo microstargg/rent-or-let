@@ -42,8 +42,8 @@ export function LoginForm({ notice, error, next }: LoginFormProps) {
     }
 
     const continuePath = next
-      ? `/login/continue?next=${encodeURIComponent(next)}`
-      : "/login/continue";
+      ? `/auth/continue?next=${encodeURIComponent(next)}`
+      : "/auth/continue";
 
     startTransition(() => {
       router.replace(continuePath);
