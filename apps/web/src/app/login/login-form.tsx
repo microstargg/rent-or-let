@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState } from "react";
-import { signInWithEmail } from "./actions";
+import { useRouter } from "next/navigation";
+import { useState, useTransition } from "react";
+import { authClient } from "@/lib/auth/client";
 import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
 import { AuthDivider } from "@/components/auth/auth-divider";
 import { Button } from "@/components/ui/button";
@@ -17,7 +18,38 @@ type LoginFormProps = {
 };
 
 export function LoginForm({ notice, error, next }: LoginFormProps) {
-  const [state, formAction, isPending] = useActionState(signInWithEmail, null);
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+  const [formError, setFormError] = useState<string | null>(null);
+
+  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setFormError(null);
+
+    const form = e.currentTarget;
+    const formData = new FormData(form);
+    const email = String(formData.get("email") ?? "");
+    const password = String(formData.get("password") ?? "");
+
+    const { error: authError } = await authClient.signIn.email({
+      email,
+      password,
+    });
+
+    if (authError) {
+      setFormError(authError.message || "Failed to sign in");
+      return;
+    }
+
+    const continuePath = next
+      ? `/login/continue?next=${encodeURIComponent(next)}`
+      : "/login/continue";
+
+    startTransition(() => {
+      router.replace(continuePath);
+      router.refresh();
+    });
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center px-4">
@@ -32,8 +64,7 @@ export function LoginForm({ notice, error, next }: LoginFormProps) {
           {notice && <p className="mb-4 text-sm text-muted-foreground">{notice}</p>}
           <GoogleSignInButton label="Sign in with Google" next={next} />
           <AuthDivider />
-          <form action={formAction} className="space-y-4">
-            {next ? <input type="hidden" name="next" value={next} /> : null}
+          <form onSubmit={onSubmit} className="space-y-4">
             <div>
               <Label htmlFor="email">Email</Label>
               <Input id="email" name="email" type="email" required autoComplete="email" />
@@ -48,11 +79,11 @@ export function LoginForm({ notice, error, next }: LoginFormProps) {
                 autoComplete="current-password"
               />
             </div>
-            {(state?.error || error) && (
-              <p className="text-sm text-red-600">{state?.error || error}</p>
+            {(formError || error) && (
+              <p className="text-sm text-red-600">{formError || error}</p>
             )}
-            <Button type="submit" className="w-full" disabled={isPending}>
-              {isPending ? "Signing in…" : "Sign in"}
+            <Button type="submit" className="w-full" disabled={pending}>
+              {pending ? "Signing in…" : "Sign in"}
             </Button>
           </form>
           <p className="mt-4 text-center text-sm text-muted-foreground">

@@ -2,6 +2,8 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth/server";
 import { resolvePostLoginPath, safeNextPath } from "@/lib/auth/redirect";
 
+export const dynamic = "force-dynamic";
+
 export default async function LoginContinuePage({
   searchParams,
 }: {
