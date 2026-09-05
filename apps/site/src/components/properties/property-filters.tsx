@@ -2,13 +2,18 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback } from "react";
+import { useTenant } from "@repo/config";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { isVeriAgency } from "@/lib/veri";
+import { cn } from "@/lib/utils";
 
 export function PropertyFilters() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { id } = useTenant();
+  const isVeri = isVeriAgency(id);
 
   const handleSubmit = useCallback(
     (e: React.FormEvent<HTMLFormElement>) => {
@@ -29,7 +34,12 @@ export function PropertyFilters() {
   return (
     <form
       onSubmit={handleSubmit}
-      className="grid gap-4 rounded-xl border bg-card p-4 md:grid-cols-4"
+      className={cn(
+        "grid gap-4 md:grid-cols-4",
+        isVeri
+          ? "rounded-[1.75rem] border border-foreground/10 bg-card/50 p-5"
+          : "rounded-xl border bg-card p-4"
+      )}
     >
       <div>
         <Label htmlFor="beds">Min bedrooms</Label>
@@ -40,6 +50,7 @@ export function PropertyFilters() {
           min={1}
           defaultValue={searchParams.get("beds") ?? ""}
           placeholder="Any"
+          className={isVeri ? "mt-1.5 rounded-full" : undefined}
         />
       </div>
       <div>
@@ -51,6 +62,7 @@ export function PropertyFilters() {
           min={0}
           defaultValue={searchParams.get("maxRent") ?? ""}
           placeholder="Any"
+          className={isVeri ? "mt-1.5 rounded-full" : undefined}
         />
       </div>
       <div>
@@ -60,10 +72,14 @@ export function PropertyFilters() {
           name="town"
           defaultValue={searchParams.get("town") ?? ""}
           placeholder="e.g. postcode or area"
+          className={isVeri ? "mt-1.5 rounded-full" : undefined}
         />
       </div>
       <div className="flex items-end">
-        <Button type="submit" className="w-full">
+        <Button
+          type="submit"
+          className={cn("w-full", isVeri && "rounded-full bg-[var(--accent)] text-[oklch(0.2_0.02_50)] hover:bg-[oklch(0.82_0.09_55)]")}
+        >
           Search
         </Button>
       </div>

@@ -2,7 +2,9 @@ import type { Metadata } from "next";
 import { Clock, Mail, MapPin, Phone } from "lucide-react";
 import { ContactForm } from "@/components/forms/contact-form";
 import { PageHero } from "@/components/marketing/page-hero";
+import { VeriEm, VeriHeading, VeriPanel } from "@/components/marketing/veri-ui";
 import { getTenant } from "@/lib/tenant";
+import { isVeriAgency } from "@/lib/veri";
 
 export async function generateMetadata(): Promise<Metadata> {
   const { site, name } = await getTenant();
@@ -22,7 +24,7 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function ContactPage() {
   const { site: siteContent, id } = await getTenant();
   const { address, phone, fax, email, hours } = siteContent.contact;
-  const isVeri = id === "veri-properties";
+  const isVeri = isVeriAgency(id);
   const remoteOnly = !phone && !address;
 
   return (
@@ -37,14 +39,19 @@ export default async function ContactPage() {
         }
       />
 
-      <div className="container mx-auto max-w-6xl px-4 py-14">
+      <div className="container mx-auto max-w-6xl px-4 py-14 md:py-16">
         <div className="grid gap-10 lg:grid-cols-2">
           <div className="space-y-8">
             {remoteOnly ? (
-              <div className={isVeri ? "space-y-6" : "rounded-xl border bg-card p-5 shadow-sm"}>
+              <div className="space-y-4">
+                {isVeri ? (
+                  <VeriHeading as="h2">
+                    Reach us <VeriEm>remotely</VeriEm>
+                  </VeriHeading>
+                ) : null}
                 <div>
                   <Mail className="mb-3 h-5 w-5 text-[oklch(0.55_0.08_55)]" />
-                  <h2 className="font-semibold">Email</h2>
+                  <h2 className="font-[family-name:var(--font-veri-sans)] font-semibold">Email</h2>
                   <a
                     href={`mailto:${email}`}
                     className="mt-1 block text-lg text-foreground hover:underline"
@@ -77,10 +84,7 @@ export default async function ContactPage() {
                   <div className="rounded-xl border bg-card p-5 shadow-sm">
                     <Mail className="mb-3 h-5 w-5 text-primary" />
                     <h2 className="font-semibold">Email</h2>
-                    <a
-                      href={`mailto:${email}`}
-                      className="mt-1 block text-primary hover:underline"
-                    >
+                    <a href={`mailto:${email}`} className="mt-1 block text-primary hover:underline">
                       {email}
                     </a>
                   </div>
@@ -121,23 +125,29 @@ export default async function ContactPage() {
             )}
           </div>
 
-          <div
-            className={
-              isVeri
-                ? "border border-foreground/10 bg-card/50 p-6 md:p-8"
-                : "rounded-xl border bg-card p-6 shadow-sm"
-            }
-          >
-            <h2 className="text-lg font-semibold">Send a message</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {isVeri
-                ? "Tell us what you need — landlord management, a viewing, or a general enquiry."
-                : "We will respond as soon as possible during office hours."}
-            </p>
-            <div className="mt-6">
-              <ContactForm />
+          {isVeri ? (
+            <VeriPanel>
+              <h2 className="font-[family-name:var(--font-veri-sans)] text-lg font-semibold">
+                Send a message
+              </h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Tell us what you need — landlord management, a viewing, or a general enquiry.
+              </p>
+              <div className="mt-6">
+                <ContactForm />
+              </div>
+            </VeriPanel>
+          ) : (
+            <div className="rounded-xl border bg-card p-6 shadow-sm">
+              <h2 className="text-lg font-semibold">Send a message</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                We will respond as soon as possible during office hours.
+              </p>
+              <div className="mt-6">
+                <ContactForm />
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
     </>

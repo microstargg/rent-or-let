@@ -70,6 +70,15 @@ html[data-agency="veri-properties"] .veri-fade-up-delay {
 
 html[data-agency="veri-properties"] .veri-page-hero {
   background: #141414;
+  min-height: 18rem;
+}
+
+html[data-agency="veri-properties"] .veri-page-hero-media {
+  background-image: url("/media/veri-hero.jpg");
+  background-size: cover;
+  background-position: center;
+  opacity: 0.35;
+  mask-image: linear-gradient(to bottom, black 40%, transparent 100%);
 }
 
 html[data-agency="veri-properties"] .veri-page-hero-inner {
@@ -85,6 +94,21 @@ html[data-agency="veri-properties"] .veri-page-hero-inner {
 html[data-agency="veri-properties"] .veri-page-hero h1 {
   font-family: var(--font-veri-sans), system-ui, sans-serif;
   letter-spacing: -0.02em;
+}
+
+html[data-agency="veri-properties"] input,
+html[data-agency="veri-properties"] textarea,
+html[data-agency="veri-properties"] select {
+  border-radius: 9999px;
+}
+
+html[data-agency="veri-properties"] textarea {
+  border-radius: 1.25rem;
+}
+
+html[data-agency="veri-properties"] .prose {
+  --tw-prose-headings: oklch(0.18 0.01 60);
+  max-width: 42rem;
 }
 
 @media (prefers-reduced-motion: reduce) {

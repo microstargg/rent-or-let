@@ -1,17 +1,25 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getTenant } from "@/lib/tenant";
+import { isVeriAgency } from "@/lib/veri";
+import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = {
   title: "Privacy Notice",
 };
 
 export default async function PrivacyPage() {
-  const { site: siteContent, name } = await getTenant();
+  const { site: siteContent, name, id } = await getTenant();
   const { contact } = siteContent;
+  const isVeri = isVeriAgency(id);
 
   return (
-    <div className="container mx-auto max-w-3xl px-4 py-12 prose prose-neutral">
+    <div
+      className={cn(
+        "container mx-auto max-w-3xl px-4 py-12 prose prose-neutral",
+        isVeri && "pt-28 md:pt-32"
+      )}
+    >
       <h1>Privacy Notice</h1>
       <p className="lead">
         {name} (&quot;we&quot;, &quot;us&quot;) is committed to protecting your personal data in

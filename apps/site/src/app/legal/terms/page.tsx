@@ -1,16 +1,24 @@
 import type { Metadata } from "next";
 import { getTenant } from "@/lib/tenant";
+import { isVeriAgency } from "@/lib/veri";
+import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = {
   title: "Terms and Conditions",
 };
 
 export default async function TermsPage() {
-  const { name, domain } = await getTenant();
+  const { name, domain, id } = await getTenant();
   const siteHost = domain.replace(/^https?:\/\//, "");
+  const isVeri = isVeriAgency(id);
 
   return (
-    <div className="container mx-auto max-w-3xl px-4 py-12 prose prose-neutral">
+    <div
+      className={cn(
+        "container mx-auto max-w-3xl px-4 py-12 prose prose-neutral",
+        isVeri && "pt-28 md:pt-32"
+      )}
+    >
       <h1>Terms and Conditions</h1>
       <p>
         These terms govern your use of the {name} website operated at {siteHost}.
