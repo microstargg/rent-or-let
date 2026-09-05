@@ -129,23 +129,24 @@ Visit `/login` and sign in. You should reach `/` (legacy `/admin` redirects ther
 
 One platform project (`apps/web`) serves every agency. See [client-setup.md](./client-setup.md).
 
-1. Root Directory `apps/web` on the `rent-or-let` project
-2. Add `pms.letflow.app` (and later `veri.letflow.app`)
-3. Set `AGENCY_PMS_DATABASE_URL`, `AGENCY_PMS_NEON_AUTH_*`, Blob, cron, and portal credentials — not build-time `TENANT_ID`
-4. Optional site project: Root Directory `apps/site`, domain `www.rent-or-let.co.uk`
-5. After first deploy of a **new** agency DB, run `AGENCY_SLUG=<slug> npm run db:setup` against that Neon
-6. Create staff user(s) as in step 5
+1. Root Directory `apps/web` on the `letflow-platform` project
+2. Add `pms.letflow.app` and `veri.letflow.app`
+3. Set shared `DATABASE_URL`, `NEON_AUTH_BASE_URL`, `NEON_AUTH_COOKIE_SECRET`, `AGENCY_SLUGS`, Blob, cron, and portal credentials — not build-time `TENANT_ID`. Per-agency site hooks use `AGENCY_*_PUBLIC_SITE_URL` / `REVALIDATE_*`.
+4. Optional site project: Root Directory `apps/site`, domains `www.rent-or-let.co.uk` and `veri.properties`
+5. Apply shared migrations once (`0012_agencies_shared_db.sql`). New agencies: `createAgency({ slug, name, ... })` — no new Neon project
+6. Create staff user(s) as in step 5 (Neon Auth + `staff_profiles` with matching `agency_id`)
 
-Cron jobs in `apps/web/vercel.json` iterate every agency in `AGENCY_SLUGS`.
+Cron jobs in `apps/web/vercel.json` iterate every agency in `AGENCY_SLUGS`; each loop filters rows by that agency's `agency_id`.
 
 ## Architecture notes
 
 | Concern | Implementation |
 |---------|----------------|
-| Database | Neon Postgres via `@neondatabase/serverless` + Drizzle |
-| Auth | Neon Auth (Better Auth) — session cookies |
+| Database | Shared Neon Postgres; `agency_id` on operational tables |
+| Auth | Neon Auth (Better Auth) — session cookies; trusted origins per platform host |
 | Staff authorization | `staff_profiles` table checked in staff layout and API routes |
 | Migrations | Drizzle schema in `apps/web/src/lib/db/schema.ts`, SQL in `packages/database/drizzle/` |
+| New agency | `createAgency` helper + branding folder; self-serve UI later |
 | Legacy Supabase | Removed — do not use `supabase/` folder if present |
 
 ## Troubleshooting

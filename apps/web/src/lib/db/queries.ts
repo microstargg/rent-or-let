@@ -1,5 +1,6 @@
 import { eq, and, or, gte, lte, ilike, desc, asc, sql, count } from "drizzle-orm";
 import { db } from "./index";
+import { agencyEq, currentAgencyId } from "./agency-scope";
 import {
   properties,
   propertyImages,
@@ -71,7 +72,7 @@ export async function getAvailableProperties(filters?: {
   maxRent?: number;
   town?: string;
 }): Promise<Property[]> {
-  const conditions = [eq(properties.status, "available")];
+  const conditions = [agencyEq(properties.agencyId), eq(properties.status, "available")];
   if (filters?.minBedrooms) conditions.push(gte(properties.bedrooms, filters.minBedrooms));
   if (filters?.maxRent) conditions.push(lte(properties.pricePcm, String(filters.maxRent)));
   if (filters?.town) conditions.push(ilike(properties.town, `%${filters.town}%`));
@@ -98,7 +99,7 @@ export async function getPropertyBySlug(slug: string): Promise<Property | null> 
   const [row] = await db
     .select()
     .from(properties)
-    .where(and(eq(properties.slug, slug), eq(properties.status, "available")))
+    .where(and(agencyEq(properties.agencyId), eq(properties.slug, slug), eq(properties.status, "available")))
     .limit(1);
 
   if (!row) return null;
@@ -113,7 +114,7 @@ export async function getPropertyBySlug(slug: string): Promise<Property | null> 
 }
 
 export async function getPropertyById(id: string) {
-  const [row] = await db.select().from(properties).where(eq(properties.id, id)).limit(1);
+  const [row] = await db.select().from(properties).where(and(eq(properties.id, id), agencyEq(properties.agencyId))).limit(1);
   if (!row) return null;
 
   const images = await db
@@ -126,7 +127,7 @@ export async function getPropertyById(id: string) {
 }
 
 export async function listAllProperties() {
-  return db.select().from(properties).orderBy(desc(properties.updatedAt));
+  return db.select().from(properties).where(agencyEq(properties.agencyId)).orderBy(desc(properties.updatedAt));
 }
 
 export async function searchProperties(opts: {
@@ -139,7 +140,7 @@ export async function searchProperties(opts: {
   const pageSize = opts.pageSize ?? 50;
   const page = Math.max(1, opts.page ?? 1);
   const offset = (page - 1) * pageSize;
-  const conditions = [];
+  const conditions = [agencyEq(properties.agencyId)];
   if (opts.status && opts.status !== "all") {
     conditions.push(eq(properties.status, opts.status));
   }
@@ -155,7 +156,7 @@ export async function searchProperties(opts: {
       )!
     );
   }
-  const where = conditions.length ? and(...conditions) : undefined;
+  const where = and(...conditions);
 
   const orderBy =
     opts.sort === "address"
@@ -186,7 +187,8 @@ export async function searchProperties(opts: {
         ),
         vacant: sql<number>`count(*) filter (where ${properties.isVacant} = true)`.mapWith(Number),
       })
-      .from(properties),
+      .from(properties)
+      .where(agencyEq(properties.agencyId)),
   ]);
 
   return {
@@ -232,6 +234,7 @@ export async function createProperty(data: {
   const [row] = await db
     .insert(properties)
     .values({
+      agencyId: currentAgencyId(),
       branchId: data.branchId,
       agentRef: data.agentRef,
       slug: data.slug,
@@ -336,7 +339,7 @@ export async function updateProperty(
       ...(data.metadata && { metadata: data.metadata }),
       updatedAt: new Date(),
     })
-    .where(eq(properties.id, id));
+    .where(and(eq(properties.id, id), agencyEq(properties.agencyId)));
 }
 
 export async function getPropertyWithBranch(id: string) {
@@ -344,7 +347,7 @@ export async function getPropertyWithBranch(id: string) {
     .select({ property: properties, branch: branches })
     .from(properties)
     .innerJoin(branches, eq(properties.branchId, branches.id))
-    .where(eq(properties.id, id))
+    .where(and(eq(properties.id, id), agencyEq(properties.agencyId)))
     .limit(1);
 
   if (!row) return null;
@@ -366,7 +369,7 @@ export async function getPropertyMetadata(id: string): Promise<Record<string, un
   const [row] = await db
     .select({ metadata: properties.metadata })
     .from(properties)
-    .where(eq(properties.id, id))
+    .where(and(eq(properties.id, id), agencyEq(properties.agencyId)))
     .limit(1);
   return (row?.metadata ?? {}) as Record<string, unknown>;
 }
@@ -376,7 +379,7 @@ export async function mergePropertyMetadata(id: string, patch: Record<string, un
   await db
     .update(properties)
     .set({ metadata: { ...current, ...patch }, updatedAt: new Date() })
-    .where(eq(properties.id, id));
+    .where(and(eq(properties.id, id), agencyEq(properties.agencyId)));
 }
 
 export async function addPropertyImage(data: {
@@ -469,6 +472,7 @@ export async function insertEnquiry(data: {
   source?: string;
 }) {
   await db.insert(enquiries).values({
+    agencyId: currentAgencyId(),
     propertyId: data.propertyId ?? null,
     name: data.name,
     email: data.email,
@@ -487,11 +491,12 @@ export async function listEnquiries() {
     })
     .from(enquiries)
     .leftJoin(properties, eq(enquiries.propertyId, properties.id))
+    .where(agencyEq(enquiries.agencyId))
     .orderBy(desc(enquiries.createdAt));
 }
 
 export async function updateEnquiryStatus(id: string, status: string) {
-  await db.update(enquiries).set({ status }).where(eq(enquiries.id, id));
+  await db.update(enquiries).set({ status }).where(and(eq(enquiries.id, id), agencyEq(enquiries.agencyId)));
 }
 
 export async function insertTenantApplication(data: {
@@ -510,6 +515,7 @@ export async function insertTenantApplication(data: {
   additionalInfo?: string | null;
 }) {
   await db.insert(tenantApplications).values({
+    agencyId: currentAgencyId(),
     propertyId: data.propertyId ?? null,
     firstName: data.firstName,
     lastName: data.lastName,
@@ -535,11 +541,15 @@ export async function listTenantApplications() {
     })
     .from(tenantApplications)
     .leftJoin(properties, eq(tenantApplications.propertyId, properties.id))
+    .where(agencyEq(tenantApplications.agencyId))
     .orderBy(desc(tenantApplications.createdAt));
 }
 
 export async function updateApplicationStatus(id: string, status: string) {
-  await db.update(tenantApplications).set({ status }).where(eq(tenantApplications.id, id));
+  await db
+    .update(tenantApplications)
+    .set({ status })
+    .where(and(eq(tenantApplications.id, id), agencyEq(tenantApplications.agencyId)));
 }
 
 export async function insertComplaint(data: {
@@ -552,6 +562,7 @@ export async function insertComplaint(data: {
   slaDueAt?: Date;
 }) {
   await db.insert(complaints).values({
+    agencyId: currentAgencyId(),
     propertyId: data.propertyId ?? null,
     tenantName: data.tenantName,
     tenantEmail: data.tenantEmail,
@@ -565,7 +576,7 @@ export async function insertComplaint(data: {
 }
 
 export async function listComplaints() {
-  return db.select().from(complaints).orderBy(desc(complaints.createdAt));
+  return db.select().from(complaints).where(agencyEq(complaints.agencyId)).orderBy(desc(complaints.createdAt));
 }
 
 export async function updateComplaint(
@@ -575,7 +586,7 @@ export async function updateComplaint(
   await db
     .update(complaints)
     .set({ status: data.status, resolvedAt: data.resolvedAt ?? null })
-    .where(eq(complaints.id, id));
+    .where(and(eq(complaints.id, id), agencyEq(complaints.agencyId)));
 }
 
 export async function insertCookieConsent(data: {
@@ -584,6 +595,7 @@ export async function insertCookieConsent(data: {
   bannerVersion: string;
 }) {
   await db.insert(cookieConsents).values({
+    agencyId: currentAgencyId(),
     consentId: data.consentId,
     preferences: data.preferences,
     bannerVersion: data.bannerVersion,
@@ -599,6 +611,7 @@ export async function insertPortalSyncLog(data: {
   responsePayload?: Record<string, unknown> | null;
 }) {
   await db.insert(portalSyncLogs).values({
+    agencyId: currentAgencyId(),
     propertyId: data.propertyId,
     portal: data.portal,
     action: data.action,
@@ -617,6 +630,7 @@ export async function listPortalSyncLogs(limit = 50) {
     })
     .from(portalSyncLogs)
     .innerJoin(properties, eq(portalSyncLogs.propertyId, properties.id))
+    .where(agencyEq(portalSyncLogs.agencyId))
     .orderBy(desc(portalSyncLogs.createdAt))
     .limit(limit);
 }
@@ -626,29 +640,35 @@ export async function countByStatus(
   status: string
 ) {
   if (table === "enquiries") {
-    const [r] = await db.select({ value: count() }).from(enquiries).where(eq(enquiries.status, status));
+    const [r] = await db
+      .select({ value: count() })
+      .from(enquiries)
+      .where(and(agencyEq(enquiries.agencyId), eq(enquiries.status, status)));
     return r?.value ?? 0;
   }
   if (table === "tenant_applications") {
     const [r] = await db
       .select({ value: count() })
       .from(tenantApplications)
-      .where(eq(tenantApplications.status, status));
+      .where(and(agencyEq(tenantApplications.agencyId), eq(tenantApplications.status, status)));
     return r?.value ?? 0;
   }
   if (table === "complaints") {
-    const [r] = await db.select({ value: count() }).from(complaints).where(eq(complaints.status, status));
+    const [r] = await db
+      .select({ value: count() })
+      .from(complaints)
+      .where(and(agencyEq(complaints.agencyId), eq(complaints.status, status)));
     return r?.value ?? 0;
   }
   const [r] = await db
     .select({ value: count() })
     .from(portalSyncLogs)
-    .where(eq(portalSyncLogs.status, status));
+    .where(and(agencyEq(portalSyncLogs.agencyId), eq(portalSyncLogs.status, status)));
   return r?.value ?? 0;
 }
 
 export async function countProperties() {
-  const [r] = await db.select({ value: count() }).from(properties);
+  const [r] = await db.select({ value: count() }).from(properties).where(agencyEq(properties.agencyId));
   return r?.value ?? 0;
 }
 
@@ -656,7 +676,7 @@ export async function getStaffProfileById(id: string) {
   const [row] = await db
     .select()
     .from(staffProfiles)
-    .where(eq(staffProfiles.id, id))
+    .where(and(eq(staffProfiles.id, id), agencyEq(staffProfiles.agencyId)))
     .limit(1);
   return row ?? null;
 }
@@ -671,7 +691,7 @@ export interface BranchPortalSettings {
 }
 
 export async function getDefaultBranch(): Promise<BranchPortalSettings | null> {
-  const [row] = await db.select().from(branches).limit(1);
+  const [row] = await db.select().from(branches).where(agencyEq(branches.agencyId)).limit(1);
   if (!row) return null;
   return {
     id: row.id,
@@ -695,14 +715,14 @@ export async function updateBranchPortalSettings(
       }),
       ...(data.otmSyncEnabled !== undefined && { otmSyncEnabled: data.otmSyncEnabled }),
     })
-    .where(eq(branches.id, branchId));
+    .where(and(eq(branches.id, branchId), agencyEq(branches.agencyId)));
 }
 
 export async function listAvailablePropertyIds(): Promise<string[]> {
   const rows = await db
     .select({ id: properties.id })
     .from(properties)
-    .where(eq(properties.status, "available"));
+    .where(and(agencyEq(properties.agencyId), eq(properties.status, "available")));
   return rows.map((r) => r.id);
 }
 

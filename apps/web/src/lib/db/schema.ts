@@ -13,31 +13,53 @@ import {
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 
-export const branches = pgTable("branches", {
-  id: uuid("id").primaryKey().defaultRandom(),
+
+export const agencies = pgTable("agencies", {
+  slug: text("slug").primaryKey(),
   name: text("name").notNull(),
-  rightmoveBranchId: text("rightmove_branch_id"),
-  otmBranchId: text("otm_branch_id"),
-  rightmoveSyncEnabled: boolean("rightmove_sync_enabled").notNull().default(false),
-  otmSyncEnabled: boolean("otm_sync_enabled").notNull().default(false),
-  address: text("address").notNull(),
-  phone: text("phone").notNull(),
-  settings: jsonb("settings").notNull().default({}),
+  platformHost: text("platform_host").notNull(),
+  publicSiteUrl: text("public_site_url"),
+  websiteEnabled: boolean("website_enabled").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
-export const staffProfiles = pgTable("staff_profiles", {
-  id: text("id").primaryKey(),
-  email: text("email").notNull().unique(),
-  fullName: text("full_name").notNull(),
-  role: text("role").notNull().default("staff"),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
+export const branches = pgTable(
+  "branches",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    agencyId: text("agency_id").notNull().references(() => agencies.slug),
+    name: text("name").notNull(),
+    rightmoveBranchId: text("rightmove_branch_id"),
+    otmBranchId: text("otm_branch_id"),
+    rightmoveSyncEnabled: boolean("rightmove_sync_enabled").notNull().default(false),
+    otmSyncEnabled: boolean("otm_sync_enabled").notNull().default(false),
+    address: text("address").notNull(),
+    phone: text("phone").notNull(),
+    settings: jsonb("settings").notNull().default({}),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("idx_branches_agency").on(table.agencyId)]
+);
+
+export const staffProfiles = pgTable(
+  "staff_profiles",
+  {
+    id: text("id").primaryKey(),
+    agencyId: text("agency_id").notNull().references(() => agencies.slug),
+    email: text("email").notNull(),
+    fullName: text("full_name").notNull(),
+    role: text("role").notNull().default("staff"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [uniqueIndex("staff_profiles_agency_email").on(table.agencyId, table.email)]
+);
 
 export const landlords = pgTable(
   "landlords",
   {
     id: uuid("id").primaryKey().defaultRandom(),
+    agencyId: text("agency_id").notNull().references(() => agencies.slug),
     branchId: uuid("branch_id")
       .notNull()
       .references(() => branches.id),
@@ -56,6 +78,7 @@ export const properties = pgTable(
   "properties",
   {
     id: uuid("id").primaryKey().defaultRandom(),
+    agencyId: text("agency_id").notNull().references(() => agencies.slug),
     branchId: uuid("branch_id")
       .notNull()
       .references(() => branches.id),
@@ -65,7 +88,7 @@ export const properties = pgTable(
     boilerInstallDate: date("boiler_install_date"),
     metadata: jsonb("metadata").notNull().default({}),
     agentRef: text("agent_ref").notNull(),
-    slug: text("slug").notNull().unique(),
+    slug: text("slug").notNull(),
     displayAddress: text("display_address").notNull(),
     houseNameNumber: text("house_name_number").notNull().default(""),
     street: text("street").notNull(),
@@ -94,8 +117,13 @@ export const properties = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
-    uniqueIndex("properties_branch_agent_ref").on(table.branchId, table.agentRef),
-    index("idx_properties_status").on(table.status),
+    uniqueIndex("properties_agency_slug").on(table.agencyId, table.slug),
+    uniqueIndex("properties_agency_branch_agent_ref").on(
+      table.agencyId,
+      table.branchId,
+      table.agentRef
+    ),
+    index("idx_properties_agency_status").on(table.agencyId, table.status),
     index("idx_properties_postcode").on(table.postcode),
   ]
 );
@@ -116,16 +144,22 @@ export const propertyImages = pgTable(
   (table) => [index("idx_property_images_property").on(table.propertyId)]
 );
 
-export const siteContent = pgTable("site_content", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  key: text("key").notNull().unique(),
-  title: text("title"),
-  body: text("body").notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
-});
+export const siteContent = pgTable(
+  "site_content",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    agencyId: text("agency_id").notNull().references(() => agencies.slug),
+    key: text("key").notNull(),
+    title: text("title"),
+    body: text("body").notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [uniqueIndex("site_content_agency_key").on(table.agencyId, table.key)]
+);
 
 export const enquiries = pgTable("enquiries", {
   id: uuid("id").primaryKey().defaultRandom(),
+  agencyId: text("agency_id").notNull().references(() => agencies.slug),
   propertyId: uuid("property_id").references(() => properties.id, { onDelete: "set null" }),
   name: text("name").notNull(),
   email: text("email").notNull(),
@@ -139,6 +173,7 @@ export const enquiries = pgTable("enquiries", {
 
 export const tenantApplications = pgTable("tenant_applications", {
   id: uuid("id").primaryKey().defaultRandom(),
+  agencyId: text("agency_id").notNull().references(() => agencies.slug),
   propertyId: uuid("property_id").references(() => properties.id, { onDelete: "set null" }),
   status: text("status").notNull().default("submitted"),
   referencingStatus: text("referencing_status").notNull().default("pending"),
@@ -160,6 +195,7 @@ export const tenantApplications = pgTable("tenant_applications", {
 
 export const complaints = pgTable("complaints", {
   id: uuid("id").primaryKey().defaultRandom(),
+  agencyId: text("agency_id").notNull().references(() => agencies.slug),
   propertyId: uuid("property_id").references(() => properties.id, { onDelete: "set null" }),
   tenantName: text("tenant_name").notNull(),
   tenantEmail: text("tenant_email").notNull(),
@@ -177,6 +213,7 @@ export const portalSyncLogs = pgTable(
   "portal_sync_logs",
   {
     id: uuid("id").primaryKey().defaultRandom(),
+    agencyId: text("agency_id").notNull().references(() => agencies.slug),
     propertyId: uuid("property_id")
       .notNull()
       .references(() => properties.id, { onDelete: "cascade" }),
@@ -195,6 +232,7 @@ export const portalSyncJobs = pgTable(
   "portal_sync_jobs",
   {
     id: uuid("id").primaryKey().defaultRandom(),
+    agencyId: text("agency_id").notNull().references(() => agencies.slug),
     propertyId: uuid("property_id")
       .notNull()
       .references(() => properties.id, { onDelete: "cascade" }),
@@ -211,6 +249,7 @@ export const portalSyncJobs = pgTable(
 
 export const cookieConsents = pgTable("cookie_consents", {
   id: uuid("id").primaryKey().defaultRandom(),
+  agencyId: text("agency_id").notNull().references(() => agencies.slug),
   consentId: text("consent_id").notNull(),
   preferences: jsonb("preferences").notNull(),
   bannerVersion: text("banner_version").notNull(),
@@ -221,6 +260,7 @@ export const renters = pgTable(
   "renters",
   {
     id: uuid("id").primaryKey().defaultRandom(),
+    agencyId: text("agency_id").notNull().references(() => agencies.slug),
     branchId: uuid("branch_id")
       .notNull()
       .references(() => branches.id),
@@ -240,6 +280,7 @@ export const tenancies = pgTable(
   "tenancies",
   {
     id: uuid("id").primaryKey().defaultRandom(),
+    agencyId: text("agency_id").notNull().references(() => agencies.slug),
     branchId: uuid("branch_id")
       .notNull()
       .references(() => branches.id),
@@ -273,6 +314,7 @@ export const invoices = pgTable(
   "invoices",
   {
     id: uuid("id").primaryKey().defaultRandom(),
+    agencyId: text("agency_id").notNull().references(() => agencies.slug),
     branchId: uuid("branch_id")
       .notNull()
       .references(() => branches.id),
@@ -302,6 +344,7 @@ export const payments = pgTable(
   "payments",
   {
     id: uuid("id").primaryKey().defaultRandom(),
+    agencyId: text("agency_id").notNull().references(() => agencies.slug),
     branchId: uuid("branch_id")
       .notNull()
       .references(() => branches.id),
@@ -324,6 +367,7 @@ export const contractors = pgTable(
   "contractors",
   {
     id: uuid("id").primaryKey().defaultRandom(),
+    agencyId: text("agency_id").notNull().references(() => agencies.slug),
     branchId: uuid("branch_id")
       .notNull()
       .references(() => branches.id),
@@ -341,6 +385,7 @@ export const tickets = pgTable(
   "tickets",
   {
     id: uuid("id").primaryKey().defaultRandom(),
+    agencyId: text("agency_id").notNull().references(() => agencies.slug),
     branchId: uuid("branch_id")
       .notNull()
       .references(() => branches.id),
@@ -371,6 +416,7 @@ export const ticketMessages = pgTable(
   "ticket_messages",
   {
     id: uuid("id").primaryKey().defaultRandom(),
+    agencyId: text("agency_id").notNull().references(() => agencies.slug),
     branchId: uuid("branch_id")
       .notNull()
       .references(() => branches.id),
@@ -391,6 +437,7 @@ export const workOrders = pgTable(
   "work_orders",
   {
     id: uuid("id").primaryKey().defaultRandom(),
+    agencyId: text("agency_id").notNull().references(() => agencies.slug),
     branchId: uuid("branch_id")
       .notNull()
       .references(() => branches.id),
@@ -412,6 +459,7 @@ export const renterProfiles = pgTable(
   "renter_profiles",
   {
     id: text("id").primaryKey(),
+    agencyId: text("agency_id").notNull().references(() => agencies.slug),
     branchId: uuid("branch_id")
       .notNull()
       .references(() => branches.id),
@@ -431,6 +479,7 @@ export const renterInvites = pgTable(
   "renter_invites",
   {
     id: uuid("id").primaryKey().defaultRandom(),
+    agencyId: text("agency_id").notNull().references(() => agencies.slug),
     branchId: uuid("branch_id")
       .notNull()
       .references(() => branches.id),
@@ -451,6 +500,7 @@ export const ledgerEntries = pgTable(
   "ledger_entries",
   {
     id: uuid("id").primaryKey().defaultRandom(),
+    agencyId: text("agency_id").notNull().references(() => agencies.slug),
     branchId: uuid("branch_id")
       .notNull()
       .references(() => branches.id),
@@ -478,6 +528,7 @@ export const paymentAllocations = pgTable(
   "payment_allocations",
   {
     id: uuid("id").primaryKey().defaultRandom(),
+    agencyId: text("agency_id").notNull().references(() => agencies.slug),
     branchId: uuid("branch_id")
       .notNull()
       .references(() => branches.id),
@@ -500,6 +551,7 @@ export const paymentExceptions = pgTable(
   "payment_exceptions",
   {
     id: uuid("id").primaryKey().defaultRandom(),
+    agencyId: text("agency_id").notNull().references(() => agencies.slug),
     branchId: uuid("branch_id")
       .notNull()
       .references(() => branches.id),
@@ -523,6 +575,7 @@ export const tasks = pgTable(
   "tasks",
   {
     id: uuid("id").primaryKey().defaultRandom(),
+    agencyId: text("agency_id").notNull().references(() => agencies.slug),
     branchId: uuid("branch_id")
       .notNull()
       .references(() => branches.id),
@@ -542,6 +595,7 @@ export const documents = pgTable(
   "documents",
   {
     id: uuid("id").primaryKey().defaultRandom(),
+    agencyId: text("agency_id").notNull().references(() => agencies.slug),
     branchId: uuid("branch_id")
       .notNull()
       .references(() => branches.id),
@@ -566,6 +620,7 @@ export const complianceItems = pgTable(
   "compliance_items",
   {
     id: uuid("id").primaryKey().defaultRandom(),
+    agencyId: text("agency_id").notNull().references(() => agencies.slug),
     branchId: uuid("branch_id")
       .notNull()
       .references(() => branches.id),
@@ -594,6 +649,7 @@ export const landlordLedgerEntries = pgTable(
   "landlord_ledger_entries",
   {
     id: uuid("id").primaryKey().defaultRandom(),
+    agencyId: text("agency_id").notNull().references(() => agencies.slug),
     branchId: uuid("branch_id")
       .notNull()
       .references(() => branches.id),
@@ -623,6 +679,7 @@ export const landlordStatements = pgTable(
   "landlord_statements",
   {
     id: uuid("id").primaryKey().defaultRandom(),
+    agencyId: text("agency_id").notNull().references(() => agencies.slug),
     branchId: uuid("branch_id")
       .notNull()
       .references(() => branches.id),
@@ -644,6 +701,7 @@ export const landlordPayouts = pgTable(
   "landlord_payouts",
   {
     id: uuid("id").primaryKey().defaultRandom(),
+    agencyId: text("agency_id").notNull().references(() => agencies.slug),
     branchId: uuid("branch_id")
       .notNull()
       .references(() => branches.id),
@@ -665,6 +723,7 @@ export const viewings = pgTable(
   "viewings",
   {
     id: uuid("id").primaryKey().defaultRandom(),
+    agencyId: text("agency_id").notNull().references(() => agencies.slug),
     branchId: uuid("branch_id")
       .notNull()
       .references(() => branches.id),
@@ -684,6 +743,7 @@ export const landlordProfiles = pgTable(
   "landlord_profiles",
   {
     id: text("id").primaryKey(),
+    agencyId: text("agency_id").notNull().references(() => agencies.slug),
     branchId: uuid("branch_id")
       .notNull()
       .references(() => branches.id),
@@ -703,6 +763,7 @@ export const landlordInvites = pgTable(
   "landlord_invites",
   {
     id: uuid("id").primaryKey().defaultRandom(),
+    agencyId: text("agency_id").notNull().references(() => agencies.slug),
     branchId: uuid("branch_id")
       .notNull()
       .references(() => branches.id),
@@ -722,6 +783,7 @@ export const inspections = pgTable(
   "inspections",
   {
     id: uuid("id").primaryKey().defaultRandom(),
+    agencyId: text("agency_id").notNull().references(() => agencies.slug),
     branchId: uuid("branch_id")
       .notNull()
       .references(() => branches.id),
@@ -744,6 +806,7 @@ export const notices = pgTable(
   "notices",
   {
     id: uuid("id").primaryKey().defaultRandom(),
+    agencyId: text("agency_id").notNull().references(() => agencies.slug),
     branchId: uuid("branch_id")
       .notNull()
       .references(() => branches.id),
@@ -765,6 +828,7 @@ export const petRequests = pgTable(
   "pet_requests",
   {
     id: uuid("id").primaryKey().defaultRandom(),
+    agencyId: text("agency_id").notNull().references(() => agencies.slug),
     branchId: uuid("branch_id")
       .notNull()
       .references(() => branches.id),
@@ -795,6 +859,7 @@ export const bankConnections = pgTable(
   "bank_connections",
   {
     id: uuid("id").primaryKey().defaultRandom(),
+    agencyId: text("agency_id").notNull().references(() => agencies.slug),
     branchId: uuid("branch_id")
       .notNull()
       .references(() => branches.id),
@@ -823,6 +888,7 @@ export const bankTransactions = pgTable(
   "bank_transactions",
   {
     id: uuid("id").primaryKey().defaultRandom(),
+    agencyId: text("agency_id").notNull().references(() => agencies.slug),
     branchId: uuid("branch_id")
       .notNull()
       .references(() => branches.id),

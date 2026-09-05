@@ -1,6 +1,6 @@
 # LetFlow / Rent-or-Let platform
 
-Lettings operations platform. One LetFlow deploy on `{slug}.letflow.app`, one Neon database per agency, optional public website on the agency's own domain.
+Lettings operations platform. One LetFlow deploy on `{slug}.letflow.app`, one shared Neon database scoped by `agency_id`, optional public website on the agency's own domain.
 
 **Agencies:** Property Management Services (`pms`), Veri Properties (`veri-properties`)
 

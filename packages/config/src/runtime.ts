@@ -56,20 +56,20 @@ export function getAgencyRuntime(slug: string): AgencyRuntime {
   }
   slug = canonical;
 
-  const isFallback = slug === fallbackAgencySlug();
   const databaseUrl = firstDefined(
     agencyEnv(slug, "DATABASE_URL"),
-    isFallback ? process.env.DATABASE_URL?.trim() : undefined
+    process.env.DATABASE_URL?.trim()
   );
   const neonAuthBaseUrl = firstDefined(
     agencyEnv(slug, "NEON_AUTH_BASE_URL"),
-    isFallback ? process.env.NEON_AUTH_BASE_URL?.trim() : undefined
+    process.env.NEON_AUTH_BASE_URL?.trim()
   );
   const neonAuthCookieSecret = firstDefined(
     agencyEnv(slug, "NEON_AUTH_COOKIE_SECRET"),
-    isFallback ? process.env.NEON_AUTH_COOKIE_SECRET?.trim() : undefined
+    process.env.NEON_AUTH_COOKIE_SECRET?.trim()
   );
 
+  const isFallback = slug === fallbackAgencySlug();
   const publicSiteUrl =
     agencyEnv(slug, "PUBLIC_SITE_URL") ||
     (isFallback ? process.env.NEXT_PUBLIC_SITE_URL?.trim() : undefined) ||

@@ -1,5 +1,6 @@
 import { eq, and, desc, gte, lte, sql, count, inArray } from "drizzle-orm";
 import { db } from "../index";
+import { agencyEq, currentAgencyId } from "../agency-scope";
 import {
   invoices,
   payments,
@@ -18,7 +19,10 @@ import { isTenantPayableInvoiceType } from "@/lib/operations/maintenance/constan
 import { ensureJobInvoiceSchema, isMissingInvoiceColumnError } from "@/lib/db/ensure-schema";
 
 function listInvoicesQuery(branchId?: string) {
-  const base = db
+  const conditions = [agencyEq(invoices.agencyId)];
+  if (branchId) conditions.push(eq(invoices.branchId, branchId));
+
+  return db
     .select({
       invoice: invoices,
       propertyAddress: properties.displayAddress,
@@ -37,12 +41,9 @@ function listInvoicesQuery(branchId?: string) {
     .leftJoin(
       landlords,
       eq(landlords.id, sql`coalesce(${invoices.landlordId}, ${properties.landlordId})`)
-    );
-
-  if (branchId) {
-    return base.where(eq(invoices.branchId, branchId)).orderBy(desc(invoices.dueDate));
-  }
-  return base.orderBy(desc(invoices.dueDate));
+    )
+    .where(and(...conditions))
+    .orderBy(desc(invoices.dueDate));
 }
 
 export async function listInvoices(branchId?: string) {
@@ -57,7 +58,11 @@ export async function listInvoices(branchId?: string) {
 }
 
 export async function getInvoiceById(id: string) {
-  const [row] = await db.select().from(invoices).where(eq(invoices.id, id)).limit(1);
+  const [row] = await db
+    .select()
+    .from(invoices)
+    .where(and(eq(invoices.id, id), agencyEq(invoices.agencyId)))
+    .limit(1);
   return row ?? null;
 }
 
@@ -71,7 +76,8 @@ export async function getInvoiceForRenter(invoiceId: string, branchId: string, r
         eq(invoices.id, invoiceId),
         eq(invoices.branchId, branchId),
         eq(tenancies.primaryRenterId, renterId),
-        inArray(invoices.type, ["rent", "late_fee"])
+        inArray(invoices.type, ["rent", "late_fee"]),
+        agencyEq(invoices.agencyId)
       )
     )
     .limit(1);
@@ -87,7 +93,8 @@ export async function listInvoicesForRenter(branchId: string, renterId: string) 
       and(
         eq(invoices.branchId, branchId),
         eq(tenancies.primaryRenterId, renterId),
-        inArray(invoices.type, ["rent", "late_fee"])
+        inArray(invoices.type, ["rent", "late_fee"]),
+        agencyEq(invoices.agencyId)
       )
     )
     .orderBy(desc(invoices.dueDate));
@@ -97,7 +104,9 @@ export async function getAllocatedTotalForInvoice(invoiceId: string): Promise<nu
   const [row] = await db
     .select({ total: sql<string>`coalesce(sum(${paymentAllocations.amount}), 0)` })
     .from(paymentAllocations)
-    .where(eq(paymentAllocations.invoiceId, invoiceId));
+    .where(
+      and(eq(paymentAllocations.invoiceId, invoiceId), agencyEq(paymentAllocations.agencyId))
+    );
   return Number(row?.total ?? 0);
 }
 
@@ -111,7 +120,7 @@ async function getTenancyContext(tenancyId: string) {
     })
     .from(tenancies)
     .innerJoin(properties, eq(tenancies.propertyId, properties.id))
-    .where(eq(tenancies.id, tenancyId))
+    .where(and(eq(tenancies.id, tenancyId), agencyEq(tenancies.agencyId)))
     .limit(1);
   return row ?? null;
 }
@@ -132,6 +141,7 @@ export async function insertLedgerEntry(data: {
   const [row] = await db
     .insert(ledgerEntries)
     .values({
+      agencyId: currentAgencyId(),
       branchId: data.branchId,
       tenancyId: data.tenancyId,
       propertyId: data.propertyId ?? null,
@@ -152,7 +162,7 @@ export async function getTenancyBalance(tenancyId: string): Promise<number> {
   const [row] = await db
     .select({ total: sql<string>`coalesce(sum(${ledgerEntries.amount}), 0)` })
     .from(ledgerEntries)
-    .where(eq(ledgerEntries.tenancyId, tenancyId));
+    .where(and(eq(ledgerEntries.tenancyId, tenancyId), agencyEq(ledgerEntries.agencyId)));
   return Number(row?.total ?? 0);
 }
 
@@ -177,6 +187,7 @@ export async function createInvoices(
   for (const r of rows) {
     const ctx = r.tenancyId ? await getTenancyContext(r.tenancyId) : null;
     values.push({
+      agencyId: currentAgencyId(),
       branchId: r.branchId,
       tenancyId: r.tenancyId ?? ctx?.tenancyId ?? null,
       propertyId: r.propertyId ?? ctx?.propertyId ?? null,
@@ -224,7 +235,7 @@ async function refreshInvoiceStatus(invoiceId: string) {
   const [updated] = await db
     .update(invoices)
     .set({ status })
-    .where(eq(invoices.id, invoiceId))
+    .where(and(eq(invoices.id, invoiceId), agencyEq(invoices.agencyId)))
     .returning();
   return updated ?? null;
 }
@@ -257,6 +268,7 @@ export async function recordPaymentAndAllocate(data: {
   const [payment] = await db
     .insert(payments)
     .values({
+      agencyId: currentAgencyId(),
       branchId: data.branchId,
       tenancyId: data.tenancyId,
       invoiceId: data.invoiceId,
@@ -268,6 +280,7 @@ export async function recordPaymentAndAllocate(data: {
 
   if (allocateAmount > 0) {
     await db.insert(paymentAllocations).values({
+      agencyId: currentAgencyId(),
       branchId: data.branchId,
       paymentId: payment.id,
       invoiceId: data.invoiceId,
@@ -407,6 +420,7 @@ export async function createPaymentException(data: {
   const [row] = await db
     .insert(paymentExceptions)
     .values({
+      agencyId: currentAgencyId(),
       branchId: data.branchId,
       tenancyId: data.tenancyId ?? null,
       paymentId: data.paymentId ?? null,
@@ -429,7 +443,13 @@ export async function listPaymentExceptions(branchId: string, status = "open") {
     .from(paymentExceptions)
     .leftJoin(tenancies, eq(paymentExceptions.tenancyId, tenancies.id))
     .leftJoin(properties, eq(tenancies.propertyId, properties.id))
-    .where(and(eq(paymentExceptions.branchId, branchId), eq(paymentExceptions.status, status)))
+    .where(
+      and(
+        eq(paymentExceptions.branchId, branchId),
+        eq(paymentExceptions.status, status),
+        agencyEq(paymentExceptions.agencyId)
+      )
+    )
     .orderBy(desc(paymentExceptions.createdAt));
 }
 
@@ -437,7 +457,7 @@ export async function resolvePaymentException(id: string) {
   const [row] = await db
     .update(paymentExceptions)
     .set({ status: "resolved", resolvedAt: new Date() })
-    .where(eq(paymentExceptions.id, id))
+    .where(and(eq(paymentExceptions.id, id), agencyEq(paymentExceptions.agencyId)))
     .returning();
   return row ?? null;
 }
@@ -449,7 +469,7 @@ export async function listArrears(branchId: string) {
       balance: sql<string>`coalesce(sum(${ledgerEntries.amount}), 0)`,
     })
     .from(ledgerEntries)
-    .where(eq(ledgerEntries.branchId, branchId))
+    .where(and(eq(ledgerEntries.branchId, branchId), agencyEq(ledgerEntries.agencyId)))
     .groupBy(ledgerEntries.tenancyId);
 
   const balanceByTenancy = new Map(
@@ -467,7 +487,13 @@ export async function listArrears(branchId: string) {
     .from(tenancies)
     .innerJoin(properties, eq(tenancies.propertyId, properties.id))
     .innerJoin(renters, eq(tenancies.primaryRenterId, renters.id))
-    .where(and(eq(tenancies.branchId, branchId), eq(tenancies.status, "active")));
+    .where(
+      and(
+        eq(tenancies.branchId, branchId),
+        eq(tenancies.status, "active"),
+        agencyEq(tenancies.agencyId)
+      )
+    );
 
   const openInvoices = await db
     .select({
@@ -476,7 +502,11 @@ export async function listArrears(branchId: string) {
     })
     .from(invoices)
     .where(
-      and(eq(invoices.branchId, branchId), inArray(invoices.status, ["due", "partial"]))
+      and(
+        eq(invoices.branchId, branchId),
+        agencyEq(invoices.agencyId),
+        inArray(invoices.status, ["due", "partial"])
+      )
     );
 
   const oldestDueByTenancy = new Map<string, string>();
@@ -521,6 +551,7 @@ export async function createTask(data: {
   const [row] = await db
     .insert(tasks)
     .values({
+      agencyId: currentAgencyId(),
       branchId: data.branchId,
       title: data.title,
       dueAt: data.dueAt ?? null,
@@ -533,7 +564,11 @@ export async function createTask(data: {
 }
 
 export async function applyLateFeesForBranch(branchId: string) {
-  const [b] = await db.select().from(branches).where(eq(branches.id, branchId)).limit(1);
+  const [b] = await db
+    .select()
+    .from(branches)
+    .where(and(eq(branches.id, branchId), agencyEq(branches.agencyId)))
+    .limit(1);
   if (!b) return { applied: 0 };
 
   const rules = getLateFeeRules(parseBranchSettings(b.settings));
@@ -550,6 +585,7 @@ export async function applyLateFeesForBranch(branchId: string) {
     .where(
       and(
         eq(invoices.branchId, branchId),
+        agencyEq(invoices.agencyId),
         inArray(invoices.status, ["due", "partial"]),
         lte(invoices.dueDate, cutoffDate),
         eq(invoices.type, "rent")
@@ -566,6 +602,7 @@ export async function applyLateFeesForBranch(branchId: string) {
         and(
           eq(invoices.tenancyId, inv.tenancyId),
           eq(invoices.type, "late_fee"),
+          agencyEq(invoices.agencyId),
           sql`${invoices.meta}->>'source_invoice_id' = ${inv.id}`
         )
       )
@@ -580,6 +617,7 @@ export async function applyLateFeesForBranch(branchId: string) {
     const [feeInv] = await db
       .insert(invoices)
       .values({
+        agencyId: currentAgencyId(),
         branchId,
         tenancyId: inv.tenancyId,
         type: "late_fee",
@@ -621,20 +659,35 @@ export async function getPaymentByExternalRef(branchId: string, externalRef: str
   const [row] = await db
     .select()
     .from(payments)
-    .where(and(eq(payments.branchId, branchId), eq(payments.externalRef, externalRef)))
+    .where(
+      and(
+        eq(payments.branchId, branchId),
+        eq(payments.externalRef, externalRef),
+        agencyEq(payments.agencyId)
+      )
+    )
     .limit(1);
   return row ?? null;
 }
 
 export async function updateInvoiceStatus(invoiceId: string, status: string) {
-  await db.update(invoices).set({ status }).where(eq(invoices.id, invoiceId));
+  await db
+    .update(invoices)
+    .set({ status })
+    .where(and(eq(invoices.id, invoiceId), agencyEq(invoices.agencyId)));
 }
 
 export async function getActiveTenanciesForRent(branchId: string) {
   return db
     .select({ id: tenancies.id, rentAmount: tenancies.rentAmount })
     .from(tenancies)
-    .where(and(eq(tenancies.branchId, branchId), eq(tenancies.status, "active")));
+    .where(
+      and(
+        eq(tenancies.branchId, branchId),
+        eq(tenancies.status, "active"),
+        agencyEq(tenancies.agencyId)
+      )
+    );
 }
 
 export async function getExistingRentInvoicesForDueDate(
@@ -649,6 +702,7 @@ export async function getExistingRentInvoicesForDueDate(
     .where(
       and(
         eq(invoices.branchId, branchId),
+        agencyEq(invoices.agencyId),
         eq(invoices.type, "rent"),
         eq(invoices.dueDate, dueDate),
         inArray(invoices.tenancyId, tenancyIds)
@@ -664,6 +718,7 @@ export async function countOverdueInvoices(branchId: string) {
     .where(
       and(
         eq(invoices.branchId, branchId),
+        agencyEq(invoices.agencyId),
         inArray(invoices.status, ["due", "partial"]),
         lte(invoices.dueDate, today),
         inArray(invoices.type, ["rent", "late_fee"])
@@ -701,6 +756,7 @@ export async function getLandlordStatementData(
     .where(
       and(
         eq(payments.branchId, branchId),
+        agencyEq(payments.agencyId),
         gte(payments.paidAt, new Date(fromIso)),
         lte(payments.paidAt, new Date(toIso))
       )

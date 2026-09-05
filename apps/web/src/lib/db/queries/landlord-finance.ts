@@ -1,5 +1,6 @@
 import { eq, and, desc, gte, lte, sql, inArray } from "drizzle-orm";
 import { db } from "../index";
+import { agencyEq, currentAgencyId } from "../agency-scope";
 import {
   landlordLedgerEntries,
   landlordStatements,
@@ -41,6 +42,7 @@ export async function insertLandlordLedgerEntry(data: {
   const [row] = await db
     .insert(landlordLedgerEntries)
     .values({
+      agencyId: currentAgencyId(),
       branchId: data.branchId,
       landlordId: data.landlordId,
       propertyId: data.propertyId ?? null,
@@ -63,7 +65,12 @@ export async function getLandlordBalance(landlordId: string): Promise<number> {
   const [row] = await db
     .select({ total: sql<string>`coalesce(sum(${landlordLedgerEntries.amount}), 0)` })
     .from(landlordLedgerEntries)
-    .where(eq(landlordLedgerEntries.landlordId, landlordId));
+    .where(
+      and(
+        eq(landlordLedgerEntries.landlordId, landlordId),
+        agencyEq(landlordLedgerEntries.agencyId)
+      )
+    );
   return Number(row?.total ?? 0);
 }
 
@@ -75,7 +82,11 @@ export async function postRentReceivedToLandlord(data: {
   rentAmount: number;
   paymentId?: string | null;
 }) {
-  const [branch] = await db.select().from(branches).where(eq(branches.id, data.branchId)).limit(1);
+  const [branch] = await db
+    .select()
+    .from(branches)
+    .where(and(eq(branches.id, data.branchId), agencyEq(branches.agencyId)))
+    .limit(1);
   const feePercent = getManagementFeePercent(parseBranchSettings(branch?.settings));
   const fee = Math.round(data.rentAmount * (feePercent / 100) * 100) / 100;
 
@@ -153,7 +164,12 @@ export async function listLandlordLedger(landlordId: string) {
   return db
     .select()
     .from(landlordLedgerEntries)
-    .where(eq(landlordLedgerEntries.landlordId, landlordId))
+    .where(
+      and(
+        eq(landlordLedgerEntries.landlordId, landlordId),
+        agencyEq(landlordLedgerEntries.agencyId)
+      )
+    )
     .orderBy(desc(landlordLedgerEntries.occurredAt));
 }
 
@@ -167,7 +183,7 @@ export async function listLandlordBalances(branchId: string) {
     })
     .from(landlords)
     .leftJoin(landlordLedgerEntries, eq(landlordLedgerEntries.landlordId, landlords.id))
-    .where(eq(landlords.branchId, branchId))
+    .where(and(eq(landlords.branchId, branchId), agencyEq(landlords.agencyId)))
     .groupBy(landlords.id, landlords.firstName, landlords.lastName);
 
   return rows
@@ -188,7 +204,7 @@ async function propertyAddressMap(propertyIds: string[]): Promise<Map<string, st
   const rows = await db
     .select({ id: properties.id, displayAddress: properties.displayAddress })
     .from(properties)
-    .where(inArray(properties.id, unique));
+    .where(and(inArray(properties.id, unique), agencyEq(properties.agencyId)));
   for (const row of rows) map.set(row.id, row.displayAddress);
   return map;
 }
@@ -199,13 +215,19 @@ async function resolveWorksLine(
 ): Promise<{ line: LandlordStatementWorkLine; invoiceId: string | null }> {
   let inv =
     work.invoiceId != null
-      ? (await db.select().from(invoices).where(eq(invoices.id, work.invoiceId)).limit(1))[0]
+      ? (
+          await db
+            .select()
+            .from(invoices)
+            .where(and(eq(invoices.id, work.invoiceId), agencyEq(invoices.agencyId)))
+            .limit(1)
+        )[0]
       : null;
   if (!inv && work.workOrderId) {
     const [byJob] = await db
       .select()
       .from(invoices)
-      .where(eq(invoices.workOrderId, work.workOrderId))
+      .where(and(eq(invoices.workOrderId, work.workOrderId), agencyEq(invoices.agencyId)))
       .limit(1);
     inv = byJob ?? null;
   }
@@ -278,6 +300,7 @@ async function ledgerEntriesForPeriod(opts: {
   const toIso = `${opts.to}T23:59:59.999Z`;
   const filters = [
     eq(landlordLedgerEntries.branchId, opts.branchId),
+    agencyEq(landlordLedgerEntries.agencyId),
     gte(landlordLedgerEntries.occurredAt, new Date(fromIso)),
     lte(landlordLedgerEntries.occurredAt, new Date(toIso)),
   ];
@@ -333,13 +356,18 @@ export async function generateLandlordStatements(
 
   const created = [];
   for (const [landlordId, landlordEntries] of byLandlord) {
-    const [ll] = await db.select().from(landlords).where(eq(landlords.id, landlordId)).limit(1);
+    const [ll] = await db
+      .select()
+      .from(landlords)
+      .where(and(eq(landlords.id, landlordId), agencyEq(landlords.agencyId)))
+      .limit(1);
     const { totals, billedInvoiceIds } = await buildStatementTotalsFromLedger(landlordEntries);
     const billed = new Set(billedInvoiceIds);
 
     const [stmt] = await db
       .insert(landlordStatements)
       .values({
+        agencyId: currentAgencyId(),
         branchId,
         landlordId,
         periodFrom: from,
@@ -364,7 +392,7 @@ export async function generateLandlordStatements(
     const [updated] = await db
       .update(landlordStatements)
       .set({ documentId: doc.id })
-      .where(eq(landlordStatements.id, stmt.id))
+      .where(and(eq(landlordStatements.id, stmt.id), agencyEq(landlordStatements.agencyId)))
       .returning();
 
     for (const entry of landlordEntries) {
@@ -372,11 +400,17 @@ export async function generateLandlordStatements(
       await db
         .update(landlordLedgerEntries)
         .set({ statementId: stmt.id })
-        .where(eq(landlordLedgerEntries.id, entry.id));
+        .where(
+          and(eq(landlordLedgerEntries.id, entry.id), agencyEq(landlordLedgerEntries.agencyId))
+        );
     }
 
     for (const invoiceId of billed) {
-      const [existing] = await db.select().from(invoices).where(eq(invoices.id, invoiceId)).limit(1);
+      const [existing] = await db
+        .select()
+        .from(invoices)
+        .where(and(eq(invoices.id, invoiceId), agencyEq(invoices.agencyId)))
+        .limit(1);
       if (!existing) continue;
       const meta =
         typeof existing.meta === "object" && existing.meta
@@ -388,7 +422,7 @@ export async function generateLandlordStatements(
           status: WORKS_INVOICE_BILLED,
           meta: { ...meta, statement_id: stmt.id },
         })
-        .where(eq(invoices.id, invoiceId));
+        .where(and(eq(invoices.id, invoiceId), agencyEq(invoices.agencyId)));
     }
 
     created.push({
@@ -412,7 +446,9 @@ export async function listLandlordStatements(branchId: string) {
     .from(landlordStatements)
     .innerJoin(landlords, eq(landlordStatements.landlordId, landlords.id))
     .leftJoin(documents, eq(landlordStatements.documentId, documents.id))
-    .where(eq(landlordStatements.branchId, branchId))
+    .where(
+      and(eq(landlordStatements.branchId, branchId), agencyEq(landlordStatements.agencyId))
+    )
     .orderBy(desc(landlordStatements.createdAt));
 }
 
@@ -429,6 +465,7 @@ export async function createLandlordPayout(data: {
   const [payout] = await db
     .insert(landlordPayouts)
     .values({
+      agencyId: currentAgencyId(),
       branchId: data.branchId,
       landlordId: data.landlordId,
       amount: String(amount),
@@ -457,7 +494,7 @@ export async function getLandlordStatementForDownload(id: string) {
     })
     .from(landlordStatements)
     .innerJoin(landlords, eq(landlordStatements.landlordId, landlords.id))
-    .where(eq(landlordStatements.id, id))
+    .where(and(eq(landlordStatements.id, id), agencyEq(landlordStatements.agencyId)))
     .limit(1);
   return row ?? null;
 }
@@ -491,7 +528,8 @@ export async function findLandlordStatementByUpload(landlordId: string, filename
       and(
         eq(landlordStatements.landlordId, landlordId),
         eq(landlordStatements.periodFrom, parsed.from),
-        eq(landlordStatements.periodTo, parsed.to)
+        eq(landlordStatements.periodTo, parsed.to),
+        agencyEq(landlordStatements.agencyId)
       )
     )
     .orderBy(desc(landlordStatements.createdAt))
@@ -508,6 +546,6 @@ export async function listLandlordPayouts(branchId: string) {
     })
     .from(landlordPayouts)
     .innerJoin(landlords, eq(landlordPayouts.landlordId, landlords.id))
-    .where(eq(landlordPayouts.branchId, branchId))
+    .where(and(eq(landlordPayouts.branchId, branchId), agencyEq(landlordPayouts.agencyId)))
     .orderBy(desc(landlordPayouts.paidAt));
 }

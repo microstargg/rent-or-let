@@ -1,5 +1,6 @@
 import { eq, and, gt, isNull } from "drizzle-orm";
 import { db } from "../index";
+import { agencyEq, currentAgencyId } from "../agency-scope";
 import { renterProfiles, renterInvites, renters } from "../schema";
 
 export async function getRenterProfileByUserId(userId: string) {
@@ -10,7 +11,7 @@ export async function getRenterProfileByUserId(userId: string) {
     })
     .from(renterProfiles)
     .innerJoin(renters, eq(renterProfiles.renterId, renters.id))
-    .where(eq(renterProfiles.id, userId))
+    .where(and(eq(renterProfiles.id, userId), agencyEq(renterProfiles.agencyId)))
     .limit(1);
   return row ?? null;
 }
@@ -24,6 +25,7 @@ export async function createRenterProfile(data: {
   const [row] = await db
     .insert(renterProfiles)
     .values({
+      agencyId: currentAgencyId(),
       id: data.userId,
       branchId: data.branchId,
       renterId: data.renterId,
@@ -43,6 +45,7 @@ export async function createRenterInvite(data: {
   const [row] = await db
     .insert(renterInvites)
     .values({
+      agencyId: currentAgencyId(),
       branchId: data.branchId,
       renterId: data.renterId,
       email: data.email,
@@ -58,7 +61,12 @@ export async function getRenterInviteByToken(token: string) {
     .select()
     .from(renterInvites)
     .where(
-      and(eq(renterInvites.token, token), gt(renterInvites.expiresAt, new Date()), isNull(renterInvites.acceptedAt))
+      and(
+        eq(renterInvites.token, token),
+        gt(renterInvites.expiresAt, new Date()),
+        isNull(renterInvites.acceptedAt),
+        agencyEq(renterInvites.agencyId)
+      )
     )
     .limit(1);
   return row ?? null;
@@ -68,7 +76,7 @@ export async function acceptRenterInvite(inviteId: string) {
   await db
     .update(renterInvites)
     .set({ acceptedAt: new Date() })
-    .where(eq(renterInvites.id, inviteId));
+    .where(and(eq(renterInvites.id, inviteId), agencyEq(renterInvites.agencyId)));
 }
 
 export async function listPendingRenterInvites(branchId: string) {
@@ -80,6 +88,12 @@ export async function listPendingRenterInvites(branchId: string) {
     })
     .from(renterInvites)
     .innerJoin(renters, eq(renterInvites.renterId, renters.id))
-    .where(and(eq(renterInvites.branchId, branchId), isNull(renterInvites.acceptedAt)))
+    .where(
+      and(
+        eq(renterInvites.branchId, branchId),
+        isNull(renterInvites.acceptedAt),
+        agencyEq(renterInvites.agencyId)
+      )
+    )
     .orderBy(renterInvites.createdAt);
 }

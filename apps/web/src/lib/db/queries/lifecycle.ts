@@ -1,5 +1,6 @@
 import { eq, and, desc, asc, isNull, lt } from "drizzle-orm";
 import { db } from "../index";
+import { agencyEq, currentAgencyId } from "../agency-scope";
 import { tenancies, inspections, notices, properties, renters, documents } from "../schema";
 import { createComplianceItem, markComplianceServed, createDocument, listDocumentsForEntity } from "./compliance";
 import { createTask } from "./finance";
@@ -15,7 +16,11 @@ export async function protectDeposit(data: {
   reference: string;
   protectedAt?: string;
 }) {
-  const [tenancy] = await db.select().from(tenancies).where(eq(tenancies.id, data.tenancyId)).limit(1);
+  const [tenancy] = await db
+    .select()
+    .from(tenancies)
+    .where(and(eq(tenancies.id, data.tenancyId), agencyEq(tenancies.agencyId)))
+    .limit(1);
   if (!tenancy) return null;
 
   const [updated] = await db
@@ -25,7 +30,7 @@ export async function protectDeposit(data: {
       depositProtectionRef: data.reference,
       depositProtectedAt: data.protectedAt ?? new Date().toISOString().slice(0, 10),
     })
-    .where(eq(tenancies.id, data.tenancyId))
+    .where(and(eq(tenancies.id, data.tenancyId), agencyEq(tenancies.agencyId)))
     .returning();
 
   // Ensure deposit_pi compliance item and mark served
@@ -54,7 +59,13 @@ export async function listDepositRegister(branchId: string) {
     .from(tenancies)
     .innerJoin(properties, eq(tenancies.propertyId, properties.id))
     .innerJoin(renters, eq(tenancies.primaryRenterId, renters.id))
-    .where(and(eq(tenancies.branchId, branchId), eq(tenancies.status, "active")))
+    .where(
+      and(
+        eq(tenancies.branchId, branchId),
+        eq(tenancies.status, "active"),
+        agencyEq(tenancies.agencyId)
+      )
+    )
     .orderBy(desc(tenancies.startDate));
 }
 
@@ -69,11 +80,12 @@ export async function createInspection(data: {
   const [property] = await db
     .select({ bedrooms: properties.bedrooms })
     .from(properties)
-    .where(eq(properties.id, data.propertyId))
+    .where(and(eq(properties.id, data.propertyId), agencyEq(properties.agencyId)))
     .limit(1);
   const [row] = await db
     .insert(inspections)
     .values({
+      agencyId: currentAgencyId(),
       branchId: data.branchId,
       propertyId: data.propertyId,
       tenancyId: data.tenancyId ?? null,
@@ -90,7 +102,11 @@ export async function completeInspection(
   id: string,
   data: { summary?: string; photoUrls?: string[] }
 ) {
-  const [existing] = await db.select().from(inspections).where(eq(inspections.id, id)).limit(1);
+  const [existing] = await db
+    .select()
+    .from(inspections)
+    .where(and(eq(inspections.id, id), agencyEq(inspections.agencyId)))
+    .limit(1);
   if (!existing) return null;
 
   for (const url of data.photoUrls ?? []) {
@@ -109,7 +125,7 @@ export async function completeInspection(
       completedAt: new Date(),
       summary: data.summary ?? existing.summary,
     })
-    .where(eq(inspections.id, id))
+    .where(and(eq(inspections.id, id), agencyEq(inspections.agencyId)))
     .returning();
   return row;
 }
@@ -123,7 +139,7 @@ export async function listInspections(branchId: string) {
     })
     .from(inspections)
     .innerJoin(properties, eq(inspections.propertyId, properties.id))
-    .where(eq(inspections.branchId, branchId))
+    .where(and(eq(inspections.branchId, branchId), agencyEq(inspections.agencyId)))
     .orderBy(desc(inspections.createdAt));
 }
 
@@ -137,7 +153,7 @@ export async function getInspectionById(id: string) {
     .from(inspections)
     .innerJoin(properties, eq(inspections.propertyId, properties.id))
     .leftJoin(tenancies, eq(inspections.tenancyId, tenancies.id))
-    .where(eq(inspections.id, id))
+    .where(and(eq(inspections.id, id), agencyEq(inspections.agencyId)))
     .limit(1);
   return row ?? null;
 }
@@ -160,25 +176,35 @@ export async function saveInspectionReport(
       summary: data.summary ?? existing.inspection.summary,
       ...(data.complete ? { completedAt: new Date() } : {}),
     })
-    .where(eq(inspections.id, id))
+    .where(and(eq(inspections.id, id), agencyEq(inspections.agencyId)))
     .returning();
   return row ?? null;
 }
 
 export async function scheduleInterimInspections(tenancyId: string) {
-  const [tenancy] = await db.select().from(tenancies).where(eq(tenancies.id, tenancyId)).limit(1);
+  const [tenancy] = await db
+    .select()
+    .from(tenancies)
+    .where(and(eq(tenancies.id, tenancyId), agencyEq(tenancies.agencyId)))
+    .limit(1);
   if (!tenancy || tenancy.status !== "active") return [];
 
   const existing = await db
     .select()
     .from(inspections)
-    .where(and(eq(inspections.tenancyId, tenancyId), eq(inspections.type, "interim")));
+    .where(
+      and(
+        eq(inspections.tenancyId, tenancyId),
+        eq(inspections.type, "interim"),
+        agencyEq(inspections.agencyId)
+      )
+    );
   if (existing.length >= 2) return existing;
 
   const [property] = await db
     .select()
     .from(properties)
-    .where(eq(properties.id, tenancy.propertyId))
+    .where(and(eq(properties.id, tenancy.propertyId), agencyEq(properties.agencyId)))
     .limit(1);
   const report = defaultInspectionReport(property?.bedrooms ?? 2);
   const created = [];
@@ -200,7 +226,7 @@ export async function scheduleInterimInspections(tenancyId: string) {
     await db
       .update(inspections)
       .set({ meta: { report } })
-      .where(eq(inspections.id, row.id));
+      .where(and(eq(inspections.id, row.id), agencyEq(inspections.agencyId)));
   }
   return [...existing, ...created];
 }
@@ -213,7 +239,7 @@ export async function listInspectionsForLandlord(landlordId: string) {
     })
     .from(inspections)
     .innerJoin(properties, eq(inspections.propertyId, properties.id))
-    .where(eq(properties.landlordId, landlordId))
+    .where(and(eq(properties.landlordId, landlordId), agencyEq(inspections.agencyId)))
     .orderBy(desc(inspections.scheduledAt), desc(inspections.createdAt));
 }
 
@@ -228,6 +254,7 @@ export async function listOverdueInspections(branchId: string, now = new Date())
     .where(
       and(
         eq(inspections.branchId, branchId),
+        agencyEq(inspections.agencyId),
         isNull(inspections.completedAt),
         lt(inspections.scheduledAt, now)
       )
@@ -247,20 +274,29 @@ export async function getTenancyNoticeContext(tenancyId: string) {
     .from(tenancies)
     .innerJoin(properties, eq(tenancies.propertyId, properties.id))
     .innerJoin(renters, eq(tenancies.primaryRenterId, renters.id))
-    .where(eq(tenancies.id, tenancyId))
+    .where(and(eq(tenancies.id, tenancyId), agencyEq(tenancies.agencyId)))
     .limit(1);
   if (!row) return null;
   const previous = await db
     .select()
     .from(notices)
-    .where(and(eq(notices.tenancyId, tenancyId), eq(notices.type, "section_13")))
+    .where(
+      and(
+        eq(notices.tenancyId, tenancyId),
+        eq(notices.type, "section_13"),
+        agencyEq(notices.agencyId)
+      )
+    )
     .orderBy(desc(notices.servedAt), desc(notices.createdAt))
     .limit(1);
   return { ...row, lastSection13: previous[0] ?? null };
 }
 
 export async function listTenancyEvidence(tenancyId: string) {
-  const noticeRows = await db.select().from(notices).where(eq(notices.tenancyId, tenancyId));
+  const noticeRows = await db
+    .select()
+    .from(notices)
+    .where(and(eq(notices.tenancyId, tenancyId), agencyEq(notices.agencyId)));
   const docs = await listDocumentsForEntity("tenancy", tenancyId);
   return { notices: noticeRows, documents: docs };
 }
@@ -278,6 +314,7 @@ export async function createNotice(data: {
   const [row] = await db
     .insert(notices)
     .values({
+      agencyId: currentAgencyId(),
       branchId: data.branchId,
       tenancyId: data.tenancyId,
       type: data.type,
@@ -304,11 +341,11 @@ export async function createNotice(data: {
         servedChannel: "portal",
         servedTo: data.servedTo ?? null,
       })
-      .where(eq(documents.id, doc.id));
+      .where(and(eq(documents.id, doc.id), agencyEq(documents.agencyId)));
     const [updated] = await db
       .update(notices)
       .set({ documentId: doc.id })
-      .where(eq(notices.id, row.id))
+      .where(and(eq(notices.id, row.id), agencyEq(notices.agencyId)))
       .returning();
     return updated;
   }
@@ -324,7 +361,7 @@ export async function listNotices(branchId: string) {
     .from(notices)
     .innerJoin(tenancies, eq(notices.tenancyId, tenancies.id))
     .innerJoin(properties, eq(tenancies.propertyId, properties.id))
-    .where(eq(notices.branchId, branchId))
+    .where(and(eq(notices.branchId, branchId), agencyEq(notices.agencyId)))
     .orderBy(desc(notices.createdAt));
 }
 
@@ -332,7 +369,13 @@ export async function bulkServeRraInfoSheet(branchId: string) {
   const active = await db
     .select()
     .from(tenancies)
-    .where(and(eq(tenancies.branchId, branchId), eq(tenancies.status, "active")));
+    .where(
+      and(
+        eq(tenancies.branchId, branchId),
+        eq(tenancies.status, "active"),
+        agencyEq(tenancies.agencyId)
+      )
+    );
 
   let served = 0;
   for (const t of active) {
@@ -360,7 +403,7 @@ export async function setRentReviewDate(tenancyId: string, rentReviewDate: strin
   const [row] = await db
     .update(tenancies)
     .set({ rentReviewDate })
-    .where(eq(tenancies.id, tenancyId))
+    .where(and(eq(tenancies.id, tenancyId), agencyEq(tenancies.agencyId)))
     .returning();
   return row ?? null;
 }

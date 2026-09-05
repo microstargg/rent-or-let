@@ -1,18 +1,29 @@
-INSERT INTO branches (id, name, address, phone)
+INSERT INTO agencies (slug, name, platform_host, public_site_url, website_enabled)
+VALUES (
+  'pms',
+  'Property Management Services',
+  'pms.letflow.app',
+  'https://www.rent-or-let.co.uk',
+  true
+) ON CONFLICT (slug) DO NOTHING;
+
+INSERT INTO branches (id, agency_id, name, address, phone)
 VALUES (
   '00000000-0000-0000-0000-000000000001',
+  'pms',
   'Property Management Services - Middlesbrough',
   '11 Kings Road, North Ormesby, Middlesbrough, TS3 6NG',
   '01642 217 224'
-) ON CONFLICT DO NOTHING;
+) ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO properties (
-  branch_id, agent_ref, slug, display_address,
+  agency_id, branch_id, agent_ref, slug, display_address,
   house_name_number, street, town, postcode,
   price_pcm, deposit, available_from, bedrooms, bathrooms,
   property_type, furnished, status, description, summary, features, published_at
 ) VALUES
 (
+  'pms',
   '00000000-0000-0000-0000-000000000001', 'PMS-001',
   'ferndale-avenue-middlesbrough-ts3-9ds',
   'Ferndale Avenue, Middlesbrough, TS3 9DS',
@@ -23,6 +34,7 @@ INSERT INTO properties (
   '["Three bedrooms", "Part furnished", "Teesside location"]'::jsonb, now()
 ),
 (
+  'pms',
   '00000000-0000-0000-0000-000000000001', 'PMS-002',
   'howe-street-middlesbrough-ts1-4ld',
   'Howe Street, Middlesbrough, TS1 4LD',

@@ -1,5 +1,6 @@
 import { eq, and, desc, sql, inArray } from "drizzle-orm";
 import { db } from "../index";
+import { agencyEq, currentAgencyId } from "../agency-scope";
 import { complianceItems, documents, properties, tasks } from "../schema";
 import { createTask } from "./finance";
 
@@ -38,6 +39,7 @@ export async function createDocument(data: {
   const [row] = await db
     .insert(documents)
     .values({
+      agencyId: currentAgencyId(),
       branchId: data.branchId,
       entityType: data.entityType,
       entityId: data.entityId,
@@ -61,13 +63,17 @@ export async function markDocumentServed(
       servedTo: data.servedTo ?? null,
       servedChannel: data.servedChannel,
     })
-    .where(eq(documents.id, documentId))
+    .where(and(eq(documents.id, documentId), agencyEq(documents.agencyId)))
     .returning();
   return row ?? null;
 }
 
 export async function getDocumentById(id: string) {
-  const [row] = await db.select().from(documents).where(eq(documents.id, id)).limit(1);
+  const [row] = await db
+    .select()
+    .from(documents)
+    .where(and(eq(documents.id, id), agencyEq(documents.agencyId)))
+    .limit(1);
   return row ?? null;
 }
 
@@ -75,7 +81,13 @@ export async function listDocumentsForEntity(entityType: string, entityId: strin
   return db
     .select()
     .from(documents)
-    .where(and(eq(documents.entityType, entityType), eq(documents.entityId, entityId)))
+    .where(
+      and(
+        eq(documents.entityType, entityType),
+        eq(documents.entityId, entityId),
+        agencyEq(documents.agencyId)
+      )
+    )
     .orderBy(desc(documents.createdAt));
 }
 
@@ -96,6 +108,7 @@ export async function createComplianceItem(data: {
   const [row] = await db
     .insert(complianceItems)
     .values({
+      agencyId: currentAgencyId(),
       branchId: data.branchId,
       propertyId: data.propertyId,
       tenancyId: data.tenancyId ?? null,
@@ -137,13 +150,17 @@ export async function updateComplianceItem(
       status,
       updatedAt: new Date(),
     })
-    .where(eq(complianceItems.id, id))
+    .where(and(eq(complianceItems.id, id), agencyEq(complianceItems.agencyId)))
     .returning();
   return row ?? null;
 }
 
 export async function getComplianceItemById(id: string) {
-  const [row] = await db.select().from(complianceItems).where(eq(complianceItems.id, id)).limit(1);
+  const [row] = await db
+    .select()
+    .from(complianceItems)
+    .where(and(eq(complianceItems.id, id), agencyEq(complianceItems.agencyId)))
+    .limit(1);
   return row ?? null;
 }
 
@@ -160,11 +177,17 @@ export async function listComplianceItems(branchId: string, propertyId?: string)
 
   if (propertyId) {
     return base
-      .where(and(eq(complianceItems.branchId, branchId), eq(complianceItems.propertyId, propertyId)))
+      .where(
+        and(
+          eq(complianceItems.branchId, branchId),
+          eq(complianceItems.propertyId, propertyId),
+          agencyEq(complianceItems.agencyId)
+        )
+      )
       .orderBy(desc(complianceItems.updatedAt));
   }
   return base
-    .where(eq(complianceItems.branchId, branchId))
+    .where(and(eq(complianceItems.branchId, branchId), agencyEq(complianceItems.agencyId)))
     .orderBy(desc(complianceItems.updatedAt));
 }
 
@@ -179,7 +202,8 @@ export async function seedTenancyComplianceChecklist(data: {
     .where(
       and(
         eq(complianceItems.tenancyId, data.tenancyId),
-        inArray(complianceItems.type, [...TENANCY_COMPLIANCE_TYPES])
+        inArray(complianceItems.type, [...TENANCY_COMPLIANCE_TYPES]),
+        agencyEq(complianceItems.agencyId)
       )
     );
   const have = new Set(existing.map((e) => e.type));
@@ -203,7 +227,7 @@ export async function getPropertyComplianceScore(propertyId: string) {
   const items = await db
     .select()
     .from(complianceItems)
-    .where(eq(complianceItems.propertyId, propertyId));
+    .where(and(eq(complianceItems.propertyId, propertyId), agencyEq(complianceItems.agencyId)));
   if (items.length === 0) return { score: 100, total: 0, valid: 0, missing: 0, expiring: 0, expired: 0 };
   const counts = { valid: 0, missing: 0, expiring: 0, expired: 0 };
   for (const i of items) {
@@ -220,7 +244,7 @@ export async function listPropertyComplianceScores(branchId: string) {
   const props = await db
     .select({ id: properties.id, displayAddress: properties.displayAddress })
     .from(properties)
-    .where(eq(properties.branchId, branchId));
+    .where(and(eq(properties.branchId, branchId), agencyEq(properties.agencyId)));
 
   const results = [];
   for (const p of props) {
@@ -234,7 +258,7 @@ export async function refreshComplianceStatuses(branchId: string) {
   const items = await db
     .select()
     .from(complianceItems)
-    .where(eq(complianceItems.branchId, branchId));
+    .where(and(eq(complianceItems.branchId, branchId), agencyEq(complianceItems.agencyId)));
 
   let updated = 0;
   let tasksCreated = 0;
@@ -244,7 +268,7 @@ export async function refreshComplianceStatuses(branchId: string) {
       await db
         .update(complianceItems)
         .set({ status: next, updatedAt: new Date() })
-        .where(eq(complianceItems.id, item.id));
+        .where(and(eq(complianceItems.id, item.id), agencyEq(complianceItems.agencyId)));
       updated += 1;
     }
 
@@ -258,7 +282,8 @@ export async function refreshComplianceStatuses(branchId: string) {
             eq(tasks.branchId, branchId),
             eq(tasks.status, "open"),
             eq(tasks.relatedType, "compliance_item"),
-            eq(tasks.relatedId, item.id)
+            eq(tasks.relatedId, item.id),
+            agencyEq(tasks.agencyId)
           )
         )
         .limit(1);
@@ -314,7 +339,13 @@ export async function upsertEpcForProperty(data: {
   const existing = await db
     .select()
     .from(complianceItems)
-    .where(and(eq(complianceItems.propertyId, data.propertyId), eq(complianceItems.type, "epc")))
+    .where(
+      and(
+        eq(complianceItems.propertyId, data.propertyId),
+        eq(complianceItems.type, "epc"),
+        agencyEq(complianceItems.agencyId)
+      )
+    )
     .limit(1);
 
   if (existing[0]) {
@@ -342,6 +373,7 @@ export async function countComplianceIssues(branchId: string) {
     .where(
       and(
         eq(complianceItems.branchId, branchId),
+        agencyEq(complianceItems.agencyId),
         inArray(complianceItems.status, ["missing", "expiring", "expired"])
       )
     );

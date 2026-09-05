@@ -1,6 +1,7 @@
 import { eq, and, desc, asc, inArray, lt } from "drizzle-orm";
 import { db } from "../index";
-import { petRequests, tenancies, properties, renters, documents } from "../schema";
+import { agencyEq, currentAgencyId } from "../agency-scope";
+import { petRequests, tenancies, properties, renters } from "../schema";
 import { ensurePetRequestsSchema } from "../ensure-schema";
 import {
   initialPetDueAt,
@@ -27,7 +28,7 @@ export async function listPetRequests(branchId: string) {
     .innerJoin(tenancies, eq(petRequests.tenancyId, tenancies.id))
     .innerJoin(properties, eq(tenancies.propertyId, properties.id))
     .leftJoin(renters, eq(petRequests.renterId, renters.id))
-    .where(eq(petRequests.branchId, branchId))
+    .where(and(eq(petRequests.branchId, branchId), agencyEq(petRequests.agencyId)))
     .orderBy(asc(petRequests.dueAt));
 }
 
@@ -41,7 +42,7 @@ export async function listPetRequestsForRenter(renterId: string) {
     .from(petRequests)
     .innerJoin(tenancies, eq(petRequests.tenancyId, tenancies.id))
     .innerJoin(properties, eq(tenancies.propertyId, properties.id))
-    .where(eq(petRequests.renterId, renterId))
+    .where(and(eq(petRequests.renterId, renterId), agencyEq(petRequests.agencyId)))
     .orderBy(desc(petRequests.requestedAt));
 }
 
@@ -59,7 +60,7 @@ export async function getPetRequestById(id: string) {
     .innerJoin(tenancies, eq(petRequests.tenancyId, tenancies.id))
     .innerJoin(properties, eq(tenancies.propertyId, properties.id))
     .leftJoin(renters, eq(petRequests.renterId, renters.id))
-    .where(eq(petRequests.id, id))
+    .where(and(eq(petRequests.id, id), agencyEq(petRequests.agencyId)))
     .limit(1);
   return row ?? null;
 }
@@ -75,6 +76,7 @@ export async function createPetRequest(data: {
   const [row] = await db
     .insert(petRequests)
     .values({
+      agencyId: currentAgencyId(),
       branchId: data.branchId,
       tenancyId: data.tenancyId,
       renterId: data.renterId,
@@ -141,7 +143,7 @@ export async function decidePetRequest(
       documentId,
       updatedAt: now,
     })
-    .where(eq(petRequests.id, id))
+    .where(and(eq(petRequests.id, id), agencyEq(petRequests.agencyId)))
     .returning();
   return row ?? null;
 }
@@ -159,6 +161,7 @@ export async function listOverduePetRequests(branchId: string, now = new Date())
     .where(
       and(
         eq(petRequests.branchId, branchId),
+        agencyEq(petRequests.agencyId),
         inArray(petRequests.status, ["open", "info_requested", "awaiting_superior", "deemed_open"]),
         lt(petRequests.dueAt, now)
       )

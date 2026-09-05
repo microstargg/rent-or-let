@@ -1,5 +1,6 @@
 import { eq, and, desc, count, notInArray, or, ilike, type SQL } from "drizzle-orm";
 import { db } from "../index";
+import { agencyEq, currentAgencyId } from "../agency-scope";
 import {
   tickets,
   ticketMessages,
@@ -16,18 +17,18 @@ import { postCompletedWorkOrderCost } from "@/lib/operations/maintenance/work-or
 export const TICKET_LIST_PAGE_SIZE = 50;
 
 export async function listTickets(branchId?: string) {
-  const base = db
+  const conditions: SQL[] = [agencyEq(tickets.agencyId)];
+  if (branchId) conditions.push(eq(tickets.branchId, branchId));
+
+  return db
     .select({
       ticket: tickets,
       propertyAddress: properties.displayAddress,
     })
     .from(tickets)
-    .innerJoin(properties, eq(tickets.propertyId, properties.id));
-
-  if (branchId) {
-    return base.where(eq(tickets.branchId, branchId)).orderBy(desc(tickets.createdAt));
-  }
-  return base.orderBy(desc(tickets.createdAt));
+    .innerJoin(properties, eq(tickets.propertyId, properties.id))
+    .where(and(...conditions))
+    .orderBy(desc(tickets.createdAt));
 }
 
 export async function searchTickets(opts: {
@@ -40,7 +41,7 @@ export async function searchTickets(opts: {
   const pageSize = opts.pageSize ?? TICKET_LIST_PAGE_SIZE;
   const page = Math.max(1, opts.page ?? 1);
   const offset = (page - 1) * pageSize;
-  const conditions: SQL[] = [];
+  const conditions: SQL[] = [agencyEq(tickets.agencyId)];
 
   if (opts.branchId) conditions.push(eq(tickets.branchId, opts.branchId));
   if (opts.status && opts.status !== "all") {
@@ -57,7 +58,7 @@ export async function searchTickets(opts: {
       )!
     );
   }
-  const where = conditions.length ? and(...conditions) : undefined;
+  const where = and(...conditions);
 
   const [rows, totalRow, openRow] = await Promise.all([
     db
@@ -81,6 +82,7 @@ export async function searchTickets(opts: {
       .from(tickets)
       .where(
         and(
+          agencyEq(tickets.agencyId),
           ...(opts.branchId ? [eq(tickets.branchId, opts.branchId)] : []),
           notInArray(tickets.status, ["completed", "cancelled"])
         )
@@ -102,7 +104,7 @@ export async function getTicketById(id: string) {
     })
     .from(tickets)
     .innerJoin(properties, eq(tickets.propertyId, properties.id))
-    .where(eq(tickets.id, id))
+    .where(and(eq(tickets.id, id), agencyEq(tickets.agencyId)))
     .limit(1);
   return row ?? null;
 }
@@ -113,7 +115,13 @@ export async function listTicketsForRenter(branchId: string, renterId: string) {
     .from(tickets)
     .innerJoin(properties, eq(tickets.propertyId, properties.id))
     .innerJoin(tenancies, eq(tickets.tenancyId, tenancies.id))
-    .where(and(eq(tickets.branchId, branchId), eq(tenancies.primaryRenterId, renterId)))
+    .where(
+      and(
+        eq(tickets.branchId, branchId),
+        eq(tenancies.primaryRenterId, renterId),
+        agencyEq(tickets.agencyId)
+      )
+    )
     .orderBy(desc(tickets.createdAt));
 }
 
@@ -126,7 +134,8 @@ export async function getTicketForRenter(ticketId: string, branchId: string, ren
       and(
         eq(tickets.id, ticketId),
         eq(tickets.branchId, branchId),
-        eq(tenancies.primaryRenterId, renterId)
+        eq(tenancies.primaryRenterId, renterId),
+        agencyEq(tickets.agencyId)
       )
     )
     .limit(1);
@@ -150,6 +159,7 @@ export async function createTicket(data: {
   const [row] = await db
     .insert(tickets)
     .values({
+      agencyId: currentAgencyId(),
       branchId: data.branchId,
       propertyId: data.propertyId,
       tenancyId: data.tenancyId,
@@ -172,7 +182,7 @@ export async function updateTicketStatus(id: string, status: string) {
   await db
     .update(tickets)
     .set({ status, updatedAt: new Date() })
-    .where(eq(tickets.id, id));
+    .where(and(eq(tickets.id, id), agencyEq(tickets.agencyId)));
 }
 
 export async function updateTicketTriage(
@@ -187,7 +197,7 @@ export async function updateTicketTriage(
       ...(data.isEmergency !== undefined && { isEmergency: data.isEmergency }),
       updatedAt: new Date(),
     })
-    .where(eq(tickets.id, id))
+    .where(and(eq(tickets.id, id), agencyEq(tickets.agencyId)))
     .returning();
   return row ?? null;
 }
@@ -196,7 +206,7 @@ export async function listTicketMessages(ticketId: string) {
   return db
     .select()
     .from(ticketMessages)
-    .where(eq(ticketMessages.ticketId, ticketId))
+    .where(and(eq(ticketMessages.ticketId, ticketId), agencyEq(ticketMessages.agencyId)))
     .orderBy(ticketMessages.createdAt);
 }
 
@@ -209,6 +219,7 @@ export async function addTicketMessage(data: {
   body: string;
 }) {
   await db.insert(ticketMessages).values({
+    agencyId: currentAgencyId(),
     branchId: data.branchId,
     ticketId: data.ticketId,
     senderType: data.senderType,
@@ -219,11 +230,15 @@ export async function addTicketMessage(data: {
   await db
     .update(tickets)
     .set({ updatedAt: new Date() })
-    .where(eq(tickets.id, data.ticketId));
+    .where(and(eq(tickets.id, data.ticketId), agencyEq(tickets.agencyId)));
 }
 
 export async function listWorkOrders(opts?: { branchId?: string; ticketId?: string }) {
-  const base = db
+  const conditions: SQL[] = [agencyEq(workOrders.agencyId)];
+  if (opts?.ticketId) conditions.push(eq(workOrders.ticketId, opts.ticketId));
+  if (opts?.branchId) conditions.push(eq(workOrders.branchId, opts.branchId));
+
+  return db
     .select({
       workOrder: workOrders,
       contractorName: contractors.name,
@@ -235,15 +250,9 @@ export async function listWorkOrders(opts?: { branchId?: string; ticketId?: stri
     .innerJoin(tickets, eq(workOrders.ticketId, tickets.id))
     .innerJoin(properties, eq(tickets.propertyId, properties.id))
     .leftJoin(contractors, eq(workOrders.contractorId, contractors.id))
-    .leftJoin(invoices, eq(invoices.workOrderId, workOrders.id));
-
-  if (opts?.ticketId) {
-    return base.where(eq(workOrders.ticketId, opts.ticketId)).orderBy(desc(workOrders.createdAt));
-  }
-  if (opts?.branchId) {
-    return base.where(eq(workOrders.branchId, opts.branchId)).orderBy(desc(workOrders.createdAt));
-  }
-  return base.orderBy(desc(workOrders.createdAt));
+    .leftJoin(invoices, eq(invoices.workOrderId, workOrders.id))
+    .where(and(...conditions))
+    .orderBy(desc(workOrders.createdAt));
 }
 
 export async function createWorkOrder(data: {
@@ -257,6 +266,7 @@ export async function createWorkOrder(data: {
   const [row] = await db
     .insert(workOrders)
     .values({
+      agencyId: currentAgencyId(),
       branchId: data.branchId,
       ticketId: data.ticketId,
       contractorId: data.contractorId,
@@ -278,10 +288,18 @@ export async function updateWorkOrder(
     finalCost: number | null;
   }>
 ) {
-  const [existing] = await db.select().from(workOrders).where(eq(workOrders.id, id)).limit(1);
+  const [existing] = await db
+    .select()
+    .from(workOrders)
+    .where(and(eq(workOrders.id, id), agencyEq(workOrders.agencyId)))
+    .limit(1);
   if (!existing) return null;
 
-  const [branch] = await db.select().from(branches).where(eq(branches.id, existing.branchId)).limit(1);
+  const [branch] = await db
+    .select()
+    .from(branches)
+    .where(and(eq(branches.id, existing.branchId), agencyEq(branches.agencyId)))
+    .limit(1);
   const settings = parseBranchSettings(branch?.settings);
   const threshold = settings.work_order_approval_threshold ?? 250;
 
@@ -331,9 +349,13 @@ export async function updateWorkOrder(
       }),
       meta: newMeta,
     })
-    .where(eq(workOrders.id, id));
+    .where(and(eq(workOrders.id, id), agencyEq(workOrders.agencyId)));
 
-  const [updated] = await db.select().from(workOrders).where(eq(workOrders.id, id)).limit(1);
+  const [updated] = await db
+    .select()
+    .from(workOrders)
+    .where(and(eq(workOrders.id, id), agencyEq(workOrders.agencyId)))
+    .limit(1);
 
   // Notify contractor on assign
   const contractorId = data.contractorId !== undefined ? data.contractorId : existing.contractorId;
@@ -354,7 +376,7 @@ async function notifyContractorOfJob(wo: typeof workOrders.$inferSelect) {
   const [contractor] = await db
     .select()
     .from(contractors)
-    .where(eq(contractors.id, wo.contractorId))
+    .where(and(eq(contractors.id, wo.contractorId), agencyEq(contractors.agencyId)))
     .limit(1);
   if (!contractor?.email) {
     console.log("[maintenance] contractor notify skipped — no email", wo.id);
@@ -388,7 +410,7 @@ async function notifyContractorOfJob(wo: typeof workOrders.$inferSelect) {
         },
       },
     })
-    .where(eq(workOrders.id, wo.id));
+    .where(and(eq(workOrders.id, wo.id), agencyEq(workOrders.agencyId)));
 
   return { sent: true, email: contractor.email, subject, body };
 }
@@ -424,7 +446,7 @@ export async function listContractors(branchId: string) {
   return db
     .select()
     .from(contractors)
-    .where(eq(contractors.branchId, branchId))
+    .where(and(eq(contractors.branchId, branchId), agencyEq(contractors.agencyId)))
     .orderBy(contractors.name);
 }
 
@@ -436,12 +458,20 @@ export async function createContractor(data: {
   trade?: string | null;
   notes?: string | null;
 }) {
-  const [row] = await db.insert(contractors).values(data).returning();
+  const [row] = await db
+    .insert(contractors)
+    .values({
+      agencyId: currentAgencyId(),
+      ...data,
+    })
+    .returning();
   return row;
 }
 
 export async function deleteContractor(id: string) {
-  await db.delete(contractors).where(eq(contractors.id, id));
+  await db
+    .delete(contractors)
+    .where(and(eq(contractors.id, id), agencyEq(contractors.agencyId)));
 }
 
 export async function countOpenTickets(branchId: string) {
@@ -449,13 +479,20 @@ export async function countOpenTickets(branchId: string) {
     .select({ value: count() })
     .from(tickets)
     .where(
-      and(eq(tickets.branchId, branchId), notInArray(tickets.status, ["completed", "cancelled"]))
+      and(
+        eq(tickets.branchId, branchId),
+        agencyEq(tickets.agencyId),
+        notInArray(tickets.status, ["completed", "cancelled"])
+      )
     );
   return r?.value ?? 0;
 }
 
 export async function findBranchByMaintenanceToken(token: string) {
-  const allBranches = await db.select().from(branches);
+  const allBranches = await db
+    .select()
+    .from(branches)
+    .where(agencyEq(branches.agencyId));
   for (const branch of allBranches) {
     const settings = parseBranchSettings(branch.settings);
     if (settings.maintenance_inbox_token === token) {

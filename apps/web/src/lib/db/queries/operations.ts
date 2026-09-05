@@ -1,5 +1,6 @@
 import { eq, and, desc, asc, ilike, or, sql, count, type SQL } from "drizzle-orm";
 import { db } from "../index";
+import { agencyEq, currentAgencyId } from "../agency-scope";
 import { landlords, renters, tenancies, properties, branches } from "../schema";
 import { parseBranchSettings, type BranchSettings } from "@/lib/branch-settings";
 import {
@@ -42,20 +43,19 @@ function personSearch(
 }
 
 export async function listLandlords(branchId?: string) {
-  if (branchId) {
-    return db
-      .select()
-      .from(landlords)
-      .where(eq(landlords.branchId, branchId))
-      .orderBy(desc(landlords.createdAt));
-  }
-  return db.select().from(landlords).orderBy(desc(landlords.createdAt));
+  const conditions: SQL[] = [agencyEq(landlords.agencyId)];
+  if (branchId) conditions.push(eq(landlords.branchId, branchId));
+  return db
+    .select()
+    .from(landlords)
+    .where(and(...conditions))
+    .orderBy(desc(landlords.createdAt));
 }
 
 export async function searchLandlords(opts: ListPageOpts = {}) {
   const { branchId, q, sort = "newest" } = opts;
   const { limit, offset } = pageOffset(opts.page, opts.pageSize);
-  const conditions: SQL[] = [];
+  const conditions: SQL[] = [agencyEq(landlords.agencyId)];
   if (branchId) conditions.push(eq(landlords.branchId, branchId));
   if (q?.trim()) {
     conditions.push(
@@ -68,11 +68,12 @@ export async function searchLandlords(opts: ListPageOpts = {}) {
       )
     );
   }
-  const where = conditions.length ? and(...conditions) : undefined;
+  const where = and(...conditions);
 
   const propertyCount = sql<number>`(
     select count(*)::int from ${properties}
     where ${properties.landlordId} = ${landlords.id}
+      and ${properties.agencyId} = ${landlords.agencyId}
   )`.mapWith(Number);
 
   const orderBy =
@@ -98,13 +99,18 @@ export async function searchLandlords(opts: ListPageOpts = {}) {
 }
 
 export async function countLandlords(branchId?: string) {
-  const where = branchId ? eq(landlords.branchId, branchId) : undefined;
-  const [row] = await db.select({ total: count() }).from(landlords).where(where);
+  const conditions: SQL[] = [agencyEq(landlords.agencyId)];
+  if (branchId) conditions.push(eq(landlords.branchId, branchId));
+  const [row] = await db.select({ total: count() }).from(landlords).where(and(...conditions));
   return row?.total ?? 0;
 }
 
 export async function getLandlordById(id: string) {
-  const [row] = await db.select().from(landlords).where(eq(landlords.id, id)).limit(1);
+  const [row] = await db
+    .select()
+    .from(landlords)
+    .where(and(eq(landlords.id, id), agencyEq(landlords.agencyId)))
+    .limit(1);
   return row ?? null;
 }
 
@@ -120,6 +126,7 @@ export async function createLandlord(data: {
   const [row] = await db
     .insert(landlords)
     .values({
+      agencyId: currentAgencyId(),
       branchId: data.branchId,
       firstName: data.firstName,
       lastName: data.lastName,
@@ -143,29 +150,32 @@ export async function updateLandlord(
     bankDetails: Record<string, unknown> | null;
   }>
 ) {
-  const [row] = await db.update(landlords).set(data).where(eq(landlords.id, id)).returning();
+  const [row] = await db
+    .update(landlords)
+    .set(data)
+    .where(and(eq(landlords.id, id), agencyEq(landlords.agencyId)))
+    .returning();
   return row ?? null;
 }
 
 export async function deleteLandlord(id: string) {
-  await db.delete(landlords).where(eq(landlords.id, id));
+  await db.delete(landlords).where(and(eq(landlords.id, id), agencyEq(landlords.agencyId)));
 }
 
 export async function listRenters(branchId?: string) {
-  if (branchId) {
-    return db
-      .select()
-      .from(renters)
-      .where(eq(renters.branchId, branchId))
-      .orderBy(desc(renters.createdAt));
-  }
-  return db.select().from(renters).orderBy(desc(renters.createdAt));
+  const conditions: SQL[] = [agencyEq(renters.agencyId)];
+  if (branchId) conditions.push(eq(renters.branchId, branchId));
+  return db
+    .select()
+    .from(renters)
+    .where(and(...conditions))
+    .orderBy(desc(renters.createdAt));
 }
 
 export async function searchRenters(opts: ListPageOpts = {}) {
   const { branchId, q, sort = "newest" } = opts;
   const { limit, offset } = pageOffset(opts.page, opts.pageSize);
-  const conditions: SQL[] = [];
+  const conditions: SQL[] = [agencyEq(renters.agencyId)];
   if (branchId) conditions.push(eq(renters.branchId, branchId));
   if (q?.trim()) {
     conditions.push(
@@ -178,7 +188,7 @@ export async function searchRenters(opts: ListPageOpts = {}) {
       )
     );
   }
-  const where = conditions.length ? and(...conditions) : undefined;
+  const where = and(...conditions);
 
   const orderBy =
     sort === "name"
@@ -200,13 +210,18 @@ export async function searchRenters(opts: ListPageOpts = {}) {
 }
 
 export async function countRenters(branchId?: string) {
-  const where = branchId ? eq(renters.branchId, branchId) : undefined;
-  const [row] = await db.select({ total: count() }).from(renters).where(where);
+  const conditions: SQL[] = [agencyEq(renters.agencyId)];
+  if (branchId) conditions.push(eq(renters.branchId, branchId));
+  const [row] = await db.select({ total: count() }).from(renters).where(and(...conditions));
   return row?.total ?? 0;
 }
 
 export async function getRenterById(id: string) {
-  const [row] = await db.select().from(renters).where(eq(renters.id, id)).limit(1);
+  const [row] = await db
+    .select()
+    .from(renters)
+    .where(and(eq(renters.id, id), agencyEq(renters.agencyId)))
+    .limit(1);
   return row ?? null;
 }
 
@@ -222,6 +237,7 @@ export async function createRenter(data: {
   const [row] = await db
     .insert(renters)
     .values({
+      agencyId: currentAgencyId(),
       branchId: data.branchId,
       firstName: data.firstName,
       lastName: data.lastName,
@@ -238,7 +254,13 @@ export async function getRenterByEmail(email: string, branchId: string) {
   const [row] = await db
     .select()
     .from(renters)
-    .where(and(eq(renters.email, email), eq(renters.branchId, branchId)))
+    .where(
+      and(
+        eq(renters.email, email),
+        eq(renters.branchId, branchId),
+        agencyEq(renters.agencyId)
+      )
+    )
     .limit(1);
   return row ?? null;
 }
@@ -253,12 +275,19 @@ export async function updateRenter(
     notes: string | null;
   }>
 ) {
-  const [row] = await db.update(renters).set(data).where(eq(renters.id, id)).returning();
+  const [row] = await db
+    .update(renters)
+    .set(data)
+    .where(and(eq(renters.id, id), agencyEq(renters.agencyId)))
+    .returning();
   return row ?? null;
 }
 
 export async function listTenancies(branchId?: string) {
-  const base = db
+  const conditions: SQL[] = [agencyEq(tenancies.agencyId)];
+  if (branchId) conditions.push(eq(tenancies.branchId, branchId));
+
+  return db
     .select({
       tenancy: tenancies,
       propertyAddress: properties.displayAddress,
@@ -267,18 +296,15 @@ export async function listTenancies(branchId?: string) {
     })
     .from(tenancies)
     .innerJoin(properties, eq(tenancies.propertyId, properties.id))
-    .innerJoin(renters, eq(tenancies.primaryRenterId, renters.id));
-
-  if (branchId) {
-    return base.where(eq(tenancies.branchId, branchId)).orderBy(desc(tenancies.startDate));
-  }
-  return base.orderBy(desc(tenancies.startDate));
+    .innerJoin(renters, eq(tenancies.primaryRenterId, renters.id))
+    .where(and(...conditions))
+    .orderBy(desc(tenancies.startDate));
 }
 
 export async function searchTenancies(opts: ListPageOpts = {}) {
   const { branchId, q, status } = opts;
   const { limit, offset } = pageOffset(opts.page, opts.pageSize);
-  const conditions: SQL[] = [];
+  const conditions: SQL[] = [agencyEq(tenancies.agencyId)];
   if (branchId) conditions.push(eq(tenancies.branchId, branchId));
   if (status && status !== "all") conditions.push(eq(tenancies.status, status));
   if (q?.trim()) {
@@ -293,7 +319,7 @@ export async function searchTenancies(opts: ListPageOpts = {}) {
       )!
     );
   }
-  const where = conditions.length ? and(...conditions) : undefined;
+  const where = and(...conditions);
 
   const [rows, totalRow, activeRow] = await Promise.all([
     db
@@ -322,6 +348,7 @@ export async function searchTenancies(opts: ListPageOpts = {}) {
       .from(tenancies)
       .where(
         and(
+          agencyEq(tenancies.agencyId),
           ...(branchId ? [eq(tenancies.branchId, branchId)] : []),
           eq(tenancies.status, "active")
         )
@@ -345,7 +372,7 @@ export async function getTenancyById(id: string) {
     .from(tenancies)
     .innerJoin(properties, eq(tenancies.propertyId, properties.id))
     .innerJoin(renters, eq(tenancies.primaryRenterId, renters.id))
-    .where(eq(tenancies.id, id))
+    .where(and(eq(tenancies.id, id), agencyEq(tenancies.agencyId)))
     .limit(1);
   return row ?? null;
 }
@@ -358,7 +385,8 @@ export async function getActiveTenancyForRenter(renterId: string, branchId: stri
       and(
         eq(tenancies.primaryRenterId, renterId),
         eq(tenancies.branchId, branchId),
-        eq(tenancies.status, "active")
+        eq(tenancies.status, "active"),
+        agencyEq(tenancies.agencyId)
       )
     )
     .orderBy(desc(tenancies.startDate))
@@ -370,7 +398,7 @@ async function allocateUniquePaymentRef(branchId: string): Promise<string> {
   const existing = await db
     .select({ metadata: tenancies.metadata })
     .from(tenancies)
-    .where(eq(tenancies.branchId, branchId));
+    .where(and(eq(tenancies.branchId, branchId), agencyEq(tenancies.agencyId)));
   const used = new Set(
     existing
       .map((r) => getPaymentRefFromMetadata(r.metadata))
@@ -399,6 +427,7 @@ export async function createTenancy(data: {
   const [row] = await db
     .insert(tenancies)
     .values({
+      agencyId: currentAgencyId(),
       branchId: data.branchId,
       propertyId: data.propertyId,
       primaryRenterId: data.primaryRenterId,
@@ -415,7 +444,7 @@ export async function createTenancy(data: {
   await db
     .update(properties)
     .set({ isVacant: false, status: "let_agreed", updatedAt: new Date() })
-    .where(eq(properties.id, data.propertyId));
+    .where(and(eq(properties.id, data.propertyId), agencyEq(properties.agencyId)));
 
   const { seedTenancyComplianceChecklist } = await import("./compliance");
   await seedTenancyComplianceChecklist({
@@ -435,7 +464,13 @@ export async function backfillPaymentRefsForBranch(branchId: string): Promise<nu
   const rows = await db
     .select()
     .from(tenancies)
-    .where(and(eq(tenancies.branchId, branchId), eq(tenancies.status, "active")));
+    .where(
+      and(
+        eq(tenancies.branchId, branchId),
+        eq(tenancies.status, "active"),
+        agencyEq(tenancies.agencyId)
+      )
+    );
 
   let updated = 0;
   for (const row of rows) {
@@ -448,32 +483,40 @@ export async function backfillPaymentRefsForBranch(branchId: string): Promise<nu
     await db
       .update(tenancies)
       .set({ metadata: withPaymentRef(meta, paymentRef) })
-      .where(eq(tenancies.id, row.id));
+      .where(and(eq(tenancies.id, row.id), agencyEq(tenancies.agencyId)));
     updated += 1;
   }
   return updated;
 }
 
 export async function endTenancy(id: string) {
-  const tenancy = await db.select().from(tenancies).where(eq(tenancies.id, id)).limit(1);
+  const tenancy = await db
+    .select()
+    .from(tenancies)
+    .where(and(eq(tenancies.id, id), agencyEq(tenancies.agencyId)))
+    .limit(1);
   if (!tenancy[0]) return null;
 
   const [row] = await db
     .update(tenancies)
     .set({ status: "ended", endDate: new Date().toISOString().slice(0, 10) })
-    .where(eq(tenancies.id, id))
+    .where(and(eq(tenancies.id, id), agencyEq(tenancies.agencyId)))
     .returning();
 
   await db
     .update(properties)
     .set({ isVacant: true, updatedAt: new Date() })
-    .where(eq(properties.id, tenancy[0].propertyId));
+    .where(and(eq(properties.id, tenancy[0].propertyId), agencyEq(properties.agencyId)));
 
   return row ?? null;
 }
 
 export async function getBranchWithSettings(branchId: string) {
-  const [row] = await db.select().from(branches).where(eq(branches.id, branchId)).limit(1);
+  const [row] = await db
+    .select()
+    .from(branches)
+    .where(and(eq(branches.id, branchId), agencyEq(branches.agencyId)))
+    .limit(1);
   if (!row) return null;
   return { ...row, settings: parseBranchSettings(row.settings) };
 }
@@ -481,6 +524,9 @@ export async function getBranchWithSettings(branchId: string) {
 export async function updateBranchSettings(branchId: string, settings: BranchSettings) {
   const current = await getBranchWithSettings(branchId);
   const merged = { ...(current?.settings ?? {}), ...settings };
-  await db.update(branches).set({ settings: merged }).where(eq(branches.id, branchId));
+  await db
+    .update(branches)
+    .set({ settings: merged })
+    .where(and(eq(branches.id, branchId), agencyEq(branches.agencyId)));
   return merged;
 }

@@ -1,5 +1,6 @@
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "../index";
+import { agencyEq, currentAgencyId } from "../agency-scope";
 import {
   bankConnections,
   bankTransactions,
@@ -26,13 +27,17 @@ export async function updateBankConnection(
   const [row] = await db
     .update(bankConnections)
     .set(values)
-    .where(eq(bankConnections.id, id))
+    .where(and(eq(bankConnections.id, id), agencyEq(bankConnections.agencyId)))
     .returning();
   return row ?? null;
 }
 
 export async function getBankConnectionById(id: string) {
-  const [row] = await db.select().from(bankConnections).where(eq(bankConnections.id, id)).limit(1);
+  const [row] = await db
+    .select()
+    .from(bankConnections)
+    .where(and(eq(bankConnections.id, id), agencyEq(bankConnections.agencyId)))
+    .limit(1);
   return row ?? null;
 }
 
@@ -40,7 +45,7 @@ export async function listBankConnections(branchId: string) {
   return db
     .select()
     .from(bankConnections)
-    .where(eq(bankConnections.branchId, branchId))
+    .where(and(eq(bankConnections.branchId, branchId), agencyEq(bankConnections.agencyId)))
     .orderBy(desc(bankConnections.createdAt));
 }
 
@@ -61,7 +66,8 @@ export async function insertBankTransaction(data: {
     .where(
       and(
         eq(bankTransactions.branchId, data.branchId),
-        eq(bankTransactions.providerTxnId, data.providerTxnId)
+        eq(bankTransactions.providerTxnId, data.providerTxnId),
+        agencyEq(bankTransactions.agencyId)
       )
     )
     .limit(1);
@@ -70,6 +76,7 @@ export async function insertBankTransaction(data: {
   const [row] = await db
     .insert(bankTransactions)
     .values({
+      agencyId: currentAgencyId(),
       branchId: data.branchId,
       connectionId: data.connectionId,
       providerTxnId: data.providerTxnId,
@@ -89,7 +96,7 @@ export async function getBankTransactionById(id: string) {
   const [row] = await db
     .select()
     .from(bankTransactions)
-    .where(eq(bankTransactions.id, id))
+    .where(and(eq(bankTransactions.id, id), agencyEq(bankTransactions.agencyId)))
     .limit(1);
   return row ?? null;
 }
@@ -99,7 +106,11 @@ export async function listPendingBankTransactions(branchId: string) {
     .select()
     .from(bankTransactions)
     .where(
-      and(eq(bankTransactions.branchId, branchId), eq(bankTransactions.matchStatus, "pending"))
+      and(
+        eq(bankTransactions.branchId, branchId),
+        eq(bankTransactions.matchStatus, "pending"),
+        agencyEq(bankTransactions.agencyId)
+      )
     )
     .orderBy(desc(bankTransactions.bookedAt));
 }
@@ -117,7 +128,7 @@ export async function updateBankTransaction(
   const [row] = await db
     .update(bankTransactions)
     .set(patch)
-    .where(eq(bankTransactions.id, id))
+    .where(and(eq(bankTransactions.id, id), agencyEq(bankTransactions.agencyId)))
     .returning();
   return row ?? null;
 }
@@ -144,6 +155,9 @@ export async function listOpenInvoiceMatchCandidates(
     .where(
       and(
         eq(invoices.branchId, branchId),
+        agencyEq(invoices.agencyId),
+        agencyEq(tenancies.agencyId),
+        agencyEq(properties.agencyId),
         inArray(invoices.status, ["due", "partial"]),
         inArray(invoices.type, ["rent", "late_fee"])
       )
@@ -158,7 +172,12 @@ export async function listOpenInvoiceMatchCandidates(
         total: sql<string>`coalesce(sum(${paymentAllocations.amount}), 0)`,
       })
       .from(paymentAllocations)
-      .where(inArray(paymentAllocations.invoiceId, invoiceIds))
+      .where(
+        and(
+          inArray(paymentAllocations.invoiceId, invoiceIds),
+          agencyEq(paymentAllocations.agencyId)
+        )
+      )
       .groupBy(paymentAllocations.invoiceId);
     for (const s of sums) allocated.set(s.invoiceId, Number(s.total));
   }
@@ -193,6 +212,7 @@ export async function createUnmatchedException(data: {
   const [row] = await db
     .insert(paymentExceptions)
     .values({
+      agencyId: currentAgencyId(),
       branchId: data.branchId,
       tenancyId: data.suggestedTenancyId ?? null,
       invoiceId: data.suggestedInvoiceId ?? null,
@@ -212,7 +232,7 @@ export async function getPaymentExceptionById(id: string) {
   const [row] = await db
     .select()
     .from(paymentExceptions)
-    .where(eq(paymentExceptions.id, id))
+    .where(and(eq(paymentExceptions.id, id), agencyEq(paymentExceptions.agencyId)))
     .limit(1);
   return row ?? null;
 }
@@ -226,7 +246,7 @@ export async function getBankFeedSummary(branchId: string) {
       total: sql<number>`count(*)::int`,
     })
     .from(bankTransactions)
-    .where(eq(bankTransactions.branchId, branchId));
+    .where(and(eq(bankTransactions.branchId, branchId), agencyEq(bankTransactions.agencyId)));
 
   return {
     pending: counts?.pending ?? 0,

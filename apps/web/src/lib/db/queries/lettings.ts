@@ -1,6 +1,7 @@
 import { eq, and, desc, gt, isNull } from "drizzle-orm";
 import { randomBytes } from "crypto";
 import { db } from "../index";
+import { agencyEq, currentAgencyId } from "../agency-scope";
 import {
   enquiries,
   viewings,
@@ -17,7 +18,7 @@ export async function updateEnquiryPipeline(id: string, pipelineStage: string) {
   const [row] = await db
     .update(enquiries)
     .set({ pipelineStage, status: pipelineStage })
-    .where(eq(enquiries.id, id))
+    .where(and(eq(enquiries.id, id), agencyEq(enquiries.agencyId)))
     .returning();
   return row ?? null;
 }
@@ -32,6 +33,7 @@ export async function createViewing(data: {
   const [row] = await db
     .insert(viewings)
     .values({
+      agencyId: currentAgencyId(),
       branchId: data.branchId,
       propertyId: data.propertyId,
       enquiryId: data.enquiryId ?? null,
@@ -54,7 +56,7 @@ export async function listViewings(branchId: string) {
     })
     .from(viewings)
     .innerJoin(properties, eq(viewings.propertyId, properties.id))
-    .where(eq(viewings.branchId, branchId))
+    .where(and(eq(viewings.branchId, branchId), agencyEq(viewings.agencyId)))
     .orderBy(desc(viewings.scheduledAt));
 }
 
@@ -62,7 +64,7 @@ export async function updateApplicationReferencing(id: string, referencingStatus
   const [row] = await db
     .update(tenantApplications)
     .set({ referencingStatus })
-    .where(eq(tenantApplications.id, id))
+    .where(and(eq(tenantApplications.id, id), agencyEq(tenantApplications.agencyId)))
     .returning();
   return row ?? null;
 }
@@ -71,7 +73,7 @@ export async function getApplicationById(id: string) {
   const [row] = await db
     .select()
     .from(tenantApplications)
-    .where(eq(tenantApplications.id, id))
+    .where(and(eq(tenantApplications.id, id), agencyEq(tenantApplications.agencyId)))
     .limit(1);
   return row ?? null;
 }
@@ -103,7 +105,7 @@ export async function convertApplicationToTenancy(
   await db
     .update(tenantApplications)
     .set({ status: "approved", referencingStatus: "complete" })
-    .where(eq(tenantApplications.id, applicationId));
+    .where(and(eq(tenantApplications.id, applicationId), agencyEq(tenantApplications.agencyId)));
 
   return { renter, tenancy };
 }
@@ -117,6 +119,7 @@ export async function createLandlordProfile(data: {
   const [row] = await db
     .insert(landlordProfiles)
     .values({
+      agencyId: currentAgencyId(),
       id: data.userId,
       branchId: data.branchId,
       landlordId: data.landlordId,
@@ -134,7 +137,7 @@ export async function getLandlordProfileByUserId(userId: string) {
     })
     .from(landlordProfiles)
     .innerJoin(landlords, eq(landlordProfiles.landlordId, landlords.id))
-    .where(eq(landlordProfiles.id, userId))
+    .where(and(eq(landlordProfiles.id, userId), agencyEq(landlordProfiles.agencyId)))
     .limit(1);
   return row ?? null;
 }
@@ -147,7 +150,7 @@ export async function getLandlordProfileByLandlordId(landlordId: string) {
     })
     .from(landlordProfiles)
     .innerJoin(landlords, eq(landlordProfiles.landlordId, landlords.id))
-    .where(eq(landlordProfiles.landlordId, landlordId))
+    .where(and(eq(landlordProfiles.landlordId, landlordId), agencyEq(landlordProfiles.agencyId)))
     .limit(1);
   return row ?? null;
 }
@@ -159,7 +162,13 @@ export async function createLandlordInvite(data: {
   token: string;
   expiresAt: Date;
 }) {
-  const [row] = await db.insert(landlordInvites).values(data).returning();
+  const [row] = await db
+    .insert(landlordInvites)
+    .values({
+      agencyId: currentAgencyId(),
+      ...data,
+    })
+    .returning();
   return row;
 }
 
@@ -192,7 +201,8 @@ export async function getLandlordInviteByToken(token: string) {
       and(
         eq(landlordInvites.token, token),
         gt(landlordInvites.expiresAt, new Date()),
-        isNull(landlordInvites.acceptedAt)
+        isNull(landlordInvites.acceptedAt),
+        agencyEq(landlordInvites.agencyId)
       )
     )
     .limit(1);
@@ -203,9 +213,12 @@ export async function acceptLandlordInvite(inviteId: string) {
   await db
     .update(landlordInvites)
     .set({ acceptedAt: new Date() })
-    .where(eq(landlordInvites.id, inviteId));
+    .where(and(eq(landlordInvites.id, inviteId), agencyEq(landlordInvites.agencyId)));
 }
 
 export async function listPropertiesForLandlord(landlordId: string) {
-  return db.select().from(properties).where(eq(properties.landlordId, landlordId));
+  return db
+    .select()
+    .from(properties)
+    .where(and(eq(properties.landlordId, landlordId), agencyEq(properties.agencyId)));
 }
