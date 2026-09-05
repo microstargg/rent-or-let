@@ -42,12 +42,18 @@ export function SiteHeader() {
               {label}
             </Link>
           ))}
-          <Button asChild size="sm">
-            <Link href={`tel:${siteContent.contact.phone.replace(/\s/g, "")}`}>
-              <Phone className="mr-1 h-4 w-4" />
-              {siteContent.contact.phone}
-            </Link>
-          </Button>
+          {siteContent.contact.phone ? (
+            <Button asChild size="sm">
+              <Link href={`tel:${siteContent.contact.phone.replace(/\s/g, "")}`}>
+                <Phone className="mr-1 h-4 w-4" />
+                {siteContent.contact.phone}
+              </Link>
+            </Button>
+          ) : (
+            <Button asChild size="sm">
+              <Link href={`mailto:${siteContent.contact.email}`}>Get in touch</Link>
+            </Button>
+          )}
         </nav>
 
         <button

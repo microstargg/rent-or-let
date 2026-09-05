@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono, Instrument_Serif, Outfit } from "next/font/google";
 import { TenantProvider } from "@repo/config";
 import { AGENCY_SLUG_HEADER } from "@repo/config/host";
 import { getAgencyBySlug } from "@repo/config/runtime";
@@ -20,6 +20,19 @@ const geistSans = Geist({
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
+});
+
+const veriSans = Outfit({
+  variable: "--font-veri-sans",
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800"],
+});
+
+const veriSerif = Instrument_Serif({
+  variable: "--font-veri-serif",
+  subsets: ["latin"],
+  weight: "400",
+  style: ["normal", "italic"],
 });
 
 const previewMetadata: Metadata = {
@@ -64,10 +77,16 @@ export default async function RootLayout({
   }
 
   const agency = getAgencyBySlug(slug);
+  const isVeri = agency.slug === "veri-properties";
+  const fontVars = isVeri
+    ? `${veriSans.variable} ${veriSerif.variable} ${geistMono.variable}`
+    : `${geistSans.variable} ${geistMono.variable}`;
 
   return (
     <html lang="en-GB" data-agency={agency.slug} data-platform-host={agency.runtime.platformHost}>
-      <body className={`${geistSans.variable} ${geistMono.variable} font-sans`}>
+      <body
+        className={`${fontVars} font-sans ${isVeri ? "font-[family-name:var(--font-veri-sans)]" : ""}`}
+      >
         <TenantProvider tenant={agency.config}>
           <SiteHeader />
           <main className="min-h-screen">{children}</main>

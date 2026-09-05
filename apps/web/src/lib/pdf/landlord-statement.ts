@@ -56,18 +56,29 @@ function row(
 
 export function renderLandlordStatementPdf(input: LandlordStatementPdfInput): Uint8Array {
   const { site: siteContent, name: tenantName } = getTenant();
+  const address = siteContent.contact.address;
   const agency =
-    input.agencyName ?? siteContent.contact.address.line1 ?? tenantName;
+    input.agencyName ?? address?.line1 ?? tenantName;
   const totals = input.totals ?? {};
   const properties = totals.properties ?? [];
+  const contactLine = [
+    siteContent.contact.phone ? `Tel ${siteContent.contact.phone}` : null,
+    siteContent.contact.email,
+  ]
+    .filter(Boolean)
+    .join("  ·  ");
   const blocks: PdfBlock[] = [
     { kind: "title", text: "Landlord statement" },
     { kind: "text", text: agency, bold: true },
-    {
-      kind: "text",
-      text: `${siteContent.contact.address.line2}, ${siteContent.contact.address.city} ${siteContent.contact.address.postcode}`,
-    },
-    { kind: "text", text: `Tel ${siteContent.contact.phone}  ·  ${siteContent.contact.email}` },
+    ...(address
+      ? ([
+          {
+            kind: "text" as const,
+            text: `${address.line2}, ${address.city} ${address.postcode}`,
+          },
+        ] as PdfBlock[])
+      : []),
+    { kind: "text", text: contactLine },
     { kind: "rule" },
     { kind: "text", text: input.landlordName || "—", bold: true },
     { kind: "text", text: `Period ${input.periodFrom} to ${input.periodTo}` },

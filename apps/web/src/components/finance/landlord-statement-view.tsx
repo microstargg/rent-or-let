@@ -42,8 +42,13 @@ export function LandlordStatementView({
   agencyName,
 }: LandlordStatementPdfInput) {
   const { site: siteContent, name: tenantName } = getTenant();
-  const agency = agencyName ?? siteContent.contact.address.line1 ?? tenantName;
+  const address = siteContent.contact.address;
+  const agency = agencyName ?? address?.line1 ?? tenantName;
   const properties = totals.properties ?? [];
+  const contactBits = [
+    siteContent.contact.phone ? `Tel ${siteContent.contact.phone}` : null,
+    siteContent.contact.email,
+  ].filter(Boolean);
 
   return (
     <article className="mx-auto max-w-2xl bg-white px-6 py-8 text-neutral-900 shadow-sm ring-1 ring-black/10 print:max-w-none print:px-0 print:py-0 print:shadow-none print:ring-0 sm:px-10 sm:py-10">
@@ -52,13 +57,14 @@ export function LandlordStatementView({
           Landlord statement
         </p>
         <h1 className="mt-2 text-2xl font-semibold tracking-tight">{agency}</h1>
-        <p className="mt-1 text-sm text-neutral-600">
-          {siteContent.contact.address.line2}, {siteContent.contact.address.city}{" "}
-          {siteContent.contact.address.postcode}
-        </p>
-        <p className="text-sm text-neutral-600">
-          Tel {siteContent.contact.phone} · {siteContent.contact.email}
-        </p>
+        {address ? (
+          <p className="mt-1 text-sm text-neutral-600">
+            {address.line2}, {address.city} {address.postcode}
+          </p>
+        ) : null}
+        {contactBits.length > 0 ? (
+          <p className="text-sm text-neutral-600">{contactBits.join(" · ")}</p>
+        ) : null}
       </header>
 
       <hr className="my-6 border-neutral-300" />

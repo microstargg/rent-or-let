@@ -17,8 +17,9 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function TenantsPage() {
-  const { site: siteContent } = await getTenant();
+  const { site: siteContent, id } = await getTenant();
   const { tenants } = siteContent;
+  const isVeri = id === "veri-properties";
 
   return (
     <>
@@ -49,20 +50,31 @@ export default async function TenantsPage() {
                 {tenants.benefits}
               </p>
             </div>
-            <div className="rounded-xl border bg-card p-6 shadow-sm">
+            <div
+              className={
+                isVeri
+                  ? "border border-foreground/10 p-6"
+                  : "rounded-xl border bg-card p-6 shadow-sm"
+              }
+            >
               <h3 className="font-semibold">Start your search</h3>
               <p className="mt-2 text-sm text-muted-foreground">
-                Browse our available properties or call our office to arrange a
-                viewing.
+                {isVeri
+                  ? "Browse our available properties or email the team to arrange a viewing."
+                  : "Browse our available properties or call our office to arrange a viewing."}
               </p>
               <div className="mt-6 flex flex-wrap gap-3">
-                <Button asChild>
+                <Button asChild className={isVeri ? "rounded-full" : undefined}>
                   <Link href="/properties">
                     View properties
                     <ArrowRight className="ml-2 h-4 w-4" />
                   </Link>
                 </Button>
-                <Button asChild variant="outline">
+                <Button
+                  asChild
+                  variant="outline"
+                  className={isVeri ? "rounded-full" : undefined}
+                >
                   <Link href="/apply">Apply to rent</Link>
                 </Button>
               </div>
@@ -208,7 +220,11 @@ export default async function TenantsPage() {
 
       <CtaBanner
         title="Ready to find your next home?"
-        description="Browse our available properties across Middlesbrough and Teesside, or apply online today."
+        description={
+          isVeri
+            ? "Browse available homes or apply online — email us anytime with questions."
+            : "Browse our available properties across Middlesbrough and Teesside, or apply online today."
+        }
         primaryHref="/properties"
         primaryLabel="View properties"
         secondaryHref="/apply"

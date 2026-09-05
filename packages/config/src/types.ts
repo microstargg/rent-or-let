@@ -8,16 +8,19 @@ export interface SiteContent {
     highlights: Array<{ title: string; description: string }>;
   };
   contact: {
-    phone: string;
+    /** Omit for remote / email-only agencies */
+    phone?: string;
     fax?: string;
     email: string;
-    address: {
+    /** Omit when the agency has no public registered / office address */
+    address?: {
       line1: string;
       line2: string;
       city: string;
       postcode: string;
     };
-    hours: Array<{ day: string; hours: string }>;
+    /** Omit when remote-only (no public office hours) */
+    hours?: Array<{ day: string; hours: string }>;
   };
   cmp: {
     scheme: string;

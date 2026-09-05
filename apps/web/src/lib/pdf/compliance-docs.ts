@@ -19,12 +19,13 @@ export function renderInspectionPdf(input: {
   meta: unknown;
   compare?: { type: string; completedAt?: Date | string | null; meta: unknown } | null;
 }): Uint8Array {
-  const { site: siteContent } = getTenant();
+  const { site: siteContent, name: tenantName } = getTenant();
+  const agencyLabel = siteContent.contact.address?.line1 ?? tenantName;
   const report = parseInspectionReport(input.meta);
   const compareReport = input.compare ? parseInspectionReport(input.compare.meta) : null;
   const blocks: PdfBlock[] = [
     { kind: "title", text: `${typeLabel(input.type)} inspection` },
-    { kind: "text", text: siteContent.contact.address.line1, bold: true },
+    { kind: "text", text: agencyLabel, bold: true },
     { kind: "text", text: input.propertyAddress, bold: true },
     {
       kind: "text",
@@ -87,14 +88,20 @@ export function renderNoticePdf(input: {
   currentRent?: string | number | null;
   proposedRent?: string | number | null;
 }): Uint8Array {
-  const { site: siteContent } = getTenant();
+  const { site: siteContent, name: tenantName } = getTenant();
+  const address = siteContent.contact.address;
+  const agencyLabel = address?.line1 ?? tenantName;
   const blocks: PdfBlock[] = [
     { kind: "title", text: noticeTitle(input.type) },
-    { kind: "text", text: siteContent.contact.address.line1, bold: true },
-    {
-      kind: "text",
-      text: `${siteContent.contact.address.line2}, ${siteContent.contact.address.city} ${siteContent.contact.address.postcode}`,
-    },
+    { kind: "text", text: agencyLabel, bold: true },
+    ...(address
+      ? ([
+          {
+            kind: "text" as const,
+            text: `${address.line2}, ${address.city} ${address.postcode}`,
+          },
+        ] as PdfBlock[])
+      : []),
     { kind: "rule" },
     { kind: "row", label: "Property", value: input.propertyAddress },
     { kind: "row", label: "Tenant", value: input.renterName },
@@ -129,10 +136,10 @@ export function renderPetDecisionPdf(input: {
   decidedAt?: Date | string | null;
   notes?: string | null;
 }): Uint8Array {
-  const { site: siteContent } = getTenant();
+  const { site: siteContent, name: tenantName } = getTenant();
   return buildStyledPdf([
     { kind: "title", text: "Pet request decision" },
-    { kind: "text", text: siteContent.contact.address.line1, bold: true },
+    { kind: "text", text: siteContent.contact.address?.line1 ?? tenantName, bold: true },
     { kind: "rule" },
     { kind: "row", label: "Property", value: input.propertyAddress },
     { kind: "row", label: "Tenant", value: input.renterName },
@@ -154,10 +161,10 @@ export function renderEvidencePackPdf(input: {
   renterName: string;
   lines: { title: string; detail: string }[];
 }): Uint8Array {
-  const { site: siteContent } = getTenant();
+  const { site: siteContent, name: tenantName } = getTenant();
   const blocks: PdfBlock[] = [
     { kind: "title", text: "Tenancy evidence pack" },
-    { kind: "text", text: siteContent.contact.address.line1, bold: true },
+    { kind: "text", text: siteContent.contact.address?.line1 ?? tenantName, bold: true },
     { kind: "row", label: "Property", value: input.propertyAddress },
     { kind: "row", label: "Tenant", value: input.renterName },
     { kind: "rule" },

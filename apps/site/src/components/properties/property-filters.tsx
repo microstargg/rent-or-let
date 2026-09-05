@@ -59,7 +59,7 @@ export function PropertyFilters() {
           id="town"
           name="town"
           defaultValue={searchParams.get("town") ?? ""}
-          placeholder="e.g. Middlesbrough"
+          placeholder="e.g. postcode or area"
         />
       </div>
       <div className="flex items-end">

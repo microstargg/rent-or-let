@@ -4,42 +4,53 @@ import { SiteLogo } from "@/components/brand/site-logo";
 
 export function SiteFooter() {
   const { site: siteContent, name } = getTenant();
+  const { address, phone, hours, email } = siteContent.contact;
 
   return (
     <footer className="border-t bg-muted/30">
       <div className="container mx-auto grid max-w-6xl gap-8 px-4 py-12 md:grid-cols-3">
         <div>
           <SiteLogo href="/" size="sm" />
-          <p className="mt-2 text-sm text-muted-foreground">
-            {siteContent.contact.address.line1}
-            <br />
-            {siteContent.contact.address.line2}
-            <br />
-            {siteContent.contact.address.city}, {siteContent.contact.address.postcode}
-          </p>
+          {address ? (
+            <p className="mt-2 text-sm text-muted-foreground">
+              {address.line1}
+              <br />
+              {address.line2}
+              <br />
+              {address.city}, {address.postcode}
+            </p>
+          ) : null}
         </div>
-        <div>
-          <h3 className="mb-3 text-sm font-semibold">Opening hours</h3>
-          <ul className="space-y-1 text-sm text-muted-foreground">
-            {siteContent.contact.hours.map(({ day, hours }) => (
-              <li key={day}>
-                {day}: {hours}
-              </li>
-            ))}
-          </ul>
-        </div>
+        {hours && hours.length > 0 ? (
+          <div>
+            <h3 className="mb-3 text-sm font-semibold">Opening hours</h3>
+            <ul className="space-y-1 text-sm text-muted-foreground">
+              {hours.map(({ day, hours: h }) => (
+                <li key={day}>
+                  {day}: {h}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : (
+          <div>
+            <h3 className="mb-3 text-sm font-semibold">Contact</h3>
+            <p className="text-sm text-muted-foreground">Fully remote — email us anytime.</p>
+          </div>
+        )}
         <div>
           <h3 className="mb-3 text-sm font-semibold">Contact</h3>
           <p className="text-sm text-muted-foreground">
-            <a
-              className="hover:text-foreground"
-              href={`tel:${siteContent.contact.phone.replace(/\s/g, "")}`}
-            >
-              {siteContent.contact.phone}
-            </a>
-            <br />
-            <a className="hover:text-foreground" href={`mailto:${siteContent.contact.email}`}>
-              {siteContent.contact.email}
+            {phone ? (
+              <>
+                <a className="hover:text-foreground" href={`tel:${phone.replace(/\s/g, "")}`}>
+                  {phone}
+                </a>
+                <br />
+              </>
+            ) : null}
+            <a className="hover:text-foreground" href={`mailto:${email}`}>
+              {email}
             </a>
           </p>
           <nav className="mt-4 flex flex-wrap gap-x-4 gap-y-2 text-sm">

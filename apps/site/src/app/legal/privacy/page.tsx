@@ -20,8 +20,11 @@ export default async function PrivacyPage() {
 
       <h2>Who we are</h2>
       <p>
-        {contact.address.line1}, {contact.address.line2}, {contact.address.city},{" "}
-        {contact.address.postcode}. Telephone: {contact.phone}.
+        {contact.address
+          ? `${contact.address.line1}, ${contact.address.line2}, ${contact.address.city}, ${contact.address.postcode}.`
+          : `${name} is a remote UK letting agency.`}
+        {contact.phone ? ` Telephone: ${contact.phone}.` : null} Email:{" "}
+        <a href={`mailto:${contact.email}`}>{contact.email}</a>.
       </p>
 
       <h2>What data we collect</h2>

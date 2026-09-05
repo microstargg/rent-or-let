@@ -38,8 +38,11 @@ export async function emailLandlordStatement(opts: {
     inviteLine = `\n\nThis is your first time using the portal. Accept your invite first:\n${issued.url}\nThen sign in to view statements.`;
   }
 
-  const { site: siteContent } = getTenant();
-  const agency = siteContent.contact.address.line1;
+  const { site: siteContent, name: tenantName } = getTenant();
+  const agency = siteContent.contact.address?.line1 ?? tenantName;
+  const helpLine = siteContent.contact.phone
+    ? `If you have any questions, call ${siteContent.contact.phone} or email ${siteContent.contact.email}.`
+    : `If you have any questions, email ${siteContent.contact.email}.`;
   const text = [
     `Hello ${name},`,
     ``,
@@ -48,7 +51,7 @@ export async function emailLandlordStatement(opts: {
     portalUrl,
     inviteLine,
     ``,
-    `If you have any questions, call ${siteContent.contact.phone} or email ${siteContent.contact.email}.`,
+    helpLine,
     ``,
     agency,
   ]

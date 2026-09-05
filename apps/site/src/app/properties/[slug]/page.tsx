@@ -117,13 +117,27 @@ export default async function PropertyDetailPage({
             </p>
             <PropertyEnquiryForm propertyId={property.id} />
             <p className="mt-4 text-center text-sm text-muted-foreground">
-              Or call{" "}
-              <a
-                href={`tel:${siteContent.contact.phone.replace(/\s/g, "")}`}
-                className="font-medium text-primary"
-              >
-                {siteContent.contact.phone}
-              </a>
+              {siteContent.contact.phone ? (
+                <>
+                  Or call{" "}
+                  <a
+                    href={`tel:${siteContent.contact.phone.replace(/\s/g, "")}`}
+                    className="font-medium text-primary"
+                  >
+                    {siteContent.contact.phone}
+                  </a>
+                </>
+              ) : (
+                <>
+                  Or email{" "}
+                  <a
+                    href={`mailto:${siteContent.contact.email}`}
+                    className="font-medium text-primary"
+                  >
+                    {siteContent.contact.email}
+                  </a>
+                </>
+              )}
             </p>
             <Button asChild variant="link" className="mt-2 w-full">
               <Link href="/apply">Apply to rent this property</Link>

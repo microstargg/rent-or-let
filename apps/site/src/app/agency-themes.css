@@ -3,8 +3,95 @@ html[data-agency="pms"] {
   --accent: oklch(0.55 0.12 45);
 }
 
+/* Studio Veri — stone backgrounds, charcoal primary, apricot accent */
 html[data-agency="veri-properties"] {
-  --primary: oklch(0.36 0.08 155);
-  --accent: oklch(0.55 0.12 155);
-  --ring: oklch(0.55 0.12 155);
+  --background: oklch(0.96 0.008 80);
+  --foreground: oklch(0.18 0.01 60);
+  --card: oklch(0.98 0.005 80);
+  --card-foreground: oklch(0.18 0.01 60);
+  --popover: oklch(0.98 0.005 80);
+  --popover-foreground: oklch(0.18 0.01 60);
+  --primary: oklch(0.18 0.01 60);
+  --primary-foreground: oklch(0.98 0.005 80);
+  --secondary: oklch(0.93 0.01 80);
+  --secondary-foreground: oklch(0.22 0.01 60);
+  --muted: oklch(0.93 0.008 80);
+  --muted-foreground: oklch(0.45 0.015 60);
+  --accent: oklch(0.78 0.09 55);
+  --accent-foreground: oklch(0.2 0.02 50);
+  --destructive: oklch(0.55 0.2 25);
+  --border: oklch(0.88 0.01 80);
+  --input: oklch(0.88 0.01 80);
+  --ring: oklch(0.78 0.09 55);
+}
+
+@keyframes veri-nav-in {
+  from {
+    opacity: 0;
+    transform: translateY(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes veri-hero-zoom {
+  from {
+    transform: scale(1.08);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+
+@keyframes veri-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+html[data-agency="veri-properties"] .veri-hero-image {
+  animation: veri-hero-zoom 1.4s ease-out forwards;
+}
+
+html[data-agency="veri-properties"] .veri-fade-up {
+  animation: veri-fade-up 0.9s ease-out both;
+}
+
+html[data-agency="veri-properties"] .veri-fade-up-delay {
+  animation: veri-fade-up 0.9s ease-out 0.15s both;
+}
+
+html[data-agency="veri-properties"] .veri-page-hero {
+  background: #141414;
+}
+
+html[data-agency="veri-properties"] .veri-page-hero-inner {
+  padding-top: 7rem;
+}
+
+@media (min-width: 768px) {
+  html[data-agency="veri-properties"] .veri-page-hero-inner {
+    padding-top: 8rem;
+  }
+}
+
+html[data-agency="veri-properties"] .veri-page-hero h1 {
+  font-family: var(--font-veri-sans), system-ui, sans-serif;
+  letter-spacing: -0.02em;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-agency="veri-properties"] .veri-hero-image,
+  html[data-agency="veri-properties"] .veri-fade-up,
+  html[data-agency="veri-properties"] .veri-fade-up-delay,
+  html[data-agency="veri-properties"] header {
+    animation: none !important;
+  }
 }

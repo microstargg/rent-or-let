@@ -6,87 +6,133 @@ import { getTenant } from "@/lib/tenant";
 
 export async function generateMetadata(): Promise<Metadata> {
   const { site, name } = await getTenant();
-  const { address, phone } = site.contact;
+  const { address, phone, email } = site.contact;
+  if (!phone && !address) {
+    return {
+      title: "Contact us",
+      description: `Contact ${name} by email at ${email}. Fully remote UK lettings.`,
+    };
+  }
   return {
     title: "Contact us",
-    description: `Contact ${name}. Call ${phone} or visit us at ${address.line2}, ${address.city}.`,
+    description: `Contact ${name}. Call ${phone} or visit us at ${address?.line2}, ${address?.city}.`,
   };
 }
 
 export default async function ContactPage() {
-  const { site: siteContent } = await getTenant();
+  const { site: siteContent, id } = await getTenant();
   const { address, phone, fax, email, hours } = siteContent.contact;
+  const isVeri = id === "veri-properties";
+  const remoteOnly = !phone && !address;
 
   return (
     <>
       <PageHero
         eyebrow="Contact"
-        title="We would love to hear from you"
-        subtitle="Visit our lettings office on Kings Road, call us during office hours, or send a message using the form below."
+        title={isVeri ? "Email the team" : "We would love to hear from you"}
+        subtitle={
+          isVeri
+            ? "We're fully remote — send a message below or email us directly. No office hours, no phone queue."
+            : "Visit our lettings office on Kings Road, call us during office hours, or send a message using the form below."
+        }
       />
 
       <div className="container mx-auto max-w-6xl px-4 py-14">
         <div className="grid gap-10 lg:grid-cols-2">
           <div className="space-y-8">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="rounded-xl border bg-card p-5 shadow-sm">
-                <Phone className="mb-3 h-5 w-5 text-primary" />
-                <h2 className="font-semibold">Telephone</h2>
-                <a
-                  href={`tel:${phone.replace(/\s/g, "")}`}
-                  className="mt-1 block text-primary hover:underline"
-                >
-                  {phone}
-                </a>
-                <p className="mt-2 text-xs text-muted-foreground">
-                  {fax ? <>Facsimile: {fax}</> : null}
-                </p>
+            {remoteOnly ? (
+              <div className={isVeri ? "space-y-6" : "rounded-xl border bg-card p-5 shadow-sm"}>
+                <div>
+                  <Mail className="mb-3 h-5 w-5 text-[oklch(0.55_0.08_55)]" />
+                  <h2 className="font-semibold">Email</h2>
+                  <a
+                    href={`mailto:${email}`}
+                    className="mt-1 block text-lg text-foreground hover:underline"
+                  >
+                    {email}
+                  </a>
+                  <p className="mt-3 text-sm text-muted-foreground">
+                    Fully remote UK lettings. We aim to reply within one working day.
+                  </p>
+                </div>
               </div>
-              <div className="rounded-xl border bg-card p-5 shadow-sm">
-                <Mail className="mb-3 h-5 w-5 text-primary" />
-                <h2 className="font-semibold">Email</h2>
-                <a
-                  href={`mailto:${email}`}
-                  className="mt-1 block text-primary hover:underline"
-                >
-                  {email}
-                </a>
-              </div>
-            </div>
+            ) : (
+              <>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {phone ? (
+                    <div className="rounded-xl border bg-card p-5 shadow-sm">
+                      <Phone className="mb-3 h-5 w-5 text-primary" />
+                      <h2 className="font-semibold">Telephone</h2>
+                      <a
+                        href={`tel:${phone.replace(/\s/g, "")}`}
+                        className="mt-1 block text-primary hover:underline"
+                      >
+                        {phone}
+                      </a>
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        {fax ? <>Facsimile: {fax}</> : null}
+                      </p>
+                    </div>
+                  ) : null}
+                  <div className="rounded-xl border bg-card p-5 shadow-sm">
+                    <Mail className="mb-3 h-5 w-5 text-primary" />
+                    <h2 className="font-semibold">Email</h2>
+                    <a
+                      href={`mailto:${email}`}
+                      className="mt-1 block text-primary hover:underline"
+                    >
+                      {email}
+                    </a>
+                  </div>
+                </div>
 
-            <div className="rounded-xl border bg-card p-5 shadow-sm">
-              <MapPin className="mb-3 h-5 w-5 text-primary" />
-              <h2 className="font-semibold">Find us</h2>
-              <address className="mt-2 text-sm text-muted-foreground not-italic leading-relaxed">
-                {address.line1}
-                <br />
-                {address.line2}
-                <br />
-                {address.city}, {address.postcode}
-              </address>
-            </div>
+                {address ? (
+                  <div className="rounded-xl border bg-card p-5 shadow-sm">
+                    <MapPin className="mb-3 h-5 w-5 text-primary" />
+                    <h2 className="font-semibold">Find us</h2>
+                    <address className="mt-2 text-sm leading-relaxed text-muted-foreground not-italic">
+                      {address.line1}
+                      <br />
+                      {address.line2}
+                      <br />
+                      {address.city}, {address.postcode}
+                    </address>
+                  </div>
+                ) : null}
 
-            <div className="rounded-xl border bg-card p-5 shadow-sm">
-              <Clock className="mb-3 h-5 w-5 text-primary" />
-              <h2 className="font-semibold">Office hours</h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Lettings sales office: Monday to Friday
-              </p>
-              <ul className="mt-3 space-y-1 text-sm text-muted-foreground">
-                {hours.map(({ day, hours: h }) => (
-                  <li key={day} className="flex justify-between gap-4">
-                    <span>{day}</span>
-                    <span>{h}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
+                {hours && hours.length > 0 ? (
+                  <div className="rounded-xl border bg-card p-5 shadow-sm">
+                    <Clock className="mb-3 h-5 w-5 text-primary" />
+                    <h2 className="font-semibold">Office hours</h2>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Lettings sales office: Monday to Friday
+                    </p>
+                    <ul className="mt-3 space-y-1 text-sm text-muted-foreground">
+                      {hours.map(({ day, hours: h }) => (
+                        <li key={day} className="flex justify-between gap-4">
+                          <span>{day}</span>
+                          <span>{h}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+              </>
+            )}
           </div>
 
-          <div className="rounded-xl border bg-card p-6 shadow-sm">
+          <div
+            className={
+              isVeri
+                ? "border border-foreground/10 bg-card/50 p-6 md:p-8"
+                : "rounded-xl border bg-card p-6 shadow-sm"
+            }
+          >
             <h2 className="text-lg font-semibold">Send a message</h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              We will respond as soon as possible during office hours.
+              {isVeri
+                ? "Tell us what you need — landlord management, a viewing, or a general enquiry."
+                : "We will respond as soon as possible during office hours."}
             </p>
             <div className="mt-6">
               <ContactForm />

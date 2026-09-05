@@ -1,39 +1,37 @@
 export const siteContent = {
   hero: {
     subtitle:
-      "A modern UK letting agency for landlords and tenants who want clear communication, compliant homes, and reliable day-to-day management.",
+      "A remote-first UK letting agency. Clear fees, compliant homes, and email-first support for landlords and tenants who want management without the office runaround.",
   },
   about: {
     summary:
-      "Veri Properties is a professional residential letting agency built around transparent fees, well-presented homes, and attentive property management. We support landlords who want their investments looked after properly — and tenants looking for quality rental homes with a straightforward move-in journey.",
+      "Veri Properties is a remote UK letting agency built for clarity — transparent fees, well-presented homes, and attentive management delivered digitally. We support landlords who want their investments looked after properly, and tenants who want a straightforward path from enquiry to move-in.",
     paragraphs: [
-      "Letting a property or finding a home is a significant decision. Our team combines local market knowledge with structured processes for marketing, referencing, compliance, rent collection, and maintenance coordination — so nothing important falls through the cracks.",
-      "We work with trusted contractors and keep both landlords and tenants informed throughout the tenancy. From first viewing to check-out, you deal with a dedicated team that responds promptly and explains what happens next.",
-      "Veri Properties is committed to compliant, well-maintained homes and a letting experience that feels professional without being impersonal. Whether you are placing a single property or building a small portfolio, we aim to make management simple, transparent, and reliable.",
+      "Letting a property or finding a home is a significant decision. We run structured processes for marketing, referencing, compliance, rent collection, and maintenance coordination — so nothing important falls through the cracks, wherever you are in the UK.",
+      "We work with trusted contractors and keep both landlords and tenants informed throughout the tenancy. From first viewing to check-out, you deal with a dedicated team that responds promptly by email and explains what happens next.",
+      "Veri is fully remote: no shop-front hours, no phone queue — just professional letting support when you need it. Whether you are placing a single property or building a small portfolio, we aim to make management simple, transparent, and reliable.",
     ],
     highlights: [
-      { title: "Transparent fees", description: "Clear pricing for management, marketing, and tenancy services — no surprises." },
-      { title: "Compliance led", description: "Safety certificates, deposits, and legislation handled as part of day-to-day management." },
-      { title: "Responsive support", description: "A dedicated team for landlords and tenants, with clear reporting and updates." },
-      { title: "Quality homes", description: "Well-presented rental properties marketed carefully and maintained throughout the tenancy." },
+      {
+        title: "Transparent fees",
+        description: "Clear pricing for management, marketing, and tenancy services — no surprises.",
+      },
+      {
+        title: "Compliance led",
+        description: "Safety certificates, deposits, and legislation handled as part of day-to-day management.",
+      },
+      {
+        title: "Email-first support",
+        description: "A dedicated remote team for landlords and tenants, with clear reporting and updates.",
+      },
+      {
+        title: "Quality homes",
+        description: "Well-presented rental properties marketed carefully and maintained throughout the tenancy.",
+      },
     ],
   },
   contact: {
-    phone: "0161 000 0000",
     email: "info@veri.properties",
-    address: {
-      line1: "Veri Properties",
-      line2: "Suite 2, 18 King Street",
-      city: "Manchester",
-      postcode: "M2 6AQ",
-    },
-    hours: [
-      { day: "Monday", hours: "09:00 – 17:00" },
-      { day: "Tuesday", hours: "09:00 – 17:00" },
-      { day: "Wednesday", hours: "09:00 – 17:00" },
-      { day: "Thursday", hours: "09:00 – 17:00" },
-      { day: "Friday", hours: "09:00 – 17:00" },
-    ],
   },
   cmp: {
     scheme: "Property Redress Scheme Client Money Protection",
@@ -58,13 +56,13 @@ export const siteContent = {
   landlords: {
     hero: {
       eyebrow: "For landlords",
-      title: "Full property management with clear fees",
+      title: "Full management with fees you can follow",
       subtitle:
-        "From marketing and referencing to rent collection, repairs, and compliance — we manage your rental property so you do not have to.",
+        "From marketing and referencing to rent collection, repairs, and compliance — we manage your rental so you can stay focused on everything else.",
     },
     intro: [
-      "Our landlords and lettings team take care of everything involved in managing your property: collecting rent, arranging works, coordinating safety checks, and keeping records up to date. We stay current with the latest rules and regulations so both your property and your tenants are looked after throughout the tenancy.",
-      "All of our team are experienced in residential lettings and are positioned to give accurate advice from first enquiry through to end of tenancy.",
+      "Our lettings team takes care of collecting rent, arranging works, coordinating safety checks, and keeping records up to date. We stay current with the latest rules so both your property and your tenants are looked after throughout the tenancy.",
+      "Every member of the team is experienced in residential lettings and can give accurate advice from first enquiry through to end of tenancy — all remotely, with email as the primary channel.",
       "You can use our management service even if another agent found the tenant or you already have a tenancy in place. If you no longer have the time to manage the property yourself — or you are unhappy with your current agent — we are happy to discuss how we can help.",
       "As standard, we market your property, find a suitable tenant, obtain references, collect the initial rent and deposit on move-in, continue rent collection throughout the tenancy, and manage the day-to-day letting of your property.",
     ],
@@ -100,7 +98,7 @@ export const siteContent = {
             {
               label: "Advertising / marketing",
               amount: "£150.00 + VAT per tenancy",
-              note: "Website listing, major property portals, office marketing, local contacts and a To Let board where appropriate.",
+              note: "Website listing, major property portals, digital marketing, local contacts and a To Let board where appropriate.",
             },
           ],
         },
@@ -145,9 +143,9 @@ export const siteContent = {
   tenants: {
     hero: {
       eyebrow: "For tenants",
-      title: "Quality homes and support throughout your tenancy",
+      title: "Homes with support that stays with you",
       subtitle:
-        "Browse carefully selected rental properties and get clear guidance from viewing through to moving in — and support for the life of your tenancy.",
+        "Browse carefully selected rentals and get clear guidance from viewing through to moving in — plus email-first support for the life of your tenancy.",
     },
     trustPoints: [
       { title: "Good quality properties", description: "A curated selection of well-presented homes across the areas we serve." },
@@ -155,7 +153,7 @@ export const siteContent = {
       { title: "Protected deposits", description: "Tenancy deposits held in a designated client account and protected in an approved scheme." },
     ],
     intro:
-      "The Veri Properties team works to make the journey from enquiry to move-in as clear as possible. We understand that many applicants need guidance when securing a tenancy — that is why we offer a structured support path for every customer.",
+      "The Veri Properties team works to make the journey from enquiry to move-in as clear as possible. We understand that many applicants need guidance when securing a tenancy — that is why we offer a structured support path for every customer, delivered remotely.",
     benefits:
       "Renting today is a positive lifestyle choice. Many people prefer not to have the long-term obligations that come with property ownership. Renting provides flexibility and frees tenants of the responsibility of major property repairs and maintenance.",
     choosingArea: {
@@ -173,8 +171,8 @@ export const siteContent = {
     findingProperty: {
       title: "Finding the property to live in",
       paragraphs: [
-        "Once you have chosen an area, start your property search on our properties page or call our office. Consider how much rent you can pay each month and what type of property you can afford in your chosen area.",
-        "Think about how much space you need, the layout you want and any extra requirements such as a garden or parking space. Once you have decided on the location and property type, browse our available properties and contact our office to arrange a viewing.",
+        "Once you have chosen an area, start your property search on our properties page or email the team. Consider how much rent you can pay each month and what type of property you can afford in your chosen area.",
+        "Think about how much space you need, the layout you want and any extra requirements such as a garden or parking space. Once you have decided on the location and property type, browse our available properties and get in touch to arrange a viewing.",
       ],
     },
     securingProperty: {
@@ -237,10 +235,9 @@ export const siteContent = {
         "Taking proper care of the property and keeping it in a good condition",
       ],
       outro:
-        "We provide you with a comprehensive list of your tenancy responsibilities. Read the tenancy agreement carefully before agreeing to the terms. If there is any part you do not understand, speak with a member of our team.",
+        "We provide you with a comprehensive list of your tenancy responsibilities. Read the tenancy agreement carefully before agreeing to the terms. If there is any part you do not understand, email a member of our team.",
     },
     confidentiality:
       "You can be assured that all information passed to Veri Properties will be dealt with in a confidential manner.",
   },
 };
-

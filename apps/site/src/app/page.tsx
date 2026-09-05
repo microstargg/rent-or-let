@@ -2,12 +2,19 @@ import Link from "next/link";
 import { ArrowRight, Building2, Shield, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PropertyCard } from "@/components/properties/property-card";
+import { VeriHome } from "@/components/marketing/veri-home";
 import { fetchListings } from "@/lib/platform";
 import { getTenant } from "@/lib/tenant";
 
 export default async function HomePage() {
+  const tenant = await getTenant();
+  const { site: siteContent, name, id } = tenant;
+
+  if (id === "veri-properties") {
+    return <VeriHome tenant={tenant} />;
+  }
+
   const featured = (await fetchListings()).slice(0, 3);
-  const { site: siteContent, name } = await getTenant();
 
   return (
     <>
@@ -61,10 +68,7 @@ export default async function HomePage() {
               text: "Dedicated support for landlords and tenants, 24-hour emergency call-outs.",
             },
           ].map(({ icon: Icon, title, text }) => (
-            <div
-              key={title}
-              className="rounded-xl border bg-card p-6 shadow-sm"
-            >
+            <div key={title} className="rounded-xl border bg-card p-6 shadow-sm">
               <Icon className="mb-4 h-8 w-8 text-primary" />
               <h2 className="text-lg font-semibold">{title}</h2>
               <p className="mt-2 text-muted-foreground">{text}</p>
@@ -100,7 +104,7 @@ export default async function HomePage() {
         <div className="grid gap-10 lg:grid-cols-2 lg:items-center">
           <div>
             <h2 className="text-3xl font-bold">{name}</h2>
-            <p className="mt-4 text-muted-foreground leading-relaxed">
+            <p className="mt-4 leading-relaxed text-muted-foreground">
               {siteContent.about.summary}
             </p>
             <Button asChild className="mt-6">

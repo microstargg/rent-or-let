@@ -6,9 +6,9 @@ interface PageHeroProps {
 
 export function PageHero({ eyebrow, title, subtitle }: PageHeroProps) {
   return (
-    <section className="relative overflow-hidden bg-primary text-primary-foreground">
+    <section className="relative overflow-hidden bg-primary text-primary-foreground veri-page-hero">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.12),transparent_55%)]" />
-      <div className="container relative mx-auto max-w-6xl px-4 py-16 md:py-20">
+      <div className="veri-page-hero-inner container relative mx-auto max-w-6xl px-4 py-16 md:py-20">
         {eyebrow && (
           <p className="mb-3 text-sm font-medium uppercase tracking-widest text-primary-foreground/80">
             {eyebrow}

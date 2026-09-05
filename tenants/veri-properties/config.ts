@@ -13,8 +13,8 @@ const config: TenantConfig = {
     lines: ["Veri", "Properties", ""],
   },
   theme: {
-    navy: "#1e3a2f",
-    blue: "#2d8a5e",
+    navy: "#141414",
+    blue: "#E8A07A",
   },
   site: siteContent,
 };
