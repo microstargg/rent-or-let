@@ -23,7 +23,7 @@ export function formatStatementIssuedAt(value: Date | string | null | undefined)
 }
 
 export function statementAdminPath(statementId: string): string {
-  return `/admin/finance/statements/${statementId}`;
+  return `/finance/statements/${statementId}`;
 }
 
 export function statementPortalPath(statementId: string): string {

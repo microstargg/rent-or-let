@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Shield } from "lucide-react";
-import { getTenant } from "@repo/config";
+import { getTenant } from "@repo/config/server";
 
 export function TrustStrip() {
   const { site: siteContent } = getTenant();

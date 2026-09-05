@@ -109,7 +109,7 @@ export function AdminShell({
             <p className="truncate text-xs text-muted-foreground">Operations & portfolio</p>
           </div>
           <Button asChild variant="secondary" size="sm" className="h-11 shrink-0 px-3">
-            <Link href="/admin/jobs/board">Jobs</Link>
+            <Link href="/jobs/board">Jobs</Link>
           </Button>
         </header>
 
@@ -126,7 +126,7 @@ function SidebarBrand() {
 
   return (
     <div className="border-b px-4 py-4">
-      <Link href="/admin" className="block font-bold text-primary">
+      <Link href="/" className="block font-bold text-primary">
         {shortName} Admin
       </Link>
       <p className="text-xs text-muted-foreground">{productName}</p>

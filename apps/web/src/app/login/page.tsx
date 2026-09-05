@@ -1,3 +1,7 @@
+import { redirect } from "next/navigation";
+import { auth } from "@/lib/auth/instance";
+import { bindRequestAgency } from "@/lib/agency";
+import { resolvePostLoginPath } from "@/lib/auth/redirect";
 import { LoginForm } from "./login-form";
 
 export default async function LoginPage({
@@ -5,7 +9,12 @@ export default async function LoginPage({
 }: {
   searchParams: Promise<{ error?: string; registered?: string; next?: string }>;
 }) {
+  await bindRequestAgency();
   const params = await searchParams;
+  const { data } = await auth.getSession();
+  if (data?.user && !params.error) {
+    redirect(await resolvePostLoginPath(data.user.id, params.next));
+  }
 
   const notice =
     params.registered === "1"

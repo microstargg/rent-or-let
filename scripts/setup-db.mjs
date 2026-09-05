@@ -1,10 +1,10 @@
 /**
- * Apply initial schema and optional tenant seed to Neon Postgres.
- * Usage: TENANT_ID=pms node scripts/setup-db.mjs
- * Requires DATABASE_URL in apps/web/.env.local
+ * Apply Drizzle SQL plus optional tenant seed to Neon Postgres.
+ * Usage: AGENCY_SLUG=pms npm run db:setup
+ * Connection: AGENCY_{SLUG}_DATABASE_URL or DATABASE_URL in apps/web/.env.local
  */
 import { neon } from "@neondatabase/serverless";
-import { readFileSync, existsSync } from "fs";
+import { readFileSync, existsSync, readdirSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 import dotenv from "dotenv";
@@ -13,7 +13,15 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 dotenv.config({ path: join(root, "apps", "web", ".env.local") });
 dotenv.config({ path: join(root, ".env.local") });
 
-const tenantId = process.env.TENANT_ID ?? "pms";
+const slug = (
+  process.env.AGENCY_SLUG?.trim() ||
+  process.env.TENANT_ID?.trim() ||
+  "pms"
+).toLowerCase();
+
+function agencyEnvName(id, suffix) {
+  return `AGENCY_${id.replace(/-/g, "_").toUpperCase()}_${suffix}`;
+}
 
 async function runSqlFile(sql, filePath, label) {
   if (!existsSync(filePath)) {
@@ -41,21 +49,29 @@ async function runSqlFile(sql, filePath, label) {
   }
 }
 
-const url = process.env.DATABASE_URL;
+const url =
+  process.env[agencyEnvName(slug, "DATABASE_URL")]?.trim() ||
+  process.env.DATABASE_URL?.trim();
+
 if (!url) {
-  console.error("DATABASE_URL not set in apps/web/.env.local");
+  console.error(
+    `No database URL for "${slug}". Set ${agencyEnvName(slug, "DATABASE_URL")} or DATABASE_URL in apps/web/.env.local`
+  );
   process.exit(1);
 }
 
 const sql = neon(url);
+const drizzleDir = join(root, "packages", "database", "drizzle");
+const migrations = readdirSync(drizzleDir)
+  .filter((name) => name.endsWith(".sql"))
+  .sort();
 
-await runSqlFile(
-  sql,
-  join(root, "packages", "database", "drizzle", "0000_initial.sql"),
-  "0000_initial.sql"
-);
+console.log(`Agency: ${slug}`);
+for (const file of migrations) {
+  await runSqlFile(sql, join(drizzleDir, file), file);
+}
 
-const tenantSeed = join(root, "tenants", tenantId, "seed.sql");
-await runSqlFile(sql, tenantSeed, `tenants/${tenantId}/seed.sql`);
+const tenantSeed = join(root, "tenants", slug, "seed.sql");
+await runSqlFile(sql, tenantSeed, `tenants/${slug}/seed.sql`);
 
 console.log("Done.");

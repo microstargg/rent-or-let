@@ -1,5 +1,5 @@
 import https from "node:https";
-import { getTenantId } from "@repo/config";
+import { getTenantId } from "@repo/config/server";
 import type { PortalConfig } from "./rtdf-mapper";
 
 const agentCache = new Map<string, https.Agent>();

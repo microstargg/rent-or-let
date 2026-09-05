@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { getTenant } from "@repo/config";
+import { getTenant } from "@repo/config/server";
 
 interface CtaBannerProps {
   title: string;

@@ -1,5 +1,5 @@
 import { formatCurrency } from "@/lib/utils";
-import { getTenant } from "@repo/config";
+import { getTenant } from "@repo/config/server";
 
 interface FeesDisclosureProps {
   rent: number;

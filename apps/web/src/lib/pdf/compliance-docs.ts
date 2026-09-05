@@ -1,5 +1,5 @@
 import { buildStyledPdf, type PdfBlock } from "./simple-pdf";
-import { getTenant } from "@repo/config";
+import { getTenant } from "@repo/config/server";
 import { parseInspectionReport } from "@/lib/inspections/report";
 import { contentDispositionAttachment } from "./landlord-statement";
 

@@ -1,5 +1,5 @@
 import { Resend } from "resend";
-import { getTenant } from "@repo/config";
+import { getTenant } from "@repo/config/server";
 
 export function isOutboundEmailConfigured(): boolean {
   return Boolean(process.env.RESEND_API_KEY?.trim());

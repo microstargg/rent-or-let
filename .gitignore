@@ -15,11 +15,14 @@
 /.next/
 /out/
 apps/web/.next/
+apps/site/.next/
 
 # generated tenant assets (prepare-tenant.mjs)
 apps/web/src/app/tenant-theme.css
 apps/web/src/app/icon.svg
 apps/web/src/app/apple-icon.svg
+apps/web/public/agencies/
+apps/site/public/agencies/
 
 # production
 /build

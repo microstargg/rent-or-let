@@ -40,55 +40,55 @@ interface NavSection {
 
 const navSections: NavSection[] = [
   {
-    items: [{ href: "/admin", label: "Dashboard", icon: LayoutDashboard, match: "exact" }],
+    items: [{ href: "/", label: "Dashboard", icon: LayoutDashboard, match: "exact" }],
   },
   {
     label: "Portfolio",
     items: [
-      { href: "/admin/properties", label: "Properties", icon: Building2 },
-      { href: "/admin/landlords", label: "Landlords", icon: Users },
-      { href: "/admin/renters", label: "Renters", icon: UserCircle },
-      { href: "/admin/tenancies", label: "Tenancies", icon: KeyRound },
+      { href: "/properties", label: "Properties", icon: Building2 },
+      { href: "/landlords", label: "Landlords", icon: Users },
+      { href: "/renters", label: "Renters", icon: UserCircle },
+      { href: "/tenancies", label: "Tenancies", icon: KeyRound },
     ],
   },
   {
     label: "Finance",
     items: [
-      { href: "/admin/finance/invoices", label: "Invoices", icon: Receipt },
-      { href: "/admin/finance/arrears", label: "Arrears", icon: AlertTriangle },
-      { href: "/admin/finance/exceptions", label: "Exceptions", icon: Scale },
-      { href: "/admin/finance/statements", label: "Statements", icon: ClipboardList },
-      { href: "/admin/finance/payouts", label: "Payouts", icon: Banknote },
+      { href: "/finance/invoices", label: "Invoices", icon: Receipt },
+      { href: "/finance/arrears", label: "Arrears", icon: AlertTriangle },
+      { href: "/finance/exceptions", label: "Exceptions", icon: Scale },
+      { href: "/finance/statements", label: "Statements", icon: ClipboardList },
+      { href: "/finance/payouts", label: "Payouts", icon: Banknote },
     ],
   },
   {
     label: "Compliance",
     items: [
-      { href: "/admin/compliance", label: "Certificates", icon: ShieldCheck },
-      { href: "/admin/lifecycle", label: "Deposits & notices", icon: FileText },
-      { href: "/admin/pets", label: "Pet requests", icon: PawPrint },
+      { href: "/compliance", label: "Certificates", icon: ShieldCheck },
+      { href: "/lifecycle", label: "Deposits & notices", icon: FileText },
+      { href: "/pets", label: "Pet requests", icon: PawPrint },
     ],
   },
   {
     label: "Lettings",
     items: [
-      { href: "/admin/enquiries", label: "Enquiries", icon: Inbox },
-      { href: "/admin/applications", label: "Applications", icon: FileText },
+      { href: "/enquiries", label: "Enquiries", icon: Inbox },
+      { href: "/applications", label: "Applications", icon: FileText },
     ],
   },
   {
     label: "Operations",
     items: [
-      { href: "/admin/tickets", label: "Tickets", icon: Wrench },
-      { href: "/admin/jobs/board", label: "Jobs board", icon: ClipboardList },
-      { href: "/admin/inspections", label: "Inspections", icon: Camera },
-      { href: "/admin/complaints", label: "Complaints", icon: AlertCircle },
-      { href: "/admin/portals", label: "Portal sync", icon: RefreshCw },
+      { href: "/tickets", label: "Tickets", icon: Wrench },
+      { href: "/jobs/board", label: "Jobs board", icon: ClipboardList },
+      { href: "/inspections", label: "Inspections", icon: Camera },
+      { href: "/complaints", label: "Complaints", icon: AlertCircle },
+      { href: "/portals", label: "Portal sync", icon: RefreshCw },
     ],
   },
   {
     label: "System",
-    items: [{ href: "/admin/settings", label: "Settings", icon: Settings }],
+    items: [{ href: "/settings", label: "Settings", icon: Settings }],
   },
 ];
 

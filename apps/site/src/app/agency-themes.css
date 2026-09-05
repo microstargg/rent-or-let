@@ -1,0 +1,10 @@
+html[data-agency="pms"] {
+  --primary: oklch(0.35 0.08 250);
+  --accent: oklch(0.55 0.12 45);
+}
+
+html[data-agency="veri-properties"] {
+  --primary: oklch(0.36 0.08 155);
+  --accent: oklch(0.55 0.12 155);
+  --ring: oklch(0.55 0.12 155);
+}

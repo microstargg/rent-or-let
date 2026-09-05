@@ -4,32 +4,35 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, "..");
-const tenantId = process.env.TENANT_ID ?? "pms";
-const tenantDir = path.join(root, "tenants", tenantId);
-const assetsDir = path.join(tenantDir, "assets");
-const appDir = path.join(root, "apps", "web", "src", "app");
-const themeDest = path.join(root, "apps", "web", "src", "app", "tenant-theme.css");
+const tenantsDir = path.join(root, "tenants");
+const targets = [
+  path.join(root, "apps", "web", "public", "agencies"),
+  path.join(root, "apps", "site", "public", "agencies"),
+];
 
-if (!fs.existsSync(tenantDir)) {
-  console.error(`Tenant not found: ${tenantDir}`);
+if (!fs.existsSync(tenantsDir)) {
+  console.error(`Tenants folder not found: ${tenantsDir}`);
   process.exit(1);
 }
 
-if (fs.existsSync(assetsDir)) {
-  for (const file of fs.readdirSync(assetsDir)) {
-    const src = path.join(assetsDir, file);
-    if (!fs.statSync(src).isFile()) continue;
-    fs.copyFileSync(src, path.join(appDir, file));
-    console.log(`Copied ${file} → apps/web/src/app/`);
+const slugs = fs.readdirSync(tenantsDir).filter((name) => {
+  const full = path.join(tenantsDir, name);
+  return fs.statSync(full).isDirectory() && fs.existsSync(path.join(full, "config.ts"));
+});
+
+for (const destRoot of targets) {
+  fs.mkdirSync(destRoot, { recursive: true });
+  for (const slug of slugs) {
+    const assetsDir = path.join(tenantsDir, slug, "assets");
+    const dest = path.join(destRoot, slug);
+    fs.mkdirSync(dest, { recursive: true });
+    if (!fs.existsSync(assetsDir)) continue;
+    for (const file of fs.readdirSync(assetsDir)) {
+      const src = path.join(assetsDir, file);
+      if (!fs.statSync(src).isFile()) continue;
+      fs.copyFileSync(src, path.join(dest, file));
+    }
   }
-} else {
-  console.warn(`No assets directory for tenant ${tenantId}`);
 }
 
-const themeSrc = path.join(tenantDir, "theme.css");
-if (fs.existsSync(themeSrc)) {
-  fs.copyFileSync(themeSrc, themeDest);
-  console.log(`Copied theme.css → apps/web/src/app/tenant-theme.css`);
-}
-
-console.log(`Prepared tenant: ${tenantId}`);
+console.log(`Prepared agency assets for: ${slugs.join(", ")}`);

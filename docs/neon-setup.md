@@ -12,7 +12,7 @@ The platform uses **Neon Postgres** (not Supabase) with **Drizzle ORM** and **Ne
 
 ## 2. Environment variables
 
-Copy `.env.example` to `apps/web/.env.local` and set `TENANT_ID=pms`:
+Copy `.env.example` to `apps/web/.env.local` and set `AGENCY_SLUG=pms`:
 
 ```bash
 cp .env.example apps/web/.env.local
@@ -20,7 +20,7 @@ cp .env.example apps/web/.env.local
 
 | Variable | Source |
 |----------|--------|
-| `TENANT_ID` | `pms` (or `veri-properties` for Veri Properties) |
+| `AGENCY_SLUG` | `pms` (local/CI fallback; production uses the Host header) |
 | `DATABASE_URL` | Neon Console → Connect → connection string (pooler recommended) |
 | `NEON_AUTH_BASE_URL` | Neon Console → Auth → Enable Auth → copy Auth URL |
 | `NEON_AUTH_COOKIE_SECRET` | Run `openssl rand -base64 32` (Windows: use Git Bash or WSL) |
@@ -32,7 +32,7 @@ Optional for full functionality:
 | `BLOB_READ_WRITE_TOKEN` | Vercel Blob for property images in production |
 | `CRON_SECRET` | Secures `/api/cron/portal-sync` |
 | `RESEND_API_KEY` | Outbound email |
-| `NEXT_PUBLIC_SITE_URL` | Canonical site URL |
+| `NEXT_PUBLIC_SITE_URL` | Local marketing site (`http://localhost:3001`). Production uses `AGENCY_*_PUBLIC_SITE_URL`. |
 
 ## 3. Install dependencies and push schema
 
@@ -47,7 +47,7 @@ Alternative — run the initial SQL migration directly:
 npm run db:setup
 ```
 
-This applies `packages/database/drizzle/0000_initial.sql` plus tenant seed from `tenants/<TENANT_ID>/seed.sql`.
+This applies every file in `packages/database/drizzle/` plus seed from `tenants/<AGENCY_SLUG>/seed.sql`.
 
 Inspect the database with Drizzle Studio:
 
@@ -62,7 +62,7 @@ npm run db:studio
 3. Copy the Auth URL into `NEON_AUTH_BASE_URL` in `.env.local`
 4. Under allowed origins, add:
    - `http://localhost:3000` (local dev)
-   - Your production domain (e.g. `https://www.rent-or-let.co.uk`)
+   - The platform host (e.g. `https://pms.letflow.app`), **not** the marketing domain
 5. Set `NEON_AUTH_COOKIE_SECRET` to a random 32+ character secret
 
 Restart the dev server after changing auth env vars.
@@ -91,7 +91,7 @@ Ensure trusted domains include `http://localhost:3000`.
 Example: `https://ep-xxx.neonauth.eu-west-2.aws.neon.tech/neondb/auth/callback/google`
 
 3. Copy Client ID and Client Secret into Neon Console → **Auth** → **Providers** → **Google**
-4. Add your production domain to Neon Auth **trusted domains** (e.g. `https://www.rent-or-let.co.uk`)
+4. Add the platform host to Neon Auth **trusted domains** (e.g. `https://pms.letflow.app`)
 
 After Google sign-in, users still need a `staff_profiles` row before accessing `/admin` (same as email sign-up).
 
@@ -118,7 +118,7 @@ The `id` must exactly match the Neon Auth user ID.
 
 ### Step C — Sign in
 
-Visit `/login` and sign in. You should reach `/admin`.
+Visit `/login` and sign in. You should reach `/` (legacy `/admin` redirects there).
 
 ## 6. Property images
 
@@ -127,20 +127,16 @@ Visit `/login` and sign in. You should reach `/admin`.
 
 ## 7. Deploy to Vercel
 
-1. Link the repo to Vercel with **Root Directory** `apps/web`
-2. Add environment variables in **Project Settings → Environment Variables**:
-   - `TENANT_ID` (`pms` or `veri-properties`)
-   - `DATABASE_URL`
-   - `NEON_AUTH_BASE_URL`
-   - `NEON_AUTH_COOKIE_SECRET`
-   - `BLOB_READ_WRITE_TOKEN` (if using Blob)
-   - `CRON_SECRET`
-   - Portal credentials as needed (see [portal-onboarding.md](./portal-onboarding.md))
-3. Deploy — Vercel runs `npm run build`
-4. After first deploy, run `npm run db:push` locally against production `DATABASE_URL`, or apply `drizzle/0000_initial.sql` in Neon SQL Editor
-5. Create staff user(s) as in step 5
+One platform project (`apps/web`) serves every agency. See [client-setup.md](./client-setup.md).
 
-The cron job in `vercel.json` calls `/api/cron/portal-sync` every 5 minutes.
+1. Root Directory `apps/web` on the `rent-or-let` project
+2. Add `pms.letflow.app` (and later `veri.letflow.app`)
+3. Set `AGENCY_PMS_DATABASE_URL`, `AGENCY_PMS_NEON_AUTH_*`, Blob, cron, and portal credentials — not build-time `TENANT_ID`
+4. Optional site project: Root Directory `apps/site`, domain `www.rent-or-let.co.uk`
+5. After first deploy of a **new** agency DB, run `AGENCY_SLUG=<slug> npm run db:setup` against that Neon
+6. Create staff user(s) as in step 5
+
+Cron jobs in `apps/web/vercel.json` iterate every agency in `AGENCY_SLUGS`.
 
 ## Architecture notes
 
@@ -148,7 +144,7 @@ The cron job in `vercel.json` calls `/api/cron/portal-sync` every 5 minutes.
 |---------|----------------|
 | Database | Neon Postgres via `@neondatabase/serverless` + Drizzle |
 | Auth | Neon Auth (Better Auth) — session cookies |
-| Staff authorization | `staff_profiles` table checked in admin layout and API routes |
+| Staff authorization | `staff_profiles` table checked in staff layout and API routes |
 | Migrations | Drizzle schema in `apps/web/src/lib/db/schema.ts`, SQL in `packages/database/drizzle/` |
 | Legacy Supabase | Removed — do not use `supabase/` folder if present |
 

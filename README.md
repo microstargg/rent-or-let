@@ -1,16 +1,18 @@
-# Rent-or-Let Platform
+# LetFlow / Rent-or-Let platform
 
-Multi-tenant property management platform. Shared codebase, per-client branding and data.
+Lettings operations platform. One LetFlow deploy on `{slug}.letflow.app`, one Neon database per agency, optional public website on the agency's own domain.
 
-**Tenants:** Property Management Services (`pms`), Veri Properties (`veri-properties`)
+**Agencies:** Property Management Services (`pms`), Veri Properties (`veri-properties`)
 
 ## Monorepo structure
 
 ```
-apps/web/           Shared Next.js application
-packages/config/    Tenant config loader
+apps/web/           LetFlow platform (admin, portals, APIs)
+apps/site/          Optional advertising site (pulls listings from the platform API)
+packages/config/    Agency registry + runtime control plane
+packages/site-core/ Public listing/branding API contract
 packages/database/  Drizzle migrations
-tenants/            Per-client branding and seed data
+tenants/            Per-agency branding and seed data
 ```
 
 ## Stack
@@ -18,7 +20,7 @@ tenants/            Per-client branding and seed data
 - **Next.js 15** (App Router) + TypeScript + Tailwind CSS
 - **Turborepo** + **pnpm** workspaces
 - **Neon Postgres** + Drizzle ORM
-- **Neon Auth** (Better Auth)
+- **Neon Auth**
 - **Vercel** hosting + cron
 
 ## Getting started
@@ -26,16 +28,20 @@ tenants/            Per-client branding and seed data
 ```bash
 npm install
 cp .env.example apps/web/.env.local
-# Set DATABASE_URL, TENANT_ID=pms, Neon Auth credentials
-TENANT_ID=pms npm run db:setup
-TENANT_ID=pms npm run dev
+# Set DATABASE_URL, AGENCY_SLUG=pms, Neon Auth credentials
+AGENCY_SLUG=pms npm run db:setup
+npm run dev -w @repo/web
 ```
+
+Staff UI: `http://localhost:3000` (dashboard at `/`, legacy `/admin` redirects).
+
+Optional public site: `npm run dev -w @repo/site` → `http://localhost:3001`.
 
 ## Client onboarding
 
-See [docs/client-setup.md](docs/client-setup.md) for adding a new agency tenant.
+See [docs/client-setup.md](docs/client-setup.md).
 
-For Veri Properties deployment, see [docs/veri-properties-deploy.md](docs/veri-properties-deploy.md).
+PMS is the live agency (`pms.letflow.app` + `www.rent-or-let.co.uk`). Veri is rebuilt from the PMS schema — see [docs/veri-properties-deploy.md](docs/veri-properties-deploy.md).
 
 ## Neon setup
 

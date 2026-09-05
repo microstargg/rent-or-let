@@ -1,4 +1,4 @@
-import { getTenant } from "@repo/config";
+import { getTenant } from "@repo/config/server";
 import {
   formatStatementIssuedAt,
   formatStatementMoney,

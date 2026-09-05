@@ -20,6 +20,8 @@ export async function PATCH(
 
     if (data.status === "available") {
       await syncPropertyToPortals(id, "send");
+      const { notifySiteRevalidate } = await import("@/lib/public-listings");
+      await notifySiteRevalidate(["/properties", `/properties/${data.slug}`, "/"]);
     } else if (data.status === "archived" || data.status === "let_agreed") {
       await syncPropertyToPortals(id, "remove");
     }

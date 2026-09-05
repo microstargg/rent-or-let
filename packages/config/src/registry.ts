@@ -9,16 +9,11 @@ export const tenantRegistry = {
 
 export type TenantId = keyof typeof tenantRegistry;
 
-export function getTenantId(): TenantId {
-  const id = process.env.TENANT_ID ?? "pms";
+export function getTenantConfig(id: string): TenantConfig {
   if (!(id in tenantRegistry)) {
     throw new Error(
-      `Unknown TENANT_ID "${id}". Valid values: ${Object.keys(tenantRegistry).join(", ")}`
+      `Unknown agency "${id}". Valid values: ${Object.keys(tenantRegistry).join(", ")}`
     );
   }
-  return id as TenantId;
-}
-
-export function getTenant(): TenantConfig {
-  return tenantRegistry[getTenantId()];
+  return tenantRegistry[id as TenantId];
 }

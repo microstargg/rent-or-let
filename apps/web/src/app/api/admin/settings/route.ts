@@ -107,8 +107,8 @@ export async function POST(request: Request) {
     const account = await stripe.accounts.create({ type: "express", country: "GB" });
     const link = await stripe.accountLinks.create({
       account: account.id,
-      refresh_url: `${appUrl}/admin/settings?stripe=refresh`,
-      return_url: `${appUrl}/admin/settings?stripe=return`,
+      refresh_url: `${appUrl}/settings?stripe=refresh`,
+      return_url: `${appUrl}/settings?stripe=return`,
       type: "account_onboarding",
     });
     await updateBranchSettings(branch.id, { stripe_account_id: account.id });

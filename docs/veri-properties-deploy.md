@@ -1,75 +1,33 @@
-# Veri Properties deployment
+# Veri Properties
 
-A **second Vercel project** (`veri-properties`, `prj_gNJFdThvbo1IyUWsUl6KTdTDVpUP`) is linked to the same GitHub repo as PMS (`microstargg/rent-or-let`).
+Veri is rebuilt from the PMS **schema**, not from old Veri data (that database was an empty shell).
 
-Dashboard:
+Registry slug: `veri-properties`. Public platform host: `veri.letflow.app` (alias in [`packages/config/src/host.ts`](../packages/config/src/host.ts)).
 
-- PMS: https://vercel.com/bens-projects-a61fe932/rent-or-let
-- Veri: https://vercel.com/bens-projects-a61fe932/veri-properties
+The Veri Neon project already has the shared schema and a branch row. Do not copy PMS listings into it.
 
-To set Root Directory `apps/web` and `TENANT_ID` on both projects (needs a personal Vercel token):
+## Platform + site (same two Vercel projects as PMS)
+
+1. On the **platform** project (`rent-or-let` / `apps/web`), copy `DATABASE_URL`, `NEON_AUTH_BASE_URL`, and `NEON_AUTH_COOKIE_SECRET` from the old Veri Vercel env and set:
+
+```
+AGENCY_VERI_PROPERTIES_DATABASE_URL=...
+AGENCY_VERI_PROPERTIES_NEON_AUTH_BASE_URL=...
+AGENCY_VERI_PROPERTIES_NEON_AUTH_COOKIE_SECRET=...
+AGENCY_VERI_PROPERTIES_PUBLIC_SITE_URL=https://veri.properties
+AGENCY_VERI_PROPERTIES_WEBSITE_ENABLED=true
+AGENCY_VERI_PROPERTIES_REVALIDATE_URL=https://veri.properties/api/revalidate
+AGENCY_VERI_PROPERTIES_REVALIDATE_SECRET=...
+```
+
+2. Neon Auth trusted origin: `https://veri.letflow.app` (and `http://localhost:3000`).
+3. Domain `veri.letflow.app` is on the platform project. `veri.properties` / `www` stay on the **site** project (`apps/site`).
+4. If the schema is ever wiped, re-apply with:
 
 ```bash
-$env:VERCEL_TOKEN="..."
-node scripts/configure-vercel-tenants.mjs
+AGENCY_SLUG=veri-properties npm run db:setup
 ```
 
-## Vercel project settings
+Staff: `https://veri.letflow.app`. Public site: `https://veri.properties` (same `apps/site` code as rent-or-let).
 
-| Setting | Value |
-|---------|--------|
-| Root Directory | `apps/web` |
-| Framework | Next.js |
-| Build Command | default (`prebuild` runs `prepare-tenant.mjs`) |
-| Install Command | `npm ci` |
-
-The `@repo/web` package runs `prepare-tenant.mjs` automatically via `prebuild` and `predev`.
-
-## Required environment variables
-
-Set these in the Veri Properties Vercel project (isolated from PMS):
-
-```
-TENANT_ID=veri-properties
-DATABASE_URL=<Veri Neon connection string>
-NEON_AUTH_BASE_URL=<Veri Neon Auth URL>
-NEON_AUTH_COOKIE_SECRET=<new secret>
-NEXT_PUBLIC_SITE_URL=https://veri.properties
-BLOB_READ_WRITE_TOKEN=<Veri Vercel Blob token>
-CRON_SECRET=<new secret>
-RESEND_*=<Veri Resend config>
-STRIPE_*=<optional, Veri Stripe>
-```
-
-## Infrastructure status (provisioned)
-
-| Service | Status |
-|---------|--------|
-| **Neon** `veri-properties` (`gentle-wave-51922309`, eu-west-2) | Done — schema + seed applied |
-| **Neon Auth** (Better Auth) | Done — base URL on Vercel; trusted domains include production + localhost |
-| **Vercel env** | `DATABASE_URL`, `NEON_AUTH_*`, `CRON_SECRET`, `TENANT_ID`, `NEXT_PUBLIC_SITE_URL`, `RESEND_*` |
-| **Resend** | Domain `veri.properties` verified (sending); use `Veri Properties <info@veri.properties>` |
-| **Vercel Blob** | Done — store `veri-props` (`store_pYzPucQJlyMEoX2S`) linked; token on project |
-| **Stripe** | Optional — add later if card payments needed |
-
-## Database setup
-
-After first deploy (or locally):
-
-```bash
-TENANT_ID=veri-properties npm run db:setup
-```
-
-This applies shared migrations from `packages/database/drizzle/` and runs `tenants/veri-properties/seed.sql`.
-
-## PMS project update
-
-Update the existing rent-or-let Vercel project:
-
-1. Set **Root Directory** to `apps/web`
-2. Add `TENANT_ID=pms` to environment variables
-3. Reconnect build — pushes to `main` now deploy both projects
-
-## Custom domain
-
-Point `veri.properties` (and `www` if used) to the Veri Vercel project and set `NEXT_PUBLIC_SITE_URL=https://veri.properties`.
+Do not set `TENANT_ID` at build time.

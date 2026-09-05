@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getTenant } from "@repo/config";
+import { getTenant } from "@repo/config/server";
 import { SiteLogo } from "@/components/brand/site-logo";
 
 export function SiteFooter() {

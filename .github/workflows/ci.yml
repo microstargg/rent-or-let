@@ -7,9 +7,6 @@ on:
 
 jobs:
   build:
-    strategy:
-      matrix:
-        tenant_id: [pms, veri-properties]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -22,14 +19,18 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Lint
+      - name: Lint platform
         run: npm run lint -w @repo/web
 
-      - name: Build
+      - name: Build platform
         env:
-          TENANT_ID: ${{ matrix.tenant_id }}
+          AGENCY_SLUG: pms
           DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
           NEON_AUTH_BASE_URL: https://example.com/auth
           NEON_AUTH_COOKIE_SECRET: ci-ci-ci-ci-ci-ci-ci-ci-ci-ci-ci-ci
-          NEXT_PUBLIC_SITE_URL: https://example.com
         run: npm run build -w @repo/web
+
+      - name: Build public site
+        env:
+          AGENCY_SLUG: pms
+        run: npm run build -w @repo/site

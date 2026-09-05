@@ -21,6 +21,8 @@ export async function POST(request: Request) {
 
     if (data.status === "available") {
       await syncPropertyToPortals(property.id, "send");
+      const { notifySiteRevalidate } = await import("@/lib/public-listings");
+      await notifySiteRevalidate(["/properties", `/properties/${data.slug || property.id}`, "/"]);
     }
 
     return NextResponse.json({ id: property.id });

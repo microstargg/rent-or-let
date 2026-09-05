@@ -26,6 +26,7 @@
     "@radix-ui/react-tabs": "^1.1.12",
     "@radix-ui/react-toast": "^1.2.14",
     "@repo/config": "*",
+    "@repo/site-core": "*",
     "@vercel/blob": "^1.1.1",
     "ai": "^7.0.66",
     "class-variance-authority": "^0.7.1",

@@ -22,7 +22,7 @@ export function SiteHeader() {
   const [open, setOpen] = useState(false);
   const { site: siteContent } = useTenant();
 
-  if (pathname.startsWith("/admin")) return null;
+  if (pathname.startsWith("/")) return null;
 
   return (
     <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { bindAgencyFromRequest } from "@/lib/agency";
 import { insertTenantApplication } from "@/lib/db/queries";
 
 const applicationSchema = z.object({
@@ -19,6 +20,7 @@ const applicationSchema = z.object({
 });
 
 export async function POST(request: Request) {
+  bindAgencyFromRequest(request);
   try {
     const body = await request.json();
     const data = applicationSchema.parse(body);

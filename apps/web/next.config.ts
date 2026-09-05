@@ -2,7 +2,7 @@ import type { NextConfig } from "next";
 import path from "path";
 
 const nextConfig: NextConfig = {
-  transpilePackages: ["@repo/config"],
+  transpilePackages: ["@repo/config", "@repo/site-core"],
   outputFileTracingRoot: path.join(__dirname, "../../"),
   images: {
     remotePatterns: [
@@ -15,12 +15,13 @@ const nextConfig: NextConfig = {
   async redirects() {
     return [
       { source: "/auth/sign-up", destination: "/sign-up", permanent: true },
-      // Legacy OAuth/email continue path — must land outside `/login` for Neon Auth middleware
       {
         source: "/login/continue",
         destination: "/auth/continue",
         permanent: false,
       },
+      { source: "/admin", destination: "/", permanent: true },
+      { source: "/admin/:path*", destination: "/:path*", permanent: true },
     ];
   },
   async headers() {

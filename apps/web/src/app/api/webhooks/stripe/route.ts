@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { bindAgencyFromRequest } from "@/lib/agency";
 import { getStripe } from "@/lib/stripe/client";
 import {
   getPaymentByExternalRef,
@@ -10,6 +11,7 @@ import { parseBranchSettings } from "@/lib/branch-settings";
 import type Stripe from "stripe";
 
 export async function POST(req: Request) {
+  bindAgencyFromRequest(req);
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
   if (!webhookSecret) {
     return NextResponse.json({ error: "Stripe webhook not configured" }, { status: 500 });

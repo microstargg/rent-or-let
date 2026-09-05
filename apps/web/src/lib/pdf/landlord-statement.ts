@@ -1,5 +1,5 @@
 import { buildStyledPdf, type PdfBlock } from "./simple-pdf";
-import { getTenant } from "@repo/config";
+import { getTenant } from "@repo/config/server";
 import { formatStatementIssuedAt, formatStatementMoney } from "@/lib/finance/statement-format";
 
 export interface LandlordStatementWorkLine {

@@ -1,5 +1,5 @@
 import { getAppUrl } from "@/lib/app-url";
-import { getTenant } from "@repo/config";
+import { getTenant } from "@repo/config/server";
 import { sendPlainEmail } from "@/lib/email/send";
 import { statementPortalLoginUrl } from "@/lib/finance/statement-format";
 import {

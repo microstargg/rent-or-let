@@ -6,7 +6,13 @@
   "types": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts",
-    "./types": "./src/types.ts"
+    "./types": "./src/types.ts",
+    "./server": "./src/server.ts",
+    "./runtime": "./src/runtime.ts",
+    "./host": "./src/host.ts"
+  },
+  "dependencies": {
+    "server-only": "^0.0.1"
   },
   "peerDependencies": {
     "react": "^19.0.0"

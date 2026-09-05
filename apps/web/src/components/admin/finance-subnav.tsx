@@ -5,11 +5,11 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
 const financeLinks = [
-  { href: "/admin/finance/invoices", label: "Invoices" },
-  { href: "/admin/finance/arrears", label: "Arrears" },
-  { href: "/admin/finance/exceptions", label: "Exceptions" },
-  { href: "/admin/finance/statements", label: "Statements" },
-  { href: "/admin/finance/payouts", label: "Payouts" },
+  { href: "/finance/invoices", label: "Invoices" },
+  { href: "/finance/arrears", label: "Arrears" },
+  { href: "/finance/exceptions", label: "Exceptions" },
+  { href: "/finance/statements", label: "Statements" },
+  { href: "/finance/payouts", label: "Payouts" },
 ];
 
 export function FinanceSubnav() {

@@ -20,7 +20,7 @@ export async function resolvePostLoginPath(
   const safe = safeNextPath(next);
   if (safe) return safe;
 
-  if (await getStaffProfileById(userId)) return "/admin";
+  if (await getStaffProfileById(userId)) return "/";
   if (await getLandlordProfileByUserId(userId)) return "/landlord-portal";
   if (await getRenterProfileByUserId(userId)) return "/portal";
   return "/login?error=no-access";

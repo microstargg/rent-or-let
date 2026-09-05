@@ -1,4 +1,5 @@
 import { auth } from "@/lib/auth/instance";
+import { bindRequestAgency } from "@/lib/agency";
 import {
   getStaffProfileById,
   getRenterProfileByUserId,
@@ -8,6 +9,7 @@ import {
 export { auth };
 
 export async function requireStaffSession() {
+  await bindRequestAgency();
   const { data: session } = await auth.getSession();
   const userId = session?.user?.id;
   if (!userId) return null;
@@ -19,6 +21,7 @@ export async function requireStaffSession() {
 }
 
 export async function requireRenterSession() {
+  await bindRequestAgency();
   const { data: session } = await auth.getSession();
   const userId = session?.user?.id;
   if (!userId) return null;
@@ -30,6 +33,7 @@ export async function requireRenterSession() {
 }
 
 export async function requireLandlordSession() {
+  await bindRequestAgency();
   const { data: session } = await auth.getSession();
   const userId = session?.user?.id;
   if (!userId) return null;

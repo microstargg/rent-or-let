@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { bindAgencyFromRequest } from "@/lib/agency";
 import { insertComplaint, insertEnquiry } from "@/lib/db/queries";
 import {
   createTicket,
@@ -21,6 +22,7 @@ function extractMaintenanceToken(to: string): string | null {
 }
 
 export async function POST(request: Request) {
+  bindAgencyFromRequest(request);
   const webhookSecret = process.env.RESEND_WEBHOOK_SECRET;
   if (webhookSecret) {
     const signature = request.headers.get("svix-signature");

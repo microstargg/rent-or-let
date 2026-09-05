@@ -101,7 +101,7 @@ export function JobBoardActions({
   return (
     <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
       <Button asChild variant="outline" className="min-h-11 flex-1 sm:flex-none">
-        <Link href={`/admin/tickets/${ticketId}`}>Open ticket</Link>
+        <Link href={`/tickets/${ticketId}`}>Open ticket</Link>
       </Button>
 
       {canApprove && (

@@ -1,123 +1,112 @@
 # Client setup playbook
 
-Use this checklist when onboarding a new letting agency on the shared platform monorepo.
+Use this checklist when onboarding a letting agency onto LetFlow.
 
-**Current tenants:** `pms` (Property Management Services), `veri-properties` (Veri Properties).
+**Live today:** `pms` (Property Management Services / rent-or-let).
+**Rebuild next:** `veri-properties` (Veri Properties) — empty shell; recreate from the PMS schema, do not migrate old Veri data.
 
 ## Architecture
 
-- **Shared code:** `apps/web`, `packages/*` — features and bug fixes deploy to all clients
-- **Per-client branding:** `tenants/<tenant-id>/` — copy, theme, logo, payment ref prefix
-- **Per-client data:** separate Neon database per Vercel deployment
+- **One platform app:** [`apps/web`](../apps/web) on `{slug}.letflow.app` — staff, renter portal, landlord portal, APIs
+- **Optional public site:** [`apps/site`](../apps/site) on the agency's own domain — listings are pulled from the platform API (not copied)
+- **Per-agency data:** one Neon Postgres + Neon Auth project per agency
+- **Control plane:** runtime agency registry (hostname → slug → that agency's database). Do not set `TENANT_ID` at build time for production.
 
-## 1. Add a tenant folder
+`veri.letflow.app` is an alias for registry slug `veri-properties`.
 
-Create `tenants/<tenant-id>/` with:
+## 1. Add an agency folder
+
+Create `tenants/<slug>/` with:
 
 | File | Purpose |
 |------|---------|
-| `config.ts` | `TenantConfig` (name, domain, colours, payment ref prefix) |
-| `site.ts` | Marketing copy, contact, fees |
-| `theme.css` | CSS variable overrides |
-| `assets/icon.svg` | Favicon (copied to app at build time) |
+| `config.ts` | Branding (name, domain, colours, payment ref prefix) |
+| `site.ts` | Marketing copy used by the optional website |
+| `theme.css` | Public-site colour overrides (also listed in `agency-themes.css`) |
+| `assets/icon.svg` | Favicon (copied to `public/agencies/<slug>/` at prepare time) |
 | `seed.sql` | Initial branch row and optional sample properties |
 
-Register the tenant in [`packages/config/src/registry.ts`](../packages/config/src/registry.ts).
-
-Add the tenant id to the CI matrix in [`.github/workflows/ci.yml`](../.github/workflows/ci.yml).
+Register the slug in [`packages/config/src/registry.ts`](../packages/config/src/registry.ts). Short hostnames (`veri` → `veri-properties`) go in [`packages/config/src/host.ts`](../packages/config/src/host.ts).
 
 ## 2. Provision infrastructure
 
-Each client gets **isolated** resources:
-
 | Service | Purpose |
 |---------|---------|
-| **Neon** project | Postgres + Auth |
-| **Vercel** project | Hosting + cron (root: `apps/web`) |
+| **Neon** project | Isolated Postgres + Auth for this agency (clone schema via `npm run db:setup`, not a dump of another agency's rows) |
+| **Vercel** (platform) | One LetFlow project (`apps/web`) — add `{slug}.letflow.app` |
+| **Vercel** (site, optional) | One site project (`apps/site`) — add their marketing domain |
 | **Vercel Blob** | Property images |
-| **Resend** | Inbound email + optional outbound |
-| **Stripe Connect** | Optional card “Pay now” in the renter portal |
-| **Rightmove / OTM** | Portal sync mTLS credentials |
+| **Resend / Stripe / Rightmove / OTM** | Configured per agency |
 
-See [veri-properties-deploy.md](veri-properties-deploy.md) for a full Vercel + env example.
+Apex `letflow.app` stays on the sales site project. Do not attach it to the platform.
 
 ## 3. Environment variables
 
-Copy [`.env.example`](../.env.example) to `apps/web/.env.local` and set:
+On the **single platform** Vercel project, set per-agency secrets. Do **not** set production `NEXT_PUBLIC_PLATFORM_URL` to one hostname — origins come from the request agency.
 
-- `TENANT_ID` — e.g. `pms` or `veri-properties`
-- `DATABASE_URL` — Neon connection string
-- `NEON_AUTH_BASE_URL`, `NEON_AUTH_COOKIE_SECRET`
-- `NEXT_PUBLIC_SITE_URL` — e.g. `https://www.client-agency.co.uk`
-- `BLOB_READ_WRITE_TOKEN`
-- `CRON_SECRET` — for `/api/cron/rent` and `/api/cron/compliance`
-- `RESEND_*` — inbound webhooks + `RESEND_INBOUND_DOMAIN`
-- `STRIPE_*` — optional card payments
-- `RIGHTMOVE_*`, `OTM_*` — portal sync
+```
+AGENCY_SLUGS=pms,veri-properties
+AGENCY_PMS_DATABASE_URL=...
+AGENCY_PMS_NEON_AUTH_BASE_URL=...
+AGENCY_PMS_NEON_AUTH_COOKIE_SECRET=...
+AGENCY_PMS_PUBLIC_SITE_URL=https://www.rent-or-let.co.uk
+AGENCY_PMS_WEBSITE_ENABLED=true
+AGENCY_PMS_REVALIDATE_URL=https://www.rent-or-let.co.uk/api/revalidate
+AGENCY_PMS_REVALIDATE_SECRET=...
+```
 
-Mirror the same variables in the Vercel project settings (`TENANT_ID` included).
+Repeat `AGENCY_VERI_PROPERTIES_*` when rebuilding Veri. Backend-only clients omit `PUBLIC_SITE_URL` and set `WEBSITE_ENABLED=false`.
+
+Staff sign in at `https://pms.letflow.app` or `https://veri.letflow.app`. Bookmark `/admin` still 301s to `/`.
+
+Until Veri secrets are copied onto the platform project as `AGENCY_VERI_PROPERTIES_*`, `veri.letflow.app` will resolve the right slug but have no database — copy those three keys from the old Veri Vercel env as in [veri-properties-deploy.md](./veri-properties-deploy.md).
+
+`www.rent-or-let.co.uk` is assigned to the site project. Point DNS at Vercel with `A www.rent-or-let.co.uk 76.76.21.21` (nameservers today are still the registrar’s).
+
+Local only: `NEXT_PUBLIC_PLATFORM_URL=http://localhost:3000` and `NEXT_PUBLIC_SITE_URL=http://localhost:3001`.
 
 ## 4. Local development
 
 ```bash
 npm install
-TENANT_ID=pms npm run dev
+cp .env.example apps/web/.env.local
+cp .env.example apps/site/.env.local
+# Platform
+npm run dev -w @repo/web
+# Optional site (port 3001)
+npm run dev -w @repo/site
 ```
 
-`prepare-tenant.mjs` runs automatically before dev/build to copy favicon and theme.
+Open `http://localhost:3000` for LetFlow and `http://localhost:3001` for the public site. Set `AGENCY_SLUG=pms` (or use `pms.localhost`).
 
 ## 5. Database
 
-Apply shared schema and tenant seed:
-
 ```bash
-TENANT_ID=<tenant-id> npm run db:setup
+AGENCY_SLUG=<slug> npm run db:setup
 ```
 
-For ongoing schema changes:
+Applies every file in `packages/database/drizzle/` then `tenants/<slug>/seed.sql`. Uses `AGENCY_{SLUG}_DATABASE_URL` if set, otherwise `DATABASE_URL`.
 
-```bash
-npm run db:push
-```
+## 6. Public listings API
 
-Migrations live in `packages/database/drizzle/`. Tenant-specific seed data lives in `tenants/<tenant-id>/seed.sql`.
+Optional websites read published listings from:
 
-## 6. Staff access
+- `GET https://{slug}.letflow.app/api/v1/public/listings`
+- `GET https://{slug}.letflow.app/api/v1/public/listings/{slug}`
+- `POST https://{slug}.letflow.app/api/v1/public/enquiries` (and `/applications`, `/complaints`)
 
-1. Visit `/sign-up` and create an account.
-2. Grant admin in Neon SQL Editor:
+When a listing is published, the platform pings `AGENCY_*_REVALIDATE_URL` so the site ISR cache refreshes.
 
-```sql
-INSERT INTO staff_profiles (id, email, full_name, role)
-VALUES ('neon-auth-user-id', 'staff@agency.co.uk', 'Staff Name', 'admin');
-```
+## 7. PMS then Veri
 
-## 7. Agency configuration (admin)
+1. **PMS (live data):** platform `pms.letflow.app` + site `www.rent-or-let.co.uk` against the existing PMS Neon.
+2. **Veri (rebuild):** new/reset Neon from this schema + `tenants/veri-properties/seed.sql`. Do not copy PMS rows. Then `veri.letflow.app` + `veri.properties` on the same two Vercel projects.
 
-In `/admin/settings`:
-
-1. **Client money pay-in details** — account name, sort code, account number for standing orders
-2. **Stripe Connect** — optional Express account for renter portal card payments
-3. **Maintenance inbox** — configure Resend inbound MX for `maintenance+{token}@domain`
-4. Point Resend webhook to `https://your-domain/api/webhooks/inbound-email`
-
-Payment references use the tenant prefix from `config.ts` (e.g. `ROL-`, `VER-`).
-
-## 8. Portal sync
-
-See [portal-onboarding.md](portal-onboarding.md) for Rightmove and OnTheMarket RTDF setup.
-
-## 9. Deploy
-
-Create a **new Vercel project** pointing at this repo with:
-
-- **Root Directory:** `apps/web`
-- **`TENANT_ID`** env var set to the client tenant id
-
-Push to `main` — all connected Vercel projects rebuild with the latest platform code. Each project keeps its own branding (`TENANT_ID`) and database.
+Self-serve signup on letflow.app is later: insert an agency record, the Host router already works. No new Vercel project per customer.
 
 ## Rules for developers
 
-- Platform changes → edit `apps/web` or `packages/*` → all clients updated on deploy
-- Client branding/copy → edit only `tenants/<client>/` → affects that tenant only
-- Do not hardcode agency names or domains in shared code
+- Platform changes → `apps/web` or `packages/*` → every agency on the next deploy
+- Agency branding/copy → `tenants/<slug>/` only
+- Do not put database URLs in client-sent tenant config
+- Do not copy property rows into the marketing site

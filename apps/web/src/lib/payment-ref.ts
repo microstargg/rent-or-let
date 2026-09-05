@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from "crypto";
-import { getTenant } from "@repo/config";
+import { getTenant } from "@repo/config/server";
 
 const REF_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no I/O/0/1 — bank-safe
 

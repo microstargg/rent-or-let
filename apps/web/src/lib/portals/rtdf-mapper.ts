@@ -1,5 +1,6 @@
 import type { Property, PropertyImage, PortalName } from "@/types";
-import { getTenant } from "@repo/config";
+import { getTenant } from "@repo/config/server";
+import { getSiteUrl, getAppUrl } from "@/lib/app-url";
 import { formatRtdfDate, formatRtdfTimestamp, parseRtdfId } from "./rtdf-format";
 
 export interface RTDFPropertyPayload {
@@ -83,7 +84,7 @@ function splitPostcode(postcode: string): { pc1: string; pc2: string } {
 
 function absolutizeMediaUrl(url: string): string {
   if (/^https?:\/\//i.test(url)) return url;
-  const base = (process.env.NEXT_PUBLIC_SITE_URL ?? getTenant().domain).replace(
+  const base = (getSiteUrl() ?? getAppUrl() ?? getTenant().domain).replace(
     /\/$/,
     ""
   );
