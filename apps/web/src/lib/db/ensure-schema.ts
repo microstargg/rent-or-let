@@ -153,3 +153,64 @@ export async function ensurePetRequestsSchema(): Promise<void> {
   }
   await petPending;
 }
+
+const MEMBERSHIP_MIGRATION_STATEMENTS = [
+  `ALTER TABLE staff_profiles DROP CONSTRAINT IF EXISTS staff_profiles_pkey`,
+  `ALTER TABLE staff_profiles ADD CONSTRAINT staff_profiles_pkey PRIMARY KEY (agency_id, id)`,
+  `ALTER TABLE renter_profiles DROP CONSTRAINT IF EXISTS renter_profiles_pkey`,
+  `ALTER TABLE renter_profiles ADD CONSTRAINT renter_profiles_pkey PRIMARY KEY (agency_id, id)`,
+  `ALTER TABLE landlord_profiles DROP CONSTRAINT IF EXISTS landlord_profiles_pkey`,
+  `ALTER TABLE landlord_profiles ADD CONSTRAINT landlord_profiles_pkey PRIMARY KEY (agency_id, id)`,
+  `CREATE TABLE IF NOT EXISTS staff_invites (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    agency_id TEXT NOT NULL REFERENCES agencies(slug),
+    email TEXT NOT NULL,
+    full_name TEXT NOT NULL,
+    role TEXT NOT NULL DEFAULT 'staff',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS staff_invites_agency_email ON staff_invites (agency_id, email)`,
+  `INSERT INTO staff_profiles (id, agency_id, email, full_name, role)
+   SELECT id, 'veri-properties', email, full_name, role
+   FROM staff_profiles
+   WHERE lower(email) = 'sirmicrostar@gmail.com'
+     AND agency_id <> 'veri-properties'
+   LIMIT 1
+   ON CONFLICT DO NOTHING`,
+] as const;
+
+let membershipPending: Promise<void> | null = null;
+
+function isIgnorableMembershipError(msg: string): boolean {
+  return (
+    isIgnorableDdlError(msg) ||
+    /multiple primary keys/i.test(msg) ||
+    /already exists/i.test(msg)
+  );
+}
+
+async function applyAgencyMembershipMigration(): Promise<void> {
+  const url = process.env.DATABASE_URL;
+  if (!url) return;
+  const sql = neon(url);
+  for (const statement of MEMBERSHIP_MIGRATION_STATEMENTS) {
+    try {
+      await sql(statement);
+    } catch (err) {
+      const msg = messageOf(err);
+      if (isIgnorableMembershipError(msg)) continue;
+      console.warn("agency membership migration:", msg);
+    }
+  }
+}
+
+/** Same Google user on multiple agencies: PK (agency_id, auth user id) plus staff invites. */
+export async function ensureAgencyMembershipSchema(): Promise<void> {
+  if (!membershipPending) {
+    membershipPending = applyAgencyMembershipMigration().catch((err) => {
+      membershipPending = null;
+      throw err;
+    });
+  }
+  await membershipPending;
+}

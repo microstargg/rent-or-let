@@ -1,5 +1,5 @@
 import {
-  getStaffProfileById,
+  ensureStaffMembership,
   getRenterProfileByUserId,
   getLandlordProfileByUserId,
 } from "@/lib/db/queries";
@@ -15,12 +15,13 @@ export function safeNextPath(value: string | null | undefined): string | null {
 
 export async function resolvePostLoginPath(
   userId: string,
-  next?: string | null
+  next?: string | null,
+  email?: string | null
 ): Promise<string> {
   const safe = safeNextPath(next);
   if (safe) return safe;
 
-  if (await getStaffProfileById(userId)) return "/";
+  if (await ensureStaffMembership(userId, email)) return "/";
   if (await getLandlordProfileByUserId(userId)) return "/landlord-portal";
   if (await getRenterProfileByUserId(userId)) return "/portal";
   return "/login?error=no-access";

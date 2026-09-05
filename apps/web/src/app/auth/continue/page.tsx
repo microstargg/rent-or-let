@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth/server";
+import { bindRequestAgency } from "@/lib/agency";
 import { resolvePostLoginPath, safeNextPath } from "@/lib/auth/redirect";
 
 export const dynamic = "force-dynamic";
@@ -14,10 +15,11 @@ export default async function AuthContinuePage({
 }: {
   searchParams: Promise<{ next?: string }>;
 }) {
+  await bindRequestAgency();
   const params = await searchParams;
   const { data: session } = await auth.getSession();
   const userId = session?.user?.id;
   if (!userId) redirect(`/login${params.next ? `?next=${encodeURIComponent(params.next)}` : ""}`);
 
-  redirect(await resolvePostLoginPath(userId, safeNextPath(params.next)));
+  redirect(await resolvePostLoginPath(userId, safeNextPath(params.next), session.user.email));
 }

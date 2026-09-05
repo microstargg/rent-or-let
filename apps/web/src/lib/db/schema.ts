@@ -10,6 +10,7 @@ import {
   date,
   uniqueIndex,
   index,
+  primaryKey,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 
@@ -45,14 +46,32 @@ export const branches = pgTable(
 export const staffProfiles = pgTable(
   "staff_profiles",
   {
-    id: text("id").primaryKey(),
+    /** Neon Auth user id — same Google account can hold a row per agency. */
+    id: text("id").notNull(),
     agencyId: text("agency_id").notNull().references(() => agencies.slug),
     email: text("email").notNull(),
     fullName: text("full_name").notNull(),
     role: text("role").notNull().default("staff"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [uniqueIndex("staff_profiles_agency_email").on(table.agencyId, table.email)]
+  (table) => [
+    primaryKey({ columns: [table.agencyId, table.id] }),
+    uniqueIndex("staff_profiles_agency_email").on(table.agencyId, table.email),
+  ]
+);
+
+/** Pending staff access until the person signs in on this agency's host. */
+export const staffInvites = pgTable(
+  "staff_invites",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    agencyId: text("agency_id").notNull().references(() => agencies.slug),
+    email: text("email").notNull(),
+    fullName: text("full_name").notNull(),
+    role: text("role").notNull().default("staff"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [uniqueIndex("staff_invites_agency_email").on(table.agencyId, table.email)]
 );
 
 export const landlords = pgTable(
@@ -458,7 +477,7 @@ export const workOrders = pgTable(
 export const renterProfiles = pgTable(
   "renter_profiles",
   {
-    id: text("id").primaryKey(),
+    id: text("id").notNull(),
     agencyId: text("agency_id").notNull().references(() => agencies.slug),
     branchId: uuid("branch_id")
       .notNull()
@@ -470,6 +489,7 @@ export const renterProfiles = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
+    primaryKey({ columns: [table.agencyId, table.id] }),
     uniqueIndex("renter_profiles_renter").on(table.renterId),
     index("idx_renter_profiles_branch").on(table.branchId),
   ]
@@ -742,7 +762,7 @@ export const viewings = pgTable(
 export const landlordProfiles = pgTable(
   "landlord_profiles",
   {
-    id: text("id").primaryKey(),
+    id: text("id").notNull(),
     agencyId: text("agency_id").notNull().references(() => agencies.slug),
     branchId: uuid("branch_id")
       .notNull()
@@ -754,6 +774,7 @@ export const landlordProfiles = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
+    primaryKey({ columns: [table.agencyId, table.id] }),
     uniqueIndex("landlord_profiles_landlord").on(table.landlordId),
     index("idx_landlord_profiles_branch").on(table.branchId),
   ]

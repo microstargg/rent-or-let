@@ -1,10 +1,12 @@
-import { getDefaultBranch, getBranchWithSettings } from "@/lib/db/queries";
+import { getDefaultBranch, getBranchWithSettings, listStaffInvites, listStaffProfiles } from "@/lib/db/queries";
 import { AgencySettingsClient } from "@/components/admin/agency-settings-client";
+import { StaffTeamClient } from "@/components/admin/staff-team-client";
 
 export default async function AdminSettingsPage() {
   const branch = await getDefaultBranch();
   const full = branch ? await getBranchWithSettings(branch.id) : null;
   const inboundDomain = process.env.RESEND_INBOUND_DOMAIN ?? "";
+  const [staff, invites] = await Promise.all([listStaffProfiles(), listStaffInvites()]);
 
   return (
     <div>
@@ -13,7 +15,8 @@ export default async function AdminSettingsPage() {
         Rent rails, client money details, Stripe, maintenance inbox
       </p>
 
-      <div className="mt-8 max-w-xl">
+      <div className="mt-8 max-w-xl space-y-6">
+        <StaffTeamClient staff={staff} invites={invites} />
         <AgencySettingsClient
           maintenanceInbox={
             full?.settings.maintenance_inbox_token && inboundDomain

@@ -12,7 +12,11 @@ import {
   portalSyncLogs,
   cookieConsents,
   landlords,
+  staffInvites,
+  renterProfiles,
+  landlordProfiles,
 } from "./schema";
+import { ensureAgencyMembershipSchema } from "@/lib/db/ensure-schema";
 import type { Property, PropertyImage } from "@/types";
 
 function mapProperty(
@@ -704,12 +708,174 @@ export async function countProperties() {
 
 export async function getStaffProfileById(id: string) {
   await ensureAgency();
+  await ensureAgencyMembershipSchema();
   const [row] = await db
     .select()
     .from(staffProfiles)
     .where(and(eq(staffProfiles.id, id), agencyEq(staffProfiles.agencyId)))
     .limit(1);
   return row ?? null;
+}
+
+function normalizeStaffEmail(email: string) {
+  return email.trim().toLowerCase();
+}
+
+async function findAuthUserIdByEmail(email: string): Promise<string | null> {
+  const normalised = normalizeStaffEmail(email);
+  const [staff] = await db
+    .select({ id: staffProfiles.id })
+    .from(staffProfiles)
+    .where(sql`lower(${staffProfiles.email}) = ${normalised}`)
+    .limit(1);
+  if (staff) return staff.id;
+  const [renter] = await db
+    .select({ id: renterProfiles.id })
+    .from(renterProfiles)
+    .where(sql`lower(${renterProfiles.email}) = ${normalised}`)
+    .limit(1);
+  if (renter) return renter.id;
+  const [landlord] = await db
+    .select({ id: landlordProfiles.id })
+    .from(landlordProfiles)
+    .where(sql`lower(${landlordProfiles.email}) = ${normalised}`)
+    .limit(1);
+  return landlord?.id ?? null;
+}
+
+export async function listStaffProfiles() {
+  await ensureAgency();
+  await ensureAgencyMembershipSchema();
+  return db
+    .select()
+    .from(staffProfiles)
+    .where(agencyEq(staffProfiles.agencyId))
+    .orderBy(asc(staffProfiles.fullName), asc(staffProfiles.email));
+}
+
+export async function listStaffInvites() {
+  await ensureAgency();
+  await ensureAgencyMembershipSchema();
+  return db
+    .select()
+    .from(staffInvites)
+    .where(agencyEq(staffInvites.agencyId))
+    .orderBy(desc(staffInvites.createdAt));
+}
+
+export async function addStaffMember(data: {
+  email: string;
+  fullName: string;
+  role?: "admin" | "staff";
+}) {
+  await ensureAgency();
+  await ensureAgencyMembershipSchema();
+  const email = normalizeStaffEmail(data.email);
+  const fullName = data.fullName.trim();
+  const role = data.role === "admin" ? "admin" : "staff";
+  if (!email || !fullName) {
+    throw new Error("Email and name are required");
+  }
+
+  const existing = (
+    await db
+      .select()
+      .from(staffProfiles)
+      .where(
+        and(agencyEq(staffProfiles.agencyId), sql`lower(${staffProfiles.email}) = ${email}`)
+      )
+      .limit(1)
+  )[0];
+  if (existing) return { status: "already_staff" as const, staff: existing };
+
+  const userId = await findAuthUserIdByEmail(email);
+  if (userId) {
+    const [staff] = await db
+      .insert(staffProfiles)
+      .values({
+        id: userId,
+        agencyId: currentAgencyId(),
+        email,
+        fullName,
+        role,
+      })
+      .onConflictDoNothing()
+      .returning();
+    const row =
+      staff ??
+      (
+        await db
+          .select()
+          .from(staffProfiles)
+          .where(and(eq(staffProfiles.id, userId), agencyEq(staffProfiles.agencyId)))
+          .limit(1)
+      )[0];
+    await db
+      .delete(staffInvites)
+      .where(and(agencyEq(staffInvites.agencyId), sql`lower(${staffInvites.email}) = ${email}`));
+    return { status: "added" as const, staff: row };
+  }
+
+  const [invite] = await db
+    .insert(staffInvites)
+    .values({
+      agencyId: currentAgencyId(),
+      email,
+      fullName,
+      role,
+    })
+    .onConflictDoNothing()
+    .returning();
+  const pending =
+    invite ??
+    (
+      await db
+        .select()
+        .from(staffInvites)
+        .where(and(agencyEq(staffInvites.agencyId), sql`lower(${staffInvites.email}) = ${email}`))
+        .limit(1)
+    )[0];
+  return { status: "invited" as const, invite: pending };
+}
+
+export async function ensureStaffMembership(userId: string, email: string | null | undefined) {
+  await ensureAgency();
+  await ensureAgencyMembershipSchema();
+  const existing = await getStaffProfileById(userId);
+  if (existing) return existing;
+  if (!email?.trim()) return null;
+
+  const normalised = normalizeStaffEmail(email);
+  const [invite] = await db
+    .select()
+    .from(staffInvites)
+    .where(and(agencyEq(staffInvites.agencyId), sql`lower(${staffInvites.email}) = ${normalised}`))
+    .limit(1);
+  if (!invite) return null;
+
+  const [staff] = await db
+    .insert(staffProfiles)
+    .values({
+      id: userId,
+      agencyId: currentAgencyId(),
+      email: normalised,
+      fullName: invite.fullName,
+      role: invite.role,
+    })
+    .onConflictDoNothing()
+    .returning();
+  await db.delete(staffInvites).where(and(eq(staffInvites.id, invite.id), agencyEq(staffInvites.agencyId)));
+  return (
+    staff ??
+    (
+      await db
+        .select()
+        .from(staffProfiles)
+        .where(and(eq(staffProfiles.id, userId), agencyEq(staffProfiles.agencyId)))
+        .limit(1)
+    )[0] ??
+    null
+  );
 }
 
 export interface BranchPortalSettings {

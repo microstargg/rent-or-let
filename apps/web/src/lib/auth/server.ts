@@ -1,9 +1,9 @@
 import { auth } from "@/lib/auth/instance";
 import { bindRequestAgency } from "@/lib/agency";
 import {
-  getStaffProfileById,
   getRenterProfileByUserId,
   getLandlordProfileByUserId,
+  ensureStaffMembership,
 } from "@/lib/db/queries";
 
 export { auth };
@@ -14,7 +14,7 @@ export async function requireStaffSession() {
   const userId = session?.user?.id;
   if (!userId) return null;
 
-  const staff = await getStaffProfileById(userId);
+  const staff = await ensureStaffMembership(userId, session.user.email);
   if (!staff) return null;
 
   return session;

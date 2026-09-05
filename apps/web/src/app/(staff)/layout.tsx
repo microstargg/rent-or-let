@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth, requireStaffSession, requireLandlordSession } from "@/lib/auth/server";
 import { AdminShell } from "@/components/admin/admin-shell";
-import { ensureJobInvoiceSchema } from "@/lib/db/ensure-schema";
+import { ensureAgencyMembershipSchema, ensureJobInvoiceSchema } from "@/lib/db/ensure-schema";
 
 export default async function AdminLayout({
   children,
@@ -20,6 +20,7 @@ export default async function AdminLayout({
   }
 
   try {
+    await ensureAgencyMembershipSchema();
     await ensureJobInvoiceSchema();
   } catch (err) {
     console.error("[admin] failed to apply job invoice schema", err);

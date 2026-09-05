@@ -93,7 +93,7 @@ Example: `https://ep-xxx.neonauth.eu-west-2.aws.neon.tech/neondb/auth/callback/g
 3. Copy Client ID and Client Secret into Neon Console → **Auth** → **Providers** → **Google**
 4. Add the platform host to Neon Auth **trusted domains** (e.g. `https://pms.letflow.app`)
 
-After Google sign-in, users still need a `staff_profiles` row before accessing `/admin` (same as email sign-up).
+After Google sign-in, users still need a `staff_profiles` row for **this agency** before accessing `/`. The same Google account can be staff on more than one agency.
 
 ## 5. Create the first staff user
 
@@ -107,14 +107,16 @@ Staff access requires **both** a Neon Auth account and a row in `staff_profiles`
 
 ### Step B — Grant staff access
 
-Find the Neon Auth user ID (from Neon Console → Auth → Users, or from the session after sign-in), then run in Neon SQL Editor:
+Prefer **Settings → Team** on that agency's host (e.g. `https://veri.letflow.app/settings`). That copies an existing Neon Auth user id from another agency, or invites them to gain access on next sign-in.
+
+To grant access in SQL, use the Neon Auth user ID (Neon Console → Auth → Users) **and** the agency slug. Primary key is `(agency_id, id)`, so the same user id can exist on `pms` and `veri-properties`:
 
 ```sql
-INSERT INTO staff_profiles (id, email, full_name, role)
-VALUES ('your-neon-auth-user-id', 'you@example.com', 'Your Name', 'admin');
+INSERT INTO staff_profiles (id, agency_id, email, full_name, role)
+VALUES ('your-neon-auth-user-id', 'veri-properties', 'you@example.com', 'Your Name', 'admin');
 ```
 
-The `id` must exactly match the Neon Auth user ID.
+The `id` must exactly match the Neon Auth user ID. Apply `0013_agency_membership.sql` (or deploy; staff routes apply it at runtime) before inserting a second agency row.
 
 ### Step C — Sign in
 
@@ -133,8 +135,8 @@ One platform project (`apps/web`) serves every agency. See [client-setup.md](./c
 2. Add `pms.letflow.app` and `veri.letflow.app`
 3. Set shared `DATABASE_URL`, `NEON_AUTH_BASE_URL`, `NEON_AUTH_COOKIE_SECRET`, `AGENCY_SLUGS`, Blob, cron, and portal credentials — not build-time `TENANT_ID`. Per-agency site hooks use `AGENCY_*_PUBLIC_SITE_URL` / `REVALIDATE_*`.
 4. Optional site project: Root Directory `apps/site`, domains `www.rent-or-let.co.uk` and `veri.properties`
-5. Apply shared migrations once (`0012_agencies_shared_db.sql`). New agencies: `createAgency({ slug, name, ... })` — no new Neon project
-6. Create staff user(s) as in step 5 (Neon Auth + `staff_profiles` with matching `agency_id`)
+5. Apply shared migrations (`0012_agencies_shared_db.sql`, `0013_agency_membership.sql`). New agencies: `createAgency({ slug, name, ... })` — no new Neon project
+6. Create staff user(s) as in step 5 (Neon Auth + `staff_profiles` with that host's `agency_id`)
 
 Cron jobs in `apps/web/vercel.json` iterate every agency in `AGENCY_SLUGS`; each loop filters rows by that agency's `agency_id`.
 
@@ -154,7 +156,7 @@ Cron jobs in `apps/web/vercel.json` iterate every agency in `AGENCY_SLUGS`; each
 | Problem | Fix |
 |---------|-----|
 | Auth errors / redirect loops | Ensure `NEON_AUTH_BASE_URL` is set and matches Neon Console |
-| "Not authorized for admin access" | Insert user into `staff_profiles` with correct Neon Auth user ID |
+| "Not authorized for admin access" | Add them under Settings → Team on that subdomain, or insert `staff_profiles` with the Neon Auth user ID **and** `agency_id` |
 | DB connection errors | Check `DATABASE_URL`, use pooler URL, verify `sslmode=require` |
 | Properties show seed data only | `DATABASE_URL` missing or schema not pushed — run `npm run db:push` |
 | Images fail in production | Set `BLOB_READ_WRITE_TOKEN` on Vercel |

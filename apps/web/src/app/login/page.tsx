@@ -13,7 +13,7 @@ export default async function LoginPage({
   const params = await searchParams;
   const { data } = await auth.getSession();
   if (data?.user && !params.error) {
-    redirect(await resolvePostLoginPath(data.user.id, params.next));
+    redirect(await resolvePostLoginPath(data.user.id, params.next, data.user.email));
   }
 
   const notice =
