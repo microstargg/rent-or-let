@@ -1,6 +1,6 @@
 import { eq, and, desc, gte, lte, sql, count, inArray } from "drizzle-orm";
 import { db } from "../index";
-import { agencyEq, currentAgencyId } from "../agency-scope";
+import { agencyEq, currentAgencyId, ensureAgency } from "../agency-scope";
 import {
   invoices,
   payments,
@@ -47,6 +47,7 @@ function listInvoicesQuery(branchId?: string) {
 }
 
 export async function listInvoices(branchId?: string) {
+  await ensureAgency();
   await ensureJobInvoiceSchema();
   try {
     return await listInvoicesQuery(branchId);
@@ -58,6 +59,7 @@ export async function listInvoices(branchId?: string) {
 }
 
 export async function getInvoiceById(id: string) {
+  await ensureAgency();
   const [row] = await db
     .select()
     .from(invoices)
@@ -67,6 +69,7 @@ export async function getInvoiceById(id: string) {
 }
 
 export async function getInvoiceForRenter(invoiceId: string, branchId: string, renterId: string) {
+  await ensureAgency();
   const [row] = await db
     .select({ invoice: invoices })
     .from(invoices)
@@ -85,6 +88,7 @@ export async function getInvoiceForRenter(invoiceId: string, branchId: string, r
 }
 
 export async function listInvoicesForRenter(branchId: string, renterId: string) {
+  await ensureAgency();
   return db
     .select({ invoice: invoices })
     .from(invoices)
@@ -101,6 +105,7 @@ export async function listInvoicesForRenter(branchId: string, renterId: string) 
 }
 
 export async function getAllocatedTotalForInvoice(invoiceId: string): Promise<number> {
+  await ensureAgency();
   const [row] = await db
     .select({ total: sql<string>`coalesce(sum(${paymentAllocations.amount}), 0)` })
     .from(paymentAllocations)
@@ -138,6 +143,7 @@ export async function insertLedgerEntry(data: {
   meta?: Record<string, unknown>;
   occurredAt?: Date;
 }) {
+  await ensureAgency();
   const [row] = await db
     .insert(ledgerEntries)
     .values({
@@ -159,6 +165,7 @@ export async function insertLedgerEntry(data: {
 }
 
 export async function getTenancyBalance(tenancyId: string): Promise<number> {
+  await ensureAgency();
   const [row] = await db
     .select({ total: sql<string>`coalesce(sum(${ledgerEntries.amount}), 0)` })
     .from(ledgerEntries)
@@ -180,6 +187,7 @@ export async function createInvoices(
     meta?: Record<string, unknown>;
   }[]
 ) {
+  await ensureAgency();
   if (rows.length === 0) return [];
   await ensureJobInvoiceSchema();
 
@@ -251,6 +259,7 @@ export async function recordPaymentAndAllocate(data: {
   method: string;
   externalRef?: string | null;
 }) {
+  await ensureAgency();
   const invoice = await getInvoiceById(data.invoiceId);
   if (!invoice) return null;
   if (!isTenantPayableInvoiceType(invoice.type) || !invoice.tenancyId) return null;
@@ -355,6 +364,7 @@ export async function recordPaymentAndAllocate(data: {
 }
 
 export async function markInvoicePaid(invoiceId: string, method = "bank_transfer") {
+  await ensureAgency();
   const invoice = await getInvoiceById(invoiceId);
   if (!invoice || invoice.status === "paid" || invoice.status === "void") return null;
   if (!isTenantPayableInvoiceType(invoice.type) || !invoice.tenancyId) return null;
@@ -381,6 +391,7 @@ export async function markInvoicePartialPaid(
   amount: number,
   method = "bank_transfer"
 ) {
+  await ensureAgency();
   const invoice = await getInvoiceById(invoiceId);
   if (!invoice || invoice.status === "paid" || invoice.status === "void") return null;
   if (!isTenantPayableInvoiceType(invoice.type) || !invoice.tenancyId) return null;
@@ -403,6 +414,7 @@ export async function insertPayment(data: {
   method: string;
   externalRef?: string | null;
 }) {
+  await ensureAgency();
   const result = await recordPaymentAndAllocate(data);
   return result?.payment ?? null;
 }
@@ -417,6 +429,7 @@ export async function createPaymentException(data: {
   note?: string | null;
   meta?: Record<string, unknown>;
 }) {
+  await ensureAgency();
   const [row] = await db
     .insert(paymentExceptions)
     .values({
@@ -435,6 +448,7 @@ export async function createPaymentException(data: {
 }
 
 export async function listPaymentExceptions(branchId: string, status = "open") {
+  await ensureAgency();
   return db
     .select({
       exception: paymentExceptions,
@@ -454,6 +468,7 @@ export async function listPaymentExceptions(branchId: string, status = "open") {
 }
 
 export async function resolvePaymentException(id: string) {
+  await ensureAgency();
   const [row] = await db
     .update(paymentExceptions)
     .set({ status: "resolved", resolvedAt: new Date() })
@@ -463,6 +478,7 @@ export async function resolvePaymentException(id: string) {
 }
 
 export async function listArrears(branchId: string) {
+  await ensureAgency();
   const balanceRows = await db
     .select({
       tenancyId: ledgerEntries.tenancyId,
@@ -548,6 +564,7 @@ export async function createTask(data: {
   relatedId?: string | null;
   meta?: Record<string, unknown>;
 }) {
+  await ensureAgency();
   const [row] = await db
     .insert(tasks)
     .values({
@@ -564,6 +581,7 @@ export async function createTask(data: {
 }
 
 export async function applyLateFeesForBranch(branchId: string) {
+  await ensureAgency();
   const [b] = await db
     .select()
     .from(branches)
@@ -656,6 +674,7 @@ export async function applyLateFeesForBranch(branchId: string) {
 }
 
 export async function getPaymentByExternalRef(branchId: string, externalRef: string) {
+  await ensureAgency();
   const [row] = await db
     .select()
     .from(payments)
@@ -671,6 +690,7 @@ export async function getPaymentByExternalRef(branchId: string, externalRef: str
 }
 
 export async function updateInvoiceStatus(invoiceId: string, status: string) {
+  await ensureAgency();
   await db
     .update(invoices)
     .set({ status })
@@ -678,6 +698,7 @@ export async function updateInvoiceStatus(invoiceId: string, status: string) {
 }
 
 export async function getActiveTenanciesForRent(branchId: string) {
+  await ensureAgency();
   return db
     .select({ id: tenancies.id, rentAmount: tenancies.rentAmount })
     .from(tenancies)
@@ -695,6 +716,7 @@ export async function getExistingRentInvoicesForDueDate(
   dueDate: string,
   tenancyIds: string[]
 ) {
+  await ensureAgency();
   if (tenancyIds.length === 0) return [];
   return db
     .select({ tenancyId: invoices.tenancyId })
@@ -711,6 +733,7 @@ export async function getExistingRentInvoicesForDueDate(
 }
 
 export async function countOverdueInvoices(branchId: string) {
+  await ensureAgency();
   const today = new Date().toISOString().slice(0, 10);
   const [r] = await db
     .select({ value: count() })
@@ -739,6 +762,7 @@ export async function getLandlordStatementData(
   from: string,
   to: string
 ): Promise<LandlordStatementRow[]> {
+  await ensureAgency();
   const fromIso = `${from}T00:00:00.000Z`;
   const toIso = `${to}T23:59:59.999Z`;
 

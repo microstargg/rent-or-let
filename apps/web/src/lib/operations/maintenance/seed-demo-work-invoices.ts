@@ -1,6 +1,6 @@
 import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { currentAgencyId } from "@/lib/db/agency-scope";
+import { currentAgencyId, ensureAgency } from "@/lib/db/agency-scope";
 import {
   contractors,
   invoices,
@@ -174,6 +174,7 @@ export async function seedDemoWorkInvoices(branchId: string): Promise<{
   created: number;
   skipped: number;
 }> {
+  await ensureAgency();
   await ensureJobInvoiceSchema();
 
   const landlord = await ensureDemoLandlord(branchId);

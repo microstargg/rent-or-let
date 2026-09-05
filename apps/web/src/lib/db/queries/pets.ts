@@ -1,6 +1,6 @@
 import { eq, and, desc, asc, inArray, lt } from "drizzle-orm";
 import { db } from "../index";
-import { agencyEq, currentAgencyId } from "../agency-scope";
+import { agencyEq, currentAgencyId, ensureAgency } from "../agency-scope";
 import { petRequests, tenancies, properties, renters } from "../schema";
 import { ensurePetRequestsSchema } from "../ensure-schema";
 import {
@@ -16,6 +16,7 @@ async function ready() {
 }
 
 export async function listPetRequests(branchId: string) {
+  await ensureAgency();
   await ready();
   return db
     .select({
@@ -33,6 +34,7 @@ export async function listPetRequests(branchId: string) {
 }
 
 export async function listPetRequestsForRenter(renterId: string) {
+  await ensureAgency();
   await ready();
   return db
     .select({
@@ -47,6 +49,7 @@ export async function listPetRequestsForRenter(renterId: string) {
 }
 
 export async function getPetRequestById(id: string) {
+  await ensureAgency();
   await ready();
   const [row] = await db
     .select({
@@ -71,6 +74,7 @@ export async function createPetRequest(data: {
   renterId: string;
   petDescription: string;
 }) {
+  await ensureAgency();
   await ready();
   const requestedAt = new Date();
   const [row] = await db
@@ -97,6 +101,7 @@ export async function decidePetRequest(
     servedTo?: string;
   }
 ) {
+  await ensureAgency();
   await ready();
   const existing = await getPetRequestById(id);
   if (!existing) return null;
@@ -149,6 +154,7 @@ export async function decidePetRequest(
 }
 
 export async function listOverduePetRequests(branchId: string, now = new Date()) {
+  await ensureAgency();
   await ready();
   const rows = await db
     .select({

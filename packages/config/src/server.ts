@@ -5,25 +5,35 @@ import type { Agency } from "./runtime";
 import { getAgencyBySlug } from "./runtime";
 import { fallbackAgencySlug } from "./host";
 
-const agencyAls = new AsyncLocalStorage<Agency>();
+type AgencyStore = {
+  agency: Agency;
+  /** Cron/scripts set this so request-header rebinding cannot override the chosen agency. */
+  locked: boolean;
+};
+
+const agencyAls = new AsyncLocalStorage<AgencyStore>();
 
 export function runWithAgency<T>(agency: Agency, fn: () => T): T {
-  return agencyAls.run(agency, fn);
+  return agencyAls.run({ agency, locked: true }, fn);
 }
 
 export async function runWithAgencyAsync<T>(
   agency: Agency,
   fn: () => Promise<T>
 ): Promise<T> {
-  return agencyAls.run(agency, fn);
+  return agencyAls.run({ agency, locked: true }, fn);
 }
 
 export function getAgencyOrNull(): Agency | null {
-  return agencyAls.getStore() ?? null;
+  return agencyAls.getStore()?.agency ?? null;
+}
+
+export function isAgencyContextLocked(): boolean {
+  return agencyAls.getStore()?.locked === true;
 }
 
 export function getAgency(): Agency {
-  const current = agencyAls.getStore();
+  const current = agencyAls.getStore()?.agency;
   if (current) return current;
   return getAgencyBySlug(fallbackAgencySlug());
 }
@@ -38,7 +48,8 @@ export function getTenantId(): string {
 }
 
 export function bindAgency(agency: Agency): void {
-  agencyAls.enterWith(agency);
+  if (isAgencyContextLocked()) return;
+  agencyAls.enterWith({ agency, locked: false });
 }
 
 export {

@@ -1,7 +1,7 @@
 import { eq, and, desc, gt, isNull } from "drizzle-orm";
 import { randomBytes } from "crypto";
 import { db } from "../index";
-import { agencyEq, currentAgencyId } from "../agency-scope";
+import { agencyEq, currentAgencyId, ensureAgency } from "../agency-scope";
 import {
   enquiries,
   viewings,
@@ -15,6 +15,7 @@ import { createRenter, createTenancy } from "./operations";
 import { getAppUrl } from "@/lib/app-url";
 
 export async function updateEnquiryPipeline(id: string, pipelineStage: string) {
+  await ensureAgency();
   const [row] = await db
     .update(enquiries)
     .set({ pipelineStage, status: pipelineStage })
@@ -30,6 +31,7 @@ export async function createViewing(data: {
   scheduledAt: Date;
   notes?: string | null;
 }) {
+  await ensureAgency();
   const [row] = await db
     .insert(viewings)
     .values({
@@ -49,6 +51,7 @@ export async function createViewing(data: {
 }
 
 export async function listViewings(branchId: string) {
+  await ensureAgency();
   return db
     .select({
       viewing: viewings,
@@ -61,6 +64,7 @@ export async function listViewings(branchId: string) {
 }
 
 export async function updateApplicationReferencing(id: string, referencingStatus: string) {
+  await ensureAgency();
   const [row] = await db
     .update(tenantApplications)
     .set({ referencingStatus })
@@ -70,6 +74,7 @@ export async function updateApplicationReferencing(id: string, referencingStatus
 }
 
 export async function getApplicationById(id: string) {
+  await ensureAgency();
   const [row] = await db
     .select()
     .from(tenantApplications)
@@ -82,6 +87,7 @@ export async function convertApplicationToTenancy(
   applicationId: string,
   opts: { branchId: string; rentAmount: number; startDate: string; depositAmount?: number }
 ) {
+  await ensureAgency();
   const app = await getApplicationById(applicationId);
   if (!app || !app.propertyId) throw new Error("Application missing property");
 
@@ -116,6 +122,7 @@ export async function createLandlordProfile(data: {
   landlordId: string;
   email: string;
 }) {
+  await ensureAgency();
   const [row] = await db
     .insert(landlordProfiles)
     .values({
@@ -130,6 +137,7 @@ export async function createLandlordProfile(data: {
 }
 
 export async function getLandlordProfileByUserId(userId: string) {
+  await ensureAgency();
   const [row] = await db
     .select({
       profile: landlordProfiles,
@@ -143,6 +151,7 @@ export async function getLandlordProfileByUserId(userId: string) {
 }
 
 export async function getLandlordProfileByLandlordId(landlordId: string) {
+  await ensureAgency();
   const [row] = await db
     .select({
       profile: landlordProfiles,
@@ -162,6 +171,7 @@ export async function createLandlordInvite(data: {
   token: string;
   expiresAt: Date;
 }) {
+  await ensureAgency();
   const [row] = await db
     .insert(landlordInvites)
     .values({
@@ -177,6 +187,7 @@ export async function issueLandlordPortalInvite(data: {
   landlordId: string;
   email: string;
 }) {
+  await ensureAgency();
   const token = randomBytes(24).toString("hex");
   const expiresAt = new Date();
   expiresAt.setDate(expiresAt.getDate() + 14);
@@ -194,6 +205,7 @@ export async function issueLandlordPortalInvite(data: {
 }
 
 export async function getLandlordInviteByToken(token: string) {
+  await ensureAgency();
   const [row] = await db
     .select()
     .from(landlordInvites)
@@ -210,6 +222,7 @@ export async function getLandlordInviteByToken(token: string) {
 }
 
 export async function acceptLandlordInvite(inviteId: string) {
+  await ensureAgency();
   await db
     .update(landlordInvites)
     .set({ acceptedAt: new Date() })
@@ -217,6 +230,7 @@ export async function acceptLandlordInvite(inviteId: string) {
 }
 
 export async function listPropertiesForLandlord(landlordId: string) {
+  await ensureAgency();
   return db
     .select()
     .from(properties)

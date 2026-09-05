@@ -1,6 +1,6 @@
 import { eq, and, desc, asc, ilike, or, sql, count, type SQL } from "drizzle-orm";
 import { db } from "../index";
-import { agencyEq, currentAgencyId } from "../agency-scope";
+import { agencyEq, currentAgencyId, ensureAgency } from "../agency-scope";
 import { landlords, renters, tenancies, properties, branches } from "../schema";
 import { parseBranchSettings, type BranchSettings } from "@/lib/branch-settings";
 import {
@@ -43,6 +43,7 @@ function personSearch(
 }
 
 export async function listLandlords(branchId?: string) {
+  await ensureAgency();
   const conditions: SQL[] = [agencyEq(landlords.agencyId)];
   if (branchId) conditions.push(eq(landlords.branchId, branchId));
   return db
@@ -53,6 +54,7 @@ export async function listLandlords(branchId?: string) {
 }
 
 export async function searchLandlords(opts: ListPageOpts = {}) {
+  await ensureAgency();
   const { branchId, q, sort = "newest" } = opts;
   const { limit, offset } = pageOffset(opts.page, opts.pageSize);
   const conditions: SQL[] = [agencyEq(landlords.agencyId)];
@@ -99,6 +101,7 @@ export async function searchLandlords(opts: ListPageOpts = {}) {
 }
 
 export async function countLandlords(branchId?: string) {
+  await ensureAgency();
   const conditions: SQL[] = [agencyEq(landlords.agencyId)];
   if (branchId) conditions.push(eq(landlords.branchId, branchId));
   const [row] = await db.select({ total: count() }).from(landlords).where(and(...conditions));
@@ -106,6 +109,7 @@ export async function countLandlords(branchId?: string) {
 }
 
 export async function getLandlordById(id: string) {
+  await ensureAgency();
   const [row] = await db
     .select()
     .from(landlords)
@@ -123,6 +127,7 @@ export async function createLandlord(data: {
   notes?: string | null;
   bankDetails?: Record<string, unknown> | null;
 }) {
+  await ensureAgency();
   const [row] = await db
     .insert(landlords)
     .values({
@@ -150,6 +155,7 @@ export async function updateLandlord(
     bankDetails: Record<string, unknown> | null;
   }>
 ) {
+  await ensureAgency();
   const [row] = await db
     .update(landlords)
     .set(data)
@@ -159,10 +165,12 @@ export async function updateLandlord(
 }
 
 export async function deleteLandlord(id: string) {
+  await ensureAgency();
   await db.delete(landlords).where(and(eq(landlords.id, id), agencyEq(landlords.agencyId)));
 }
 
 export async function listRenters(branchId?: string) {
+  await ensureAgency();
   const conditions: SQL[] = [agencyEq(renters.agencyId)];
   if (branchId) conditions.push(eq(renters.branchId, branchId));
   return db
@@ -173,6 +181,7 @@ export async function listRenters(branchId?: string) {
 }
 
 export async function searchRenters(opts: ListPageOpts = {}) {
+  await ensureAgency();
   const { branchId, q, sort = "newest" } = opts;
   const { limit, offset } = pageOffset(opts.page, opts.pageSize);
   const conditions: SQL[] = [agencyEq(renters.agencyId)];
@@ -210,6 +219,7 @@ export async function searchRenters(opts: ListPageOpts = {}) {
 }
 
 export async function countRenters(branchId?: string) {
+  await ensureAgency();
   const conditions: SQL[] = [agencyEq(renters.agencyId)];
   if (branchId) conditions.push(eq(renters.branchId, branchId));
   const [row] = await db.select({ total: count() }).from(renters).where(and(...conditions));
@@ -217,6 +227,7 @@ export async function countRenters(branchId?: string) {
 }
 
 export async function getRenterById(id: string) {
+  await ensureAgency();
   const [row] = await db
     .select()
     .from(renters)
@@ -234,6 +245,7 @@ export async function createRenter(data: {
   notes?: string | null;
   landlordId?: string | null;
 }) {
+  await ensureAgency();
   const [row] = await db
     .insert(renters)
     .values({
@@ -251,6 +263,7 @@ export async function createRenter(data: {
 }
 
 export async function getRenterByEmail(email: string, branchId: string) {
+  await ensureAgency();
   const [row] = await db
     .select()
     .from(renters)
@@ -275,6 +288,7 @@ export async function updateRenter(
     notes: string | null;
   }>
 ) {
+  await ensureAgency();
   const [row] = await db
     .update(renters)
     .set(data)
@@ -284,6 +298,7 @@ export async function updateRenter(
 }
 
 export async function listTenancies(branchId?: string) {
+  await ensureAgency();
   const conditions: SQL[] = [agencyEq(tenancies.agencyId)];
   if (branchId) conditions.push(eq(tenancies.branchId, branchId));
 
@@ -302,6 +317,7 @@ export async function listTenancies(branchId?: string) {
 }
 
 export async function searchTenancies(opts: ListPageOpts = {}) {
+  await ensureAgency();
   const { branchId, q, status } = opts;
   const { limit, offset } = pageOffset(opts.page, opts.pageSize);
   const conditions: SQL[] = [agencyEq(tenancies.agencyId)];
@@ -363,6 +379,7 @@ export async function searchTenancies(opts: ListPageOpts = {}) {
 }
 
 export async function getTenancyById(id: string) {
+  await ensureAgency();
   const [row] = await db
     .select({
       tenancy: tenancies,
@@ -378,6 +395,7 @@ export async function getTenancyById(id: string) {
 }
 
 export async function getActiveTenancyForRenter(renterId: string, branchId: string) {
+  await ensureAgency();
   const [row] = await db
     .select()
     .from(tenancies)
@@ -423,6 +441,7 @@ export async function createTenancy(data: {
   endDate?: string | null;
   depositScheme?: string | null;
 }) {
+  await ensureAgency();
   const paymentRef = await allocateUniquePaymentRef(data.branchId);
   const [row] = await db
     .insert(tenancies)
@@ -461,6 +480,7 @@ export async function createTenancy(data: {
 
 /** Assign payment_ref to active tenancies that do not have one yet. */
 export async function backfillPaymentRefsForBranch(branchId: string): Promise<number> {
+  await ensureAgency();
   const rows = await db
     .select()
     .from(tenancies)
@@ -490,6 +510,7 @@ export async function backfillPaymentRefsForBranch(branchId: string): Promise<nu
 }
 
 export async function endTenancy(id: string) {
+  await ensureAgency();
   const tenancy = await db
     .select()
     .from(tenancies)
@@ -512,6 +533,7 @@ export async function endTenancy(id: string) {
 }
 
 export async function getBranchWithSettings(branchId: string) {
+  await ensureAgency();
   const [row] = await db
     .select()
     .from(branches)
@@ -522,6 +544,7 @@ export async function getBranchWithSettings(branchId: string) {
 }
 
 export async function updateBranchSettings(branchId: string, settings: BranchSettings) {
+  await ensureAgency();
   const current = await getBranchWithSettings(branchId);
   const merged = { ...(current?.settings ?? {}), ...settings };
   await db

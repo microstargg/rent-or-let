@@ -1,6 +1,6 @@
 import { eq, and, desc, asc, isNull, lt } from "drizzle-orm";
 import { db } from "../index";
-import { agencyEq, currentAgencyId } from "../agency-scope";
+import { agencyEq, currentAgencyId, ensureAgency } from "../agency-scope";
 import { tenancies, inspections, notices, properties, renters, documents } from "../schema";
 import { createComplianceItem, markComplianceServed, createDocument, listDocumentsForEntity } from "./compliance";
 import { createTask } from "./finance";
@@ -16,6 +16,7 @@ export async function protectDeposit(data: {
   reference: string;
   protectedAt?: string;
 }) {
+  await ensureAgency();
   const [tenancy] = await db
     .select()
     .from(tenancies)
@@ -49,6 +50,7 @@ export async function protectDeposit(data: {
 }
 
 export async function listDepositRegister(branchId: string) {
+  await ensureAgency();
   return db
     .select({
       tenancy: tenancies,
@@ -77,6 +79,7 @@ export async function createInspection(data: {
   scheduledAt?: Date | null;
   notes?: string | null;
 }) {
+  await ensureAgency();
   const [property] = await db
     .select({ bedrooms: properties.bedrooms })
     .from(properties)
@@ -102,6 +105,7 @@ export async function completeInspection(
   id: string,
   data: { summary?: string; photoUrls?: string[] }
 ) {
+  await ensureAgency();
   const [existing] = await db
     .select()
     .from(inspections)
@@ -131,6 +135,7 @@ export async function completeInspection(
 }
 
 export async function listInspections(branchId: string) {
+  await ensureAgency();
   return db
     .select({
       inspection: inspections,
@@ -144,6 +149,7 @@ export async function listInspections(branchId: string) {
 }
 
 export async function getInspectionById(id: string) {
+  await ensureAgency();
   const [row] = await db
     .select({
       inspection: inspections,
@@ -162,6 +168,7 @@ export async function saveInspectionReport(
   id: string,
   data: { report: InspectionReport; notes?: string | null; complete?: boolean; summary?: string }
 ) {
+  await ensureAgency();
   const existing = await getInspectionById(id);
   if (!existing) return null;
   const meta =
@@ -182,6 +189,7 @@ export async function saveInspectionReport(
 }
 
 export async function scheduleInterimInspections(tenancyId: string) {
+  await ensureAgency();
   const [tenancy] = await db
     .select()
     .from(tenancies)
@@ -232,6 +240,7 @@ export async function scheduleInterimInspections(tenancyId: string) {
 }
 
 export async function listInspectionsForLandlord(landlordId: string) {
+  await ensureAgency();
   return db
     .select({
       inspection: inspections,
@@ -244,6 +253,7 @@ export async function listInspectionsForLandlord(landlordId: string) {
 }
 
 export async function listOverdueInspections(branchId: string, now = new Date()) {
+  await ensureAgency();
   return db
     .select({
       inspection: inspections,
@@ -263,6 +273,7 @@ export async function listOverdueInspections(branchId: string, now = new Date())
 }
 
 export async function getTenancyNoticeContext(tenancyId: string) {
+  await ensureAgency();
   const [row] = await db
     .select({
       tenancy: tenancies,
@@ -293,6 +304,7 @@ export async function getTenancyNoticeContext(tenancyId: string) {
 }
 
 export async function listTenancyEvidence(tenancyId: string) {
+  await ensureAgency();
   const noticeRows = await db
     .select()
     .from(notices)
@@ -311,6 +323,7 @@ export async function createNotice(data: {
   servedTo?: string | null;
   meta?: Record<string, unknown>;
 }) {
+  await ensureAgency();
   const [row] = await db
     .insert(notices)
     .values({
@@ -353,6 +366,7 @@ export async function createNotice(data: {
 }
 
 export async function listNotices(branchId: string) {
+  await ensureAgency();
   return db
     .select({
       notice: notices,
@@ -366,6 +380,7 @@ export async function listNotices(branchId: string) {
 }
 
 export async function bulkServeRraInfoSheet(branchId: string) {
+  await ensureAgency();
   const active = await db
     .select()
     .from(tenancies)
@@ -400,6 +415,7 @@ export async function bulkServeRraInfoSheet(branchId: string) {
 }
 
 export async function setRentReviewDate(tenancyId: string, rentReviewDate: string) {
+  await ensureAgency();
   const [row] = await db
     .update(tenancies)
     .set({ rentReviewDate })

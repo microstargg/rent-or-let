@@ -1,6 +1,6 @@
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "../index";
-import { agencyEq, currentAgencyId } from "../agency-scope";
+import { agencyEq, currentAgencyId, ensureAgency } from "../agency-scope";
 import {
   bankConnections,
   bankTransactions,
@@ -23,6 +23,7 @@ export async function updateBankConnection(
     meta: Record<string, unknown>;
   }>
 ) {
+  await ensureAgency();
   const values: Record<string, unknown> = { updatedAt: new Date(), ...patch };
   const [row] = await db
     .update(bankConnections)
@@ -33,6 +34,7 @@ export async function updateBankConnection(
 }
 
 export async function getBankConnectionById(id: string) {
+  await ensureAgency();
   const [row] = await db
     .select()
     .from(bankConnections)
@@ -42,6 +44,7 @@ export async function getBankConnectionById(id: string) {
 }
 
 export async function listBankConnections(branchId: string) {
+  await ensureAgency();
   return db
     .select()
     .from(bankConnections)
@@ -60,6 +63,7 @@ export async function insertBankTransaction(data: {
   counterparty?: string | null;
   raw?: Record<string, unknown>;
 }) {
+  await ensureAgency();
   const existing = await db
     .select()
     .from(bankTransactions)
@@ -93,6 +97,7 @@ export async function insertBankTransaction(data: {
 }
 
 export async function getBankTransactionById(id: string) {
+  await ensureAgency();
   const [row] = await db
     .select()
     .from(bankTransactions)
@@ -102,6 +107,7 @@ export async function getBankTransactionById(id: string) {
 }
 
 export async function listPendingBankTransactions(branchId: string) {
+  await ensureAgency();
   return db
     .select()
     .from(bankTransactions)
@@ -125,6 +131,7 @@ export async function updateBankTransaction(
     exceptionId: string | null;
   }>
 ) {
+  await ensureAgency();
   const [row] = await db
     .update(bankTransactions)
     .set(patch)
@@ -136,6 +143,7 @@ export async function updateBankTransaction(
 export async function listOpenInvoiceMatchCandidates(
   branchId: string
 ): Promise<MatchCandidate[]> {
+  await ensureAgency();
   const rows = await db
     .select({
       invoiceId: invoices.id,
@@ -209,6 +217,7 @@ export async function createUnmatchedException(data: {
   suggestedInvoiceId?: string | null;
   suggestedTenancyId?: string | null;
 }) {
+  await ensureAgency();
   const [row] = await db
     .insert(paymentExceptions)
     .values({
@@ -229,6 +238,7 @@ export async function createUnmatchedException(data: {
 }
 
 export async function getPaymentExceptionById(id: string) {
+  await ensureAgency();
   const [row] = await db
     .select()
     .from(paymentExceptions)
@@ -238,6 +248,7 @@ export async function getPaymentExceptionById(id: string) {
 }
 
 export async function getBankFeedSummary(branchId: string) {
+  await ensureAgency();
   const [counts] = await db
     .select({
       pending: sql<number>`count(*) filter (where ${bankTransactions.matchStatus} = 'pending')::int`,

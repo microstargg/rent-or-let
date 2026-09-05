@@ -1,6 +1,6 @@
 import { eq, and, desc, sql, inArray } from "drizzle-orm";
 import { db } from "../index";
-import { agencyEq, currentAgencyId } from "../agency-scope";
+import { agencyEq, currentAgencyId, ensureAgency } from "../agency-scope";
 import { complianceItems, documents, properties, tasks } from "../schema";
 import { createTask } from "./finance";
 
@@ -36,6 +36,7 @@ export async function createDocument(data: {
   filename?: string | null;
   meta?: Record<string, unknown>;
 }) {
+  await ensureAgency();
   const [row] = await db
     .insert(documents)
     .values({
@@ -56,6 +57,7 @@ export async function markDocumentServed(
   documentId: string,
   data: { servedTo?: string; servedChannel: string }
 ) {
+  await ensureAgency();
   const [row] = await db
     .update(documents)
     .set({
@@ -69,6 +71,7 @@ export async function markDocumentServed(
 }
 
 export async function getDocumentById(id: string) {
+  await ensureAgency();
   const [row] = await db
     .select()
     .from(documents)
@@ -78,6 +81,7 @@ export async function getDocumentById(id: string) {
 }
 
 export async function listDocumentsForEntity(entityType: string, entityId: string) {
+  await ensureAgency();
   return db
     .select()
     .from(documents)
@@ -102,6 +106,7 @@ export async function createComplianceItem(data: {
   reference?: string | null;
   documentId?: string | null;
 }) {
+  await ensureAgency();
   const status =
     data.status ??
     computeComplianceStatus(data.expiresAt, Boolean(data.documentId));
@@ -134,6 +139,7 @@ export async function updateComplianceItem(
     tenancyId: string | null;
   }>
 ) {
+  await ensureAgency();
   const existing = await getComplianceItemById(id);
   if (!existing) return null;
 
@@ -156,6 +162,7 @@ export async function updateComplianceItem(
 }
 
 export async function getComplianceItemById(id: string) {
+  await ensureAgency();
   const [row] = await db
     .select()
     .from(complianceItems)
@@ -165,6 +172,7 @@ export async function getComplianceItemById(id: string) {
 }
 
 export async function listComplianceItems(branchId: string, propertyId?: string) {
+  await ensureAgency();
   const base = db
     .select({
       item: complianceItems,
@@ -196,6 +204,7 @@ export async function seedTenancyComplianceChecklist(data: {
   propertyId: string;
   tenancyId: string;
 }) {
+  await ensureAgency();
   const existing = await db
     .select()
     .from(complianceItems)
@@ -224,6 +233,7 @@ export async function seedTenancyComplianceChecklist(data: {
 }
 
 export async function getPropertyComplianceScore(propertyId: string) {
+  await ensureAgency();
   const items = await db
     .select()
     .from(complianceItems)
@@ -241,6 +251,7 @@ export async function getPropertyComplianceScore(propertyId: string) {
 }
 
 export async function listPropertyComplianceScores(branchId: string) {
+  await ensureAgency();
   const props = await db
     .select({ id: properties.id, displayAddress: properties.displayAddress })
     .from(properties)
@@ -255,6 +266,7 @@ export async function listPropertyComplianceScores(branchId: string) {
 }
 
 export async function refreshComplianceStatuses(branchId: string) {
+  await ensureAgency();
   const items = await db
     .select()
     .from(complianceItems)
@@ -306,6 +318,7 @@ export async function markComplianceServed(
   itemId: string,
   data: { servedTo?: string; servedChannel: string }
 ) {
+  await ensureAgency();
   const item = await getComplianceItemById(itemId);
   if (!item) return null;
 
@@ -336,6 +349,7 @@ export async function upsertEpcForProperty(data: {
   certificateUrl?: string | null;
   reference?: string | null;
 }) {
+  await ensureAgency();
   const existing = await db
     .select()
     .from(complianceItems)
@@ -367,6 +381,7 @@ export async function upsertEpcForProperty(data: {
 }
 
 export async function countComplianceIssues(branchId: string) {
+  await ensureAgency();
   const [row] = await db
     .select({ value: sql<number>`count(*)::int` })
     .from(complianceItems)

@@ -1,6 +1,6 @@
 import { eq, and, desc, gte, lte, sql, inArray } from "drizzle-orm";
 import { db } from "../index";
-import { agencyEq, currentAgencyId } from "../agency-scope";
+import { agencyEq, currentAgencyId, ensureAgency } from "../agency-scope";
 import {
   landlordLedgerEntries,
   landlordStatements,
@@ -38,6 +38,7 @@ export async function insertLandlordLedgerEntry(data: {
   meta?: Record<string, unknown>;
   occurredAt?: Date;
 }) {
+  await ensureAgency();
   await ensureJobInvoiceSchema();
   const [row] = await db
     .insert(landlordLedgerEntries)
@@ -62,6 +63,7 @@ export async function insertLandlordLedgerEntry(data: {
 }
 
 export async function getLandlordBalance(landlordId: string): Promise<number> {
+  await ensureAgency();
   const [row] = await db
     .select({ total: sql<string>`coalesce(sum(${landlordLedgerEntries.amount}), 0)` })
     .from(landlordLedgerEntries)
@@ -82,6 +84,7 @@ export async function postRentReceivedToLandlord(data: {
   rentAmount: number;
   paymentId?: string | null;
 }) {
+  await ensureAgency();
   const [branch] = await db
     .select()
     .from(branches)
@@ -125,6 +128,7 @@ export async function postLandlordAdjustment(data: {
   memo?: string;
   propertyId?: string | null;
 }) {
+  await ensureAgency();
   return insertLandlordLedgerEntry({
     branchId: data.branchId,
     landlordId: data.landlordId,
@@ -146,6 +150,7 @@ export async function postWorkOrderCostToLandlord(data: {
   memo?: string;
   occurredAt?: Date;
 }) {
+  await ensureAgency();
   return insertLandlordLedgerEntry({
     branchId: data.branchId,
     landlordId: data.landlordId,
@@ -161,6 +166,7 @@ export async function postWorkOrderCostToLandlord(data: {
 }
 
 export async function listLandlordLedger(landlordId: string) {
+  await ensureAgency();
   return db
     .select()
     .from(landlordLedgerEntries)
@@ -174,6 +180,7 @@ export async function listLandlordLedger(landlordId: string) {
 }
 
 export async function listLandlordBalances(branchId: string) {
+  await ensureAgency();
   const rows = await db
     .select({
       landlordId: landlords.id,
@@ -259,6 +266,7 @@ async function resolveWorksLine(
 export async function buildStatementTotalsFromLedger(
   entries: LedgerRow[]
 ): Promise<{ totals: LandlordStatementTotals; billedInvoiceIds: string[] }> {
+  await ensureAgency();
   const addressById = await propertyAddressMap(
     entries.map((e) => e.propertyId).filter((id): id is string => Boolean(id))
   );
@@ -318,6 +326,7 @@ export async function statementTotalsForDownload(statement: {
   periodTo: string;
   totals: unknown;
 }): Promise<LandlordStatementTotals> {
+  await ensureAgency();
   const stored = (statement.totals ?? {}) as LandlordStatementTotals;
   if (Array.isArray(stored.properties) && stored.properties.length > 0) return stored;
 
@@ -341,6 +350,7 @@ export async function generateLandlordStatements(
   from: string,
   to: string
 ) {
+  await ensureAgency();
   const { chargeUnbilledWorkInvoicesForPeriod } = await import(
     "@/lib/operations/maintenance/work-order-invoice"
   );
@@ -436,6 +446,7 @@ export async function generateLandlordStatements(
 }
 
 export async function listLandlordStatements(branchId: string) {
+  await ensureAgency();
   return db
     .select({
       statement: landlordStatements,
@@ -458,6 +469,7 @@ export async function createLandlordPayout(data: {
   amount?: number;
   method?: string;
 }) {
+  await ensureAgency();
   const balance = await getLandlordBalance(data.landlordId);
   const amount = data.amount ?? balance;
   if (amount <= 0) return null;
@@ -486,6 +498,7 @@ export async function createLandlordPayout(data: {
 }
 
 export async function getLandlordStatementForDownload(id: string) {
+  await ensureAgency();
   const [row] = await db
     .select({
       statement: landlordStatements,
@@ -500,6 +513,7 @@ export async function getLandlordStatementForDownload(id: string) {
 }
 
 export async function getLandlordStatementForView(id: string) {
+  await ensureAgency();
   const row = await getLandlordStatementForDownload(id);
   if (!row) return null;
   const totals = await statementTotalsForDownload(row.statement);
@@ -513,6 +527,7 @@ export async function getLandlordStatementForView(id: string) {
 }
 
 export async function findLandlordStatementByUpload(landlordId: string, filename: string) {
+  await ensureAgency();
   const parsed = parseStatementUploadFilename(filename);
   if (!parsed) return null;
 
@@ -538,6 +553,7 @@ export async function findLandlordStatementByUpload(landlordId: string, filename
 }
 
 export async function listLandlordPayouts(branchId: string) {
+  await ensureAgency();
   return db
     .select({
       payout: landlordPayouts,

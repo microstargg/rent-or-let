@@ -1,12 +1,13 @@
 import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { agencyEq, currentAgencyId } from "@/lib/db/agency-scope";
+import { agencyEq, currentAgencyId, ensureAgency } from "@/lib/db/agency-scope";
 import { bankConnections } from "@/lib/db/schema";
 import { insertBankTransaction } from "@/lib/db/queries/bank-feed";
 import { matchPendingBankTransactions } from "@/lib/bank-feed/sync";
 import { csvProviderTxnId } from "@/lib/payment-ref";
 
 export async function ensureCsvBankConnection(branchId: string) {
+  await ensureAgency();
   const [existing] = await db
     .select()
     .from(bankConnections)

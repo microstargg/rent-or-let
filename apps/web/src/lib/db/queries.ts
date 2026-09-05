@@ -1,6 +1,6 @@
 import { eq, and, or, gte, lte, ilike, desc, asc, sql, count } from "drizzle-orm";
 import { db } from "./index";
-import { agencyEq, currentAgencyId } from "./agency-scope";
+import { agencyEq, currentAgencyId, ensureAgency } from "./agency-scope";
 import {
   properties,
   propertyImages,
@@ -72,6 +72,7 @@ export async function getAvailableProperties(filters?: {
   maxRent?: number;
   town?: string;
 }): Promise<Property[]> {
+  await ensureAgency();
   const conditions = [agencyEq(properties.agencyId), eq(properties.status, "available")];
   if (filters?.minBedrooms) conditions.push(gte(properties.bedrooms, filters.minBedrooms));
   if (filters?.maxRent) conditions.push(lte(properties.pricePcm, String(filters.maxRent)));
@@ -96,6 +97,7 @@ export async function getAvailableProperties(filters?: {
 }
 
 export async function getPropertyBySlug(slug: string): Promise<Property | null> {
+  await ensureAgency();
   const [row] = await db
     .select()
     .from(properties)
@@ -114,6 +116,7 @@ export async function getPropertyBySlug(slug: string): Promise<Property | null> 
 }
 
 export async function getPropertyById(id: string) {
+  await ensureAgency();
   const [row] = await db.select().from(properties).where(and(eq(properties.id, id), agencyEq(properties.agencyId))).limit(1);
   if (!row) return null;
 
@@ -127,6 +130,7 @@ export async function getPropertyById(id: string) {
 }
 
 export async function listAllProperties() {
+  await ensureAgency();
   return db.select().from(properties).where(agencyEq(properties.agencyId)).orderBy(desc(properties.updatedAt));
 }
 
@@ -137,6 +141,7 @@ export async function searchProperties(opts: {
   page?: number;
   pageSize?: number;
 } = {}) {
+  await ensureAgency();
   const pageSize = opts.pageSize ?? 50;
   const page = Math.max(1, opts.page ?? 1);
   const offset = (page - 1) * pageSize;
@@ -231,6 +236,7 @@ export async function createProperty(data: {
   landlordId?: string | null;
   isVacant?: boolean;
 }) {
+  await ensureAgency();
   const [row] = await db
     .insert(properties)
     .values({
@@ -303,6 +309,7 @@ export async function updateProperty(
     metadata: Record<string, unknown>;
   }>
 ) {
+  await ensureAgency();
   await db
     .update(properties)
     .set({
@@ -343,6 +350,7 @@ export async function updateProperty(
 }
 
 export async function getPropertyWithBranch(id: string) {
+  await ensureAgency();
   const [row] = await db
     .select({ property: properties, branch: branches })
     .from(properties)
@@ -366,6 +374,7 @@ export async function getPropertyWithBranch(id: string) {
 }
 
 export async function getPropertyMetadata(id: string): Promise<Record<string, unknown>> {
+  await ensureAgency();
   const [row] = await db
     .select({ metadata: properties.metadata })
     .from(properties)
@@ -375,6 +384,7 @@ export async function getPropertyMetadata(id: string): Promise<Record<string, un
 }
 
 export async function mergePropertyMetadata(id: string, patch: Record<string, unknown>) {
+  await ensureAgency();
   const current = await getPropertyMetadata(id);
   await db
     .update(properties)
@@ -388,6 +398,7 @@ export async function addPropertyImage(data: {
   sortOrder: number;
   isPrimary: boolean;
 }) {
+  await ensureAgency();
   await db.insert(propertyImages).values({
     propertyId: data.propertyId,
     url: data.url,
@@ -397,6 +408,7 @@ export async function addPropertyImage(data: {
 }
 
 export async function countPropertyImages(propertyId: string) {
+  await ensureAgency();
   const [result] = await db
     .select({ value: count() })
     .from(propertyImages)
@@ -405,6 +417,7 @@ export async function countPropertyImages(propertyId: string) {
 }
 
 export async function getPropertyImage(imageId: string) {
+  await ensureAgency();
   const [row] = await db
     .select()
     .from(propertyImages)
@@ -414,6 +427,7 @@ export async function getPropertyImage(imageId: string) {
 }
 
 export async function deletePropertyImage(imageId: string) {
+  await ensureAgency();
   const image = await getPropertyImage(imageId);
   if (!image) return null;
 
@@ -442,6 +456,7 @@ export async function deletePropertyImage(imageId: string) {
 }
 
 export async function setPropertyImagePrimary(imageId: string) {
+  await ensureAgency();
   const image = await getPropertyImage(imageId);
   if (!image) return null;
 
@@ -455,6 +470,7 @@ export async function setPropertyImagePrimary(imageId: string) {
 }
 
 export async function reorderPropertyImages(propertyId: string, imageIds: string[]) {
+  await ensureAgency();
   for (let i = 0; i < imageIds.length; i++) {
     await db
       .update(propertyImages)
@@ -471,6 +487,7 @@ export async function insertEnquiry(data: {
   message: string;
   source?: string;
 }) {
+  await ensureAgency();
   await db.insert(enquiries).values({
     agencyId: currentAgencyId(),
     propertyId: data.propertyId ?? null,
@@ -484,6 +501,7 @@ export async function insertEnquiry(data: {
 }
 
 export async function listEnquiries() {
+  await ensureAgency();
   return db
     .select({
       enquiry: enquiries,
@@ -496,6 +514,7 @@ export async function listEnquiries() {
 }
 
 export async function updateEnquiryStatus(id: string, status: string) {
+  await ensureAgency();
   await db.update(enquiries).set({ status }).where(and(eq(enquiries.id, id), agencyEq(enquiries.agencyId)));
 }
 
@@ -514,6 +533,7 @@ export async function insertTenantApplication(data: {
   petsDetails?: string | null;
   additionalInfo?: string | null;
 }) {
+  await ensureAgency();
   await db.insert(tenantApplications).values({
     agencyId: currentAgencyId(),
     propertyId: data.propertyId ?? null,
@@ -534,6 +554,7 @@ export async function insertTenantApplication(data: {
 }
 
 export async function listTenantApplications() {
+  await ensureAgency();
   return db
     .select({
       application: tenantApplications,
@@ -546,6 +567,7 @@ export async function listTenantApplications() {
 }
 
 export async function updateApplicationStatus(id: string, status: string) {
+  await ensureAgency();
   await db
     .update(tenantApplications)
     .set({ status })
@@ -561,6 +583,7 @@ export async function insertComplaint(data: {
   source?: string;
   slaDueAt?: Date;
 }) {
+  await ensureAgency();
   await db.insert(complaints).values({
     agencyId: currentAgencyId(),
     propertyId: data.propertyId ?? null,
@@ -576,6 +599,7 @@ export async function insertComplaint(data: {
 }
 
 export async function listComplaints() {
+  await ensureAgency();
   return db.select().from(complaints).where(agencyEq(complaints.agencyId)).orderBy(desc(complaints.createdAt));
 }
 
@@ -583,6 +607,7 @@ export async function updateComplaint(
   id: string,
   data: { status: string; resolvedAt?: Date | null }
 ) {
+  await ensureAgency();
   await db
     .update(complaints)
     .set({ status: data.status, resolvedAt: data.resolvedAt ?? null })
@@ -594,6 +619,7 @@ export async function insertCookieConsent(data: {
   preferences: Record<string, unknown>;
   bannerVersion: string;
 }) {
+  await ensureAgency();
   await db.insert(cookieConsents).values({
     agencyId: currentAgencyId(),
     consentId: data.consentId,
@@ -610,6 +636,7 @@ export async function insertPortalSyncLog(data: {
   errorMessage?: string | null;
   responsePayload?: Record<string, unknown> | null;
 }) {
+  await ensureAgency();
   await db.insert(portalSyncLogs).values({
     agencyId: currentAgencyId(),
     propertyId: data.propertyId,
@@ -622,6 +649,7 @@ export async function insertPortalSyncLog(data: {
 }
 
 export async function listPortalSyncLogs(limit = 50) {
+  await ensureAgency();
   return db
     .select({
       log: portalSyncLogs,
@@ -639,6 +667,7 @@ export async function countByStatus(
   table: "enquiries" | "tenant_applications" | "complaints" | "portal_sync_logs",
   status: string
 ) {
+  await ensureAgency();
   if (table === "enquiries") {
     const [r] = await db
       .select({ value: count() })
@@ -668,11 +697,13 @@ export async function countByStatus(
 }
 
 export async function countProperties() {
+  await ensureAgency();
   const [r] = await db.select({ value: count() }).from(properties).where(agencyEq(properties.agencyId));
   return r?.value ?? 0;
 }
 
 export async function getStaffProfileById(id: string) {
+  await ensureAgency();
   const [row] = await db
     .select()
     .from(staffProfiles)
@@ -691,6 +722,7 @@ export interface BranchPortalSettings {
 }
 
 export async function getDefaultBranch(): Promise<BranchPortalSettings | null> {
+  await ensureAgency();
   const [row] = await db.select().from(branches).where(agencyEq(branches.agencyId)).limit(1);
   if (!row) return null;
   return {
@@ -707,6 +739,7 @@ export async function updateBranchPortalSettings(
   branchId: string,
   data: { rightmoveSyncEnabled?: boolean; otmSyncEnabled?: boolean }
 ) {
+  await ensureAgency();
   await db
     .update(branches)
     .set({
@@ -719,6 +752,7 @@ export async function updateBranchPortalSettings(
 }
 
 export async function listAvailablePropertyIds(): Promise<string[]> {
+  await ensureAgency();
   const rows = await db
     .select({ id: properties.id })
     .from(properties)

@@ -1,6 +1,6 @@
 import { and, eq, inArray, lte } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { currentAgencyId } from "@/lib/db/agency-scope";
+import { currentAgencyId, ensureAgency } from "@/lib/db/agency-scope";
 import { invoices, properties, tickets, workOrders } from "@/lib/db/schema";
 import { postWorkOrderCostToLandlord } from "@/lib/db/queries/landlord-finance";
 import { ensureJobInvoiceSchema } from "@/lib/db/ensure-schema";
@@ -59,6 +59,7 @@ export async function getInvoiceForWorkOrder(workOrderId: string) {
  * Dated to the scheduled work date so it falls on the matching statement period.
  */
 export async function upsertWorkOrderInvoice(wo: typeof workOrders.$inferSelect) {
+  await ensureAgency();
   await ensureJobInvoiceSchema();
   if (wo.status !== "completed") {
     return getInvoiceForWorkOrder(wo.id);

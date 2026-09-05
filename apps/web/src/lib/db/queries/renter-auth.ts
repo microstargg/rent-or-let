@@ -1,9 +1,10 @@
 import { eq, and, gt, isNull } from "drizzle-orm";
 import { db } from "../index";
-import { agencyEq, currentAgencyId } from "../agency-scope";
+import { agencyEq, currentAgencyId, ensureAgency } from "../agency-scope";
 import { renterProfiles, renterInvites, renters } from "../schema";
 
 export async function getRenterProfileByUserId(userId: string) {
+  await ensureAgency();
   const [row] = await db
     .select({
       profile: renterProfiles,
@@ -22,6 +23,7 @@ export async function createRenterProfile(data: {
   renterId: string;
   email: string;
 }) {
+  await ensureAgency();
   const [row] = await db
     .insert(renterProfiles)
     .values({
@@ -42,6 +44,7 @@ export async function createRenterInvite(data: {
   token: string;
   expiresAt: Date;
 }) {
+  await ensureAgency();
   const [row] = await db
     .insert(renterInvites)
     .values({
@@ -57,6 +60,7 @@ export async function createRenterInvite(data: {
 }
 
 export async function getRenterInviteByToken(token: string) {
+  await ensureAgency();
   const [row] = await db
     .select()
     .from(renterInvites)
@@ -73,6 +77,7 @@ export async function getRenterInviteByToken(token: string) {
 }
 
 export async function acceptRenterInvite(inviteId: string) {
+  await ensureAgency();
   await db
     .update(renterInvites)
     .set({ acceptedAt: new Date() })
@@ -80,6 +85,7 @@ export async function acceptRenterInvite(inviteId: string) {
 }
 
 export async function listPendingRenterInvites(branchId: string) {
+  await ensureAgency();
   return db
     .select({
       invite: renterInvites,

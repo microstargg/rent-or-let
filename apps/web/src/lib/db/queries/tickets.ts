@@ -1,6 +1,6 @@
 import { eq, and, desc, count, notInArray, or, ilike, type SQL } from "drizzle-orm";
 import { db } from "../index";
-import { agencyEq, currentAgencyId } from "../agency-scope";
+import { agencyEq, currentAgencyId, ensureAgency } from "../agency-scope";
 import {
   tickets,
   ticketMessages,
@@ -17,6 +17,7 @@ import { postCompletedWorkOrderCost } from "@/lib/operations/maintenance/work-or
 export const TICKET_LIST_PAGE_SIZE = 50;
 
 export async function listTickets(branchId?: string) {
+  await ensureAgency();
   const conditions: SQL[] = [agencyEq(tickets.agencyId)];
   if (branchId) conditions.push(eq(tickets.branchId, branchId));
 
@@ -38,6 +39,7 @@ export async function searchTickets(opts: {
   page?: number;
   pageSize?: number;
 } = {}) {
+  await ensureAgency();
   const pageSize = opts.pageSize ?? TICKET_LIST_PAGE_SIZE;
   const page = Math.max(1, opts.page ?? 1);
   const offset = (page - 1) * pageSize;
@@ -97,6 +99,7 @@ export async function searchTickets(opts: {
 }
 
 export async function getTicketById(id: string) {
+  await ensureAgency();
   const [row] = await db
     .select({
       ticket: tickets,
@@ -110,6 +113,7 @@ export async function getTicketById(id: string) {
 }
 
 export async function listTicketsForRenter(branchId: string, renterId: string) {
+  await ensureAgency();
   return db
     .select({ ticket: tickets, propertyAddress: properties.displayAddress })
     .from(tickets)
@@ -126,6 +130,7 @@ export async function listTicketsForRenter(branchId: string, renterId: string) {
 }
 
 export async function getTicketForRenter(ticketId: string, branchId: string, renterId: string) {
+  await ensureAgency();
   const [row] = await db
     .select({ ticket: tickets })
     .from(tickets)
@@ -156,6 +161,7 @@ export async function createTicket(data: {
   priority?: string | null;
   isEmergency?: boolean;
 }) {
+  await ensureAgency();
   const [row] = await db
     .insert(tickets)
     .values({
@@ -179,6 +185,7 @@ export async function createTicket(data: {
 }
 
 export async function updateTicketStatus(id: string, status: string) {
+  await ensureAgency();
   await db
     .update(tickets)
     .set({ status, updatedAt: new Date() })
@@ -189,6 +196,7 @@ export async function updateTicketTriage(
   id: string,
   data: { priority?: string | null; category?: string | null; isEmergency?: boolean }
 ) {
+  await ensureAgency();
   const [row] = await db
     .update(tickets)
     .set({
@@ -203,6 +211,7 @@ export async function updateTicketTriage(
 }
 
 export async function listTicketMessages(ticketId: string) {
+  await ensureAgency();
   return db
     .select()
     .from(ticketMessages)
@@ -218,6 +227,7 @@ export async function addTicketMessage(data: {
   channel?: string;
   body: string;
 }) {
+  await ensureAgency();
   await db.insert(ticketMessages).values({
     agencyId: currentAgencyId(),
     branchId: data.branchId,
@@ -234,6 +244,7 @@ export async function addTicketMessage(data: {
 }
 
 export async function listWorkOrders(opts?: { branchId?: string; ticketId?: string }) {
+  await ensureAgency();
   const conditions: SQL[] = [agencyEq(workOrders.agencyId)];
   if (opts?.ticketId) conditions.push(eq(workOrders.ticketId, opts.ticketId));
   if (opts?.branchId) conditions.push(eq(workOrders.branchId, opts.branchId));
@@ -263,6 +274,7 @@ export async function createWorkOrder(data: {
   status?: string;
   costEstimate?: number | null;
 }) {
+  await ensureAgency();
   const [row] = await db
     .insert(workOrders)
     .values({
@@ -288,6 +300,7 @@ export async function updateWorkOrder(
     finalCost: number | null;
   }>
 ) {
+  await ensureAgency();
   const [existing] = await db
     .select()
     .from(workOrders)
@@ -416,10 +429,12 @@ async function notifyContractorOfJob(wo: typeof workOrders.$inferSelect) {
 }
 
 export async function approveWorkOrder(id: string) {
+  await ensureAgency();
   return updateWorkOrder(id, { status: "approved" });
 }
 
 export async function completeWorkOrder(id: string, finalCost: number) {
+  await ensureAgency();
   return updateWorkOrder(id, { status: "completed", finalCost });
 }
 
@@ -430,6 +445,7 @@ export async function attachDocumentToTicket(data: {
   filename?: string;
   kind?: string;
 }) {
+  await ensureAgency();
   const { createDocument } = await import("./compliance");
   return createDocument({
     branchId: data.branchId,
@@ -443,6 +459,7 @@ export async function attachDocumentToTicket(data: {
 
 
 export async function listContractors(branchId: string) {
+  await ensureAgency();
   return db
     .select()
     .from(contractors)
@@ -458,6 +475,7 @@ export async function createContractor(data: {
   trade?: string | null;
   notes?: string | null;
 }) {
+  await ensureAgency();
   const [row] = await db
     .insert(contractors)
     .values({
@@ -469,12 +487,14 @@ export async function createContractor(data: {
 }
 
 export async function deleteContractor(id: string) {
+  await ensureAgency();
   await db
     .delete(contractors)
     .where(and(eq(contractors.id, id), agencyEq(contractors.agencyId)));
 }
 
 export async function countOpenTickets(branchId: string) {
+  await ensureAgency();
   const [r] = await db
     .select({ value: count() })
     .from(tickets)
@@ -489,6 +509,7 @@ export async function countOpenTickets(branchId: string) {
 }
 
 export async function findBranchByMaintenanceToken(token: string) {
+  await ensureAgency();
   const allBranches = await db
     .select()
     .from(branches)
