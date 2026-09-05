@@ -1,5 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
+import { agencyEq, currentAgencyId } from "@/lib/db/agency-scope";
 import { bankConnections } from "@/lib/db/schema";
 import { insertBankTransaction } from "@/lib/db/queries/bank-feed";
 import { matchPendingBankTransactions } from "@/lib/bank-feed/sync";
@@ -9,14 +10,20 @@ export async function ensureCsvBankConnection(branchId: string) {
   const [existing] = await db
     .select()
     .from(bankConnections)
-    .where(and(eq(bankConnections.branchId, branchId), eq(bankConnections.provider, "csv")))
+    .where(
+      and(
+        agencyEq(bankConnections.agencyId),
+        eq(bankConnections.branchId, branchId),
+        eq(bankConnections.provider, "csv")
+      )
+    )
     .limit(1);
   if (existing) {
     if (existing.status !== "active") {
       const [updated] = await db
         .update(bankConnections)
         .set({ status: "active", updatedAt: new Date() })
-        .where(eq(bankConnections.id, existing.id))
+        .where(and(eq(bankConnections.id, existing.id), agencyEq(bankConnections.agencyId)))
         .returning();
       return updated ?? existing;
     }
@@ -26,6 +33,7 @@ export async function ensureCsvBankConnection(branchId: string) {
   const [created] = await db
     .insert(bankConnections)
     .values({
+      agencyId: currentAgencyId(),
       branchId,
       provider: "csv",
       status: "active",

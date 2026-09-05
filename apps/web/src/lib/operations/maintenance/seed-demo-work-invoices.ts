@@ -1,5 +1,6 @@
 import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/lib/db";
+import { currentAgencyId } from "@/lib/db/agency-scope";
 import {
   contractors,
   invoices,
@@ -74,6 +75,7 @@ async function ensureDemoLandlord(branchId: string) {
     .insert(landlords)
     .values({
       id: DEMO_LANDLORD_ID,
+      agencyId: currentAgencyId(),
       branchId,
       firstName: "Helen",
       lastName: "Whitaker",
@@ -100,6 +102,7 @@ async function ensureDemoContractor(branchId: string) {
     .insert(contractors)
     .values({
       id: DEMO_CONTRACTOR_ID,
+      agencyId: currentAgencyId(),
       branchId,
       name: "A1 Plumbing & Heating",
       email: "jobs@a1plumbing.example.com",
@@ -124,6 +127,7 @@ async function ensureDemoProperties(branchId: string, landlordId: string) {
       .insert(properties)
       .values({
         id: DEMO_PROPERTY_ID,
+        agencyId: currentAgencyId(),
         branchId,
         landlordId,
         agentRef: "DEMO-WORKS-001",
@@ -202,6 +206,7 @@ export async function seedDemoWorkInvoices(branchId: string): Promise<{
       .insert(tickets)
       .values({
         id: job.ticketId,
+        agencyId: currentAgencyId(),
         branchId,
         propertyId: property.id,
         tenancyId,
@@ -219,6 +224,7 @@ export async function seedDemoWorkInvoices(branchId: string): Promise<{
       .insert(workOrders)
       .values({
         id: job.workOrderId,
+        agencyId: currentAgencyId(),
         branchId,
         ticketId: job.ticketId,
         contractorId: contractor?.id ?? null,

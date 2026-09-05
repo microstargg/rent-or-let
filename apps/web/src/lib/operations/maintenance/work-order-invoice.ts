@@ -1,5 +1,6 @@
 import { and, eq, inArray, lte } from "drizzle-orm";
 import { db } from "@/lib/db";
+import { currentAgencyId } from "@/lib/db/agency-scope";
 import { invoices, properties, tickets, workOrders } from "@/lib/db/schema";
 import { postWorkOrderCostToLandlord } from "@/lib/db/queries/landlord-finance";
 import { ensureJobInvoiceSchema } from "@/lib/db/ensure-schema";
@@ -110,6 +111,7 @@ export async function upsertWorkOrderInvoice(wo: typeof workOrders.$inferSelect)
   const [created] = await db
     .insert(invoices)
     .values({
+      agencyId: currentAgencyId(),
       branchId: wo.branchId,
       tenancyId: ticket.tenancyId,
       propertyId: property.id,
