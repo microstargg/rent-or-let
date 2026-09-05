@@ -15,18 +15,18 @@ export function VeriHome({ tenant }: { tenant: TenantConfig }) {
       <section className="relative min-h-[100svh] overflow-hidden bg-[#141414] text-white">
         <Image
           src={VERI_HERO_SRC}
-          alt=""
+          alt="Traditional British brick country home"
           fill
           priority
-          className="veri-hero-image object-cover"
+          className="veri-hero-image object-cover object-[center_42%]"
           sizes="100vw"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#141414]/92 via-[#141414]/40 to-[#141414]/30" />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#141414]/90 via-[#141414]/45 to-[#141414]/35" />
 
         <div className="relative z-10 flex min-h-[100svh] flex-col justify-end px-4 pb-16 pt-28 md:px-8 md:pb-20 lg:px-12">
           <p
             aria-hidden
-            className="veri-fade-up pointer-events-none absolute inset-x-0 top-[26%] select-none text-center font-[family-name:var(--font-veri-sans)] text-[clamp(4rem,18vw,13rem)] font-extrabold leading-none tracking-tight text-white/85"
+            className="veri-fade-up pointer-events-none absolute inset-x-0 top-[28%] select-none text-center font-[family-name:var(--font-veri-sans)] text-[clamp(3.5rem,15vw,11rem)] font-extrabold leading-none tracking-tight text-white/70"
           >
             VERI
           </p>
@@ -152,10 +152,10 @@ export function VeriHome({ tenant }: { tenant: TenantConfig }) {
           src={VERI_HERO_SRC}
           alt=""
           fill
-          className="object-cover opacity-40"
+          className="object-cover object-[center_42%] opacity-35"
           sizes="100vw"
         />
-        <div className="absolute inset-0 bg-[#141414]/75" />
+        <div className="absolute inset-0 bg-[#141414]/80" />
         <div className="relative z-10 mx-auto max-w-2xl px-4 text-center">
           <VeriHeading as="h2" className="text-white md:text-5xl">
             Start with a <VeriEm>conversation</VeriEm>
