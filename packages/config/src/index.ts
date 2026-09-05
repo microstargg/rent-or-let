@@ -4,11 +4,13 @@ export type { TenantId } from "./registry";
 export { TenantProvider, useTenant } from "./tenant-context";
 export {
   AGENCY_SLUG_HEADER,
+  AGENCY_COOKIE_NAME,
   AGENCY_SLUG_ALIASES,
   LETFLOW_ROOT_DOMAIN,
   canonicalizeAgencySlug,
   defaultPlatformHost,
   fallbackAgencySlug,
   hostnameOf,
+  isSharedPreviewHost,
   slugFromLetflowHost,
 } from "./host";

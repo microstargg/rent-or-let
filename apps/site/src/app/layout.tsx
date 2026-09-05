@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { Geist, Geist_Mono } from "next/font/google";
 import { TenantProvider } from "@repo/config";
+import { AGENCY_SLUG_HEADER } from "@repo/config/host";
+import { getAgencyBySlug } from "@repo/config/runtime";
 import { SiteHeader } from "@/components/layout/site-header";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { CookieConsent } from "@/components/compliance/cookie-consent";
-import { getSiteAgency } from "@/lib/agency";
 import "./globals.css";
 import "./agency-themes.css";
 
@@ -20,8 +22,15 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const previewMetadata: Metadata = {
+  title: "LetFlow sites",
+  description: "Choose an agency website to preview.",
+};
+
 export async function generateMetadata(): Promise<Metadata> {
-  const agency = await getSiteAgency();
+  const slug = (await headers()).get(AGENCY_SLUG_HEADER);
+  if (!slug) return previewMetadata;
+  const agency = getAgencyBySlug(slug);
   return {
     title: {
       default: `${agency.config.name} | ${agency.config.productName}`,
@@ -43,7 +52,18 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const agency = await getSiteAgency();
+  const slug = (await headers()).get(AGENCY_SLUG_HEADER);
+  if (!slug) {
+    return (
+      <html lang="en-GB">
+        <body className={`${geistSans.variable} ${geistMono.variable} font-sans`}>
+          {children}
+        </body>
+      </html>
+    );
+  }
+
+  const agency = getAgencyBySlug(slug);
 
   return (
     <html lang="en-GB" data-agency={agency.slug} data-platform-host={agency.runtime.platformHost}>

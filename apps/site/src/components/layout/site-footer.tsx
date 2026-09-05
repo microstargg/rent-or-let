@@ -1,9 +1,14 @@
 import Link from "next/link";
+import { headers } from "next/headers";
+import { hostnameOf, isSharedPreviewHost } from "@repo/config/host";
 import { getTenant } from "@/lib/tenant";
 import { SiteLogo } from "@/components/brand/site-logo";
 
 export async function SiteFooter() {
   const { site: siteContent, name } = await getTenant();
+  const h = await headers();
+  const host = hostnameOf(h.get("x-forwarded-host") ?? h.get("host"));
+  const showSiteSwitcher = isSharedPreviewHost(host);
 
   return (
     <footer className="border-t bg-muted/30">
@@ -55,6 +60,11 @@ export async function SiteFooter() {
             <Link href="/complaints" className="text-muted-foreground hover:text-foreground">
               Complaints
             </Link>
+            {showSiteSwitcher && (
+              <Link href="/preview" className="text-muted-foreground hover:text-foreground">
+                Switch site
+              </Link>
+            )}
           </nav>
         </div>
       </div>

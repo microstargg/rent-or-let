@@ -41,5 +41,14 @@ export function bindAgency(agency: Agency): void {
   agencyAls.enterWith(agency);
 }
 
-export { getAgencyBySlug, listAgencySlugs, resolveAgencySlug, platformUrlFor, siteUrlFor, publicBranding } from "./runtime";
+export {
+  getAgencyBySlug,
+  listAgencySlugs,
+  resolveAgencySlug,
+  matchAgencySlug,
+  agencySlugFromHostname,
+  platformUrlFor,
+  siteUrlFor,
+  publicBranding,
+} from "./runtime";
 export type { Agency, AgencyRuntime, AgencyFeatures } from "./runtime";

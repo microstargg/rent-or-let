@@ -5,9 +5,13 @@ export const LETFLOW_ROOT_DOMAIN =
 
 export const AGENCY_SLUG_HEADER = "x-agency-slug";
 
+/** Cookie used on shared preview hosts (*.vercel.app) to remember the chosen site. */
+export const AGENCY_COOKIE_NAME = "lf-agency";
+
 /** Host labels that map onto a registry slug (veri.letflow.app → veri-properties). */
 export const AGENCY_SLUG_ALIASES: Record<string, string> = {
   veri: "veri-properties",
+  "rent-or-let": "pms",
 };
 
 /** Public LetFlow subdomain when it should be shorter than the registry id. */
@@ -59,6 +63,11 @@ export function slugFromLocalhost(hostname: string): string | null {
     if (sub && !sub.includes(".")) return sub;
   }
   return null;
+}
+
+/** Vercel production/preview aliases where Host cannot identify the agency. */
+export function isSharedPreviewHost(hostname: string): boolean {
+  return hostname.endsWith(".vercel.app") || hostname.endsWith(".vercel.sh");
 }
 
 export function fallbackAgencySlug(): string {

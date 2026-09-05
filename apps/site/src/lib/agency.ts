@@ -10,9 +10,11 @@ import {
 
 export const getSiteAgency = cache(async (): Promise<Agency> => {
   const h = await headers();
+  const headerSlug = h.get(AGENCY_SLUG_HEADER);
+  if (headerSlug) return getAgencyBySlug(headerSlug);
   const slug = resolveAgencySlug(
     h.get("x-forwarded-host") ?? h.get("host"),
-    h.get(AGENCY_SLUG_HEADER)
+    headerSlug
   );
   return getAgencyBySlug(slug);
 });

@@ -141,20 +141,22 @@ function hostMatchesUrl(hostname: string, urlString: string | null): boolean {
   }
 }
 
-/** Resolve agency slug from Host / optional header. */
-export function resolveAgencySlug(
-  hostHeader: string | null | undefined,
-  headerSlug?: string | null
-): string {
-  const hinted = canonicalizeAgencySlug(headerSlug);
-  if (hinted && hinted in tenantRegistry) return hinted;
+function registrySlug(raw: string | null): string | null {
+  const canonical = canonicalizeAgencySlug(raw);
+  if (canonical && canonical in tenantRegistry) return canonical;
+  return null;
+}
 
+/** Agency implied by Host. Null on shared preview URLs such as *.vercel.app. */
+export function agencySlugFromHostname(
+  hostHeader: string | null | undefined
+): string | null {
   const hostname = hostnameOf(hostHeader);
-  const fromLetflow = canonicalizeAgencySlug(slugFromLetflowHost(hostname));
-  if (fromLetflow && fromLetflow in tenantRegistry) return fromLetflow;
+  const fromLetflow = registrySlug(slugFromLetflowHost(hostname));
+  if (fromLetflow) return fromLetflow;
 
-  const fromLocal = canonicalizeAgencySlug(slugFromLocalhost(hostname));
-  if (fromLocal && fromLocal in tenantRegistry) return fromLocal;
+  const fromLocal = registrySlug(slugFromLocalhost(hostname));
+  if (fromLocal) return fromLocal;
 
   for (const slug of listAgencySlugs()) {
     const agency = getAgencyBySlug(slug);
@@ -163,7 +165,23 @@ export function resolveAgencySlug(
     if (hostname === agency.runtime.platformHost.toLowerCase()) return slug;
   }
 
-  return fallbackAgencySlug();
+  return null;
+}
+
+/** Host first, then query/cookie/header hint. Null if neither matches. */
+export function matchAgencySlug(
+  hostHeader: string | null | undefined,
+  hint?: string | null
+): string | null {
+  return agencySlugFromHostname(hostHeader) ?? registrySlug(hint ?? null);
+}
+
+/** Resolve agency slug from Host / optional header. */
+export function resolveAgencySlug(
+  hostHeader: string | null | undefined,
+  headerSlug?: string | null
+): string {
+  return matchAgencySlug(hostHeader, headerSlug) ?? fallbackAgencySlug();
 }
 
 export function publicBranding(agency: Agency) {
