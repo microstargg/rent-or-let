@@ -6,6 +6,7 @@ import {
   getAgency,
   getAgencyBySlug,
   isAgencyContextLocked,
+  openAgencySlot,
   resolveAgencySlug,
   type Agency,
 } from "@repo/config/server";
@@ -27,8 +28,10 @@ const resolveRequestAgency = cache(async (): Promise<Agency> => {
 
 export async function bindRequestAgency(): Promise<Agency> {
   if (isAgencyContextLocked()) return getAgency();
+  // Must run before the await so the slot lands in the caller's context.
+  const slot = openAgencySlot();
   const agency = await resolveRequestAgency();
-  bindAgency(agency);
+  slot.agency = agency;
   return agency;
 }
 

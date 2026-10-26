@@ -6,7 +6,8 @@ import { getAgencyBySlug } from "./runtime";
 import { fallbackAgencySlug } from "./host";
 
 type AgencyStore = {
-  agency: Agency;
+  /** Null while an async request lookup is still resolving (see openAgencySlot). */
+  agency: Agency | null;
   /** Cron/scripts set this so request-header rebinding cannot override the chosen agency. */
   locked: boolean;
 };
@@ -50,6 +51,20 @@ export function getTenantId(): string {
 export function bindAgency(agency: Agency): void {
   if (isAgencyContextLocked()) return;
   agencyAls.enterWith({ agency, locked: false });
+}
+
+/**
+ * Enter (or reuse) an unlocked store in the caller's async context, to be filled in
+ * once the agency resolves. Call it before the first `await`: with AsyncContextFrame
+ * (Node 24), an `enterWith` after an await never reaches the caller, so route handlers
+ * that bind through an async helper would otherwise see no agency at all.
+ */
+export function openAgencySlot(): AgencyStore {
+  const current = agencyAls.getStore();
+  if (current) return current;
+  const slot: AgencyStore = { agency: null, locked: false };
+  agencyAls.enterWith(slot);
+  return slot;
 }
 
 export {
