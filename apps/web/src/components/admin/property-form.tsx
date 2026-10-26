@@ -193,7 +193,9 @@ export function PropertyForm({ property, imageCount = 0, onSuccess }: PropertyFo
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
           <Label htmlFor="landlord_id">Landlord</Label>
+          {/* Remount once landlords load so defaultValue can select the linked one. */}
           <select
+            key={landlords.length}
             id="landlord_id"
             name="landlord_id"
             defaultValue={property?.landlord_id ?? ""}
