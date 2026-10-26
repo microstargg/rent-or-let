@@ -20,7 +20,7 @@ export default async function LandlordPortalStatementDetail({
     notFound();
   }
 
-  const { statement, landlordName, totals } = view;
+  const { statement, landlordName, propertyAddress, totals } = view;
 
   return (
     <div>
@@ -32,8 +32,11 @@ export default async function LandlordPortalStatementDetail({
           >
             ← Statements
           </Link>
-          <h1 className="mt-2 text-3xl font-bold">Statement</h1>
+          <h1 className="mt-2 text-3xl font-bold">
+            {propertyAddress ? "Property statement" : "Statement"}
+          </h1>
           <p className="mt-1 text-sm text-muted-foreground">
+            {propertyAddress ? `${propertyAddress} · ` : ""}
             {statement.periodFrom} to {statement.periodTo}
           </p>
         </div>
@@ -55,6 +58,7 @@ export default async function LandlordPortalStatementDetail({
           periodTo={statement.periodTo}
           totals={totals}
           issuedAt={statement.issuedAt}
+          propertyAddress={propertyAddress}
         />
       </div>
     </div>

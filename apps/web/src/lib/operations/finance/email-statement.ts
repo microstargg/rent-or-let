@@ -2,6 +2,7 @@ import { getAppUrl } from "@/lib/app-url";
 import { getTenant } from "@repo/config/server";
 import { sendPlainEmail } from "@/lib/email/send";
 import { statementPortalLoginUrl } from "@/lib/finance/statement-format";
+import { statementPropertyAddress } from "@/lib/pdf/landlord-statement";
 import {
   getLandlordById,
   getLandlordProfileByLandlordId,
@@ -23,6 +24,7 @@ export async function emailLandlordStatement(opts: {
     return { ok: false, error: "Landlord needs an email address" };
   }
 
+  const propertyAddress = statementPropertyAddress(row.statement);
   const name = `${landlord.firstName} ${landlord.lastName}`.trim() || "Landlord";
   const period = `${row.statement.periodFrom} to ${row.statement.periodTo}`;
   const portalUrl = statementPortalLoginUrl(getAppUrl(), row.statement.id);
@@ -46,7 +48,9 @@ export async function emailLandlordStatement(opts: {
   const text = [
     `Hello ${name},`,
     ``,
-    `Your landlord statement for ${period} is ready.`,
+    propertyAddress
+      ? `Your property statement for ${propertyAddress} (${period}) is ready.`
+      : `Your landlord statement for ${period} is ready. Individual statements for each of your properties are in the portal too.`,
     `Sign in to view and download it here:`,
     portalUrl,
     inviteLine,
@@ -61,7 +65,9 @@ export async function emailLandlordStatement(opts: {
 
   const sent = await sendPlainEmail({
     to: landlord.email,
-    subject: `Your landlord statement (${period})`,
+    subject: propertyAddress
+      ? `Your property statement: ${propertyAddress} (${period})`
+      : `Your landlord statement (${period})`,
     text,
   });
   if (!sent.ok) return sent;

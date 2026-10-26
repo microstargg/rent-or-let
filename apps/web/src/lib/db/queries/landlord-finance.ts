@@ -1,4 +1,4 @@
-import { eq, and, desc, gte, lte, sql, inArray } from "drizzle-orm";
+import { eq, and, desc, gte, lte, sql, inArray, isNull } from "drizzle-orm";
 import { db } from "../index";
 import { agencyEq, currentAgencyId, ensureAgency } from "../agency-scope";
 import {
@@ -15,13 +15,19 @@ import { getManagementFeePercent, parseBranchSettings } from "@/lib/branch-setti
 import { createDocument } from "./compliance";
 import {
   parseStatementUploadFilename,
+  statementDownloadFilename,
   statementDownloadPath,
+  statementPropertyAddress,
   type LandlordStatementTotals,
   type LandlordStatementWorkLine,
 } from "@/lib/pdf/landlord-statement";
 import { WORKS_INVOICE_BILLED } from "@/lib/operations/maintenance/constants";
-import { ensureJobInvoiceSchema } from "@/lib/db/ensure-schema";
-import { groupLandlordStatementTotals } from "@/lib/operations/finance/statement-totals";
+import { ensureJobInvoiceSchema, ensurePropertyStatementSchema } from "@/lib/db/ensure-schema";
+import {
+  groupLandlordStatementTotals,
+  propertiesForIndividualStatements,
+  propertyStatementTotals,
+} from "@/lib/operations/finance/statement-totals";
 
 export async function insertLandlordLedgerEntry(data: {
   branchId: string;
@@ -324,11 +330,14 @@ export async function statementTotalsForDownload(statement: {
   landlordId: string;
   periodFrom: string;
   periodTo: string;
+  propertyId?: string | null;
   totals: unknown;
 }): Promise<LandlordStatementTotals> {
   await ensureAgency();
   const stored = (statement.totals ?? {}) as LandlordStatementTotals;
   if (Array.isArray(stored.properties) && stored.properties.length > 0) return stored;
+  // Property statements always store their own totals; never rebuild them portfolio-wide.
+  if (statement.propertyId) return stored;
 
   const entries = await ledgerEntriesForPeriod({
     branchId: statement.branchId,
@@ -351,6 +360,7 @@ export async function generateLandlordStatements(
   to: string
 ) {
   await ensureAgency();
+  await ensurePropertyStatementSchema();
   const { chargeUnbilledWorkInvoicesForPeriod } = await import(
     "@/lib/operations/maintenance/work-order-invoice"
   );
@@ -435,18 +445,78 @@ export async function generateLandlordStatements(
         .where(and(eq(invoices.id, invoiceId), agencyEq(invoices.agencyId)));
     }
 
+    const propertyStatements = await createPropertyStatements({
+      branchId,
+      landlordId,
+      parentStatementId: stmt.id,
+      landlordName: ll ? `${ll.firstName} ${ll.lastName}`.trim() : "",
+      from,
+      to,
+      totals,
+    });
+
     created.push({
       statement: updated ?? stmt,
       document: doc,
       name: ll ? `${ll.firstName} ${ll.lastName}` : "",
+      propertyStatements,
     });
   }
 
   return created;
 }
 
+/** One individual statement per property, alongside the overall client statement. */
+async function createPropertyStatements(opts: {
+  branchId: string;
+  landlordId: string;
+  parentStatementId: string;
+  landlordName: string;
+  from: string;
+  to: string;
+  totals: LandlordStatementTotals;
+}) {
+  const created = [];
+  for (const property of propertiesForIndividualStatements(opts.totals)) {
+    const [stmt] = await db
+      .insert(landlordStatements)
+      .values({
+        agencyId: currentAgencyId(),
+        branchId: opts.branchId,
+        landlordId: opts.landlordId,
+        propertyId: property.id,
+        parentStatementId: opts.parentStatementId,
+        periodFrom: opts.from,
+        periodTo: opts.to,
+        totals: propertyStatementTotals(property),
+        status: "issued",
+        issuedAt: new Date(),
+      })
+      .returning();
+
+    const doc = await createDocument({
+      branchId: opts.branchId,
+      entityType: "landlord",
+      entityId: opts.landlordId,
+      kind: "statement",
+      url: statementDownloadPath(stmt.id),
+      filename: statementDownloadFilename(opts.landlordName, opts.from, opts.to, property.address),
+    });
+
+    const [updated] = await db
+      .update(landlordStatements)
+      .set({ documentId: doc.id })
+      .where(and(eq(landlordStatements.id, stmt.id), agencyEq(landlordStatements.agencyId)))
+      .returning();
+
+    created.push({ statement: updated ?? stmt, document: doc, address: property.address });
+  }
+  return created;
+}
+
 export async function listLandlordStatements(branchId: string) {
   await ensureAgency();
+  await ensurePropertyStatementSchema();
   return db
     .select({
       statement: landlordStatements,
@@ -499,6 +569,7 @@ export async function createLandlordPayout(data: {
 
 export async function getLandlordStatementForDownload(id: string) {
   await ensureAgency();
+  await ensurePropertyStatementSchema();
   const [row] = await db
     .select({
       statement: landlordStatements,
@@ -522,12 +593,14 @@ export async function getLandlordStatementForView(id: string) {
     firstName: row.firstName,
     lastName: row.lastName,
     landlordName: `${row.firstName} ${row.lastName}`.trim() || "Landlord",
+    propertyAddress: statementPropertyAddress(row.statement),
     totals,
   };
 }
 
 export async function findLandlordStatementByUpload(landlordId: string, filename: string) {
   await ensureAgency();
+  await ensurePropertyStatementSchema();
   const parsed = parseStatementUploadFilename(filename);
   if (!parsed) return null;
 
@@ -544,6 +617,7 @@ export async function findLandlordStatementByUpload(landlordId: string, filename
         eq(landlordStatements.landlordId, landlordId),
         eq(landlordStatements.periodFrom, parsed.from),
         eq(landlordStatements.periodTo, parsed.to),
+        isNull(landlordStatements.propertyId),
         agencyEq(landlordStatements.agencyId)
       )
     )

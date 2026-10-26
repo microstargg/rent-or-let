@@ -706,6 +706,10 @@ export const landlordStatements = pgTable(
     landlordId: uuid("landlord_id")
       .notNull()
       .references(() => landlords.id, { onDelete: "cascade" }),
+    /** Set on an individual property statement; null on the overall client statement. */
+    propertyId: uuid("property_id").references(() => properties.id, { onDelete: "set null" }),
+    /** Overall statement this property statement was generated alongside. */
+    parentStatementId: uuid("parent_statement_id"),
     periodFrom: date("period_from").notNull(),
     periodTo: date("period_to").notNull(),
     totals: jsonb("totals").notNull().default({}),
@@ -714,7 +718,10 @@ export const landlordStatements = pgTable(
     issuedAt: timestamp("issued_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [index("idx_landlord_statements_landlord").on(table.landlordId)]
+  (table) => [
+    index("idx_landlord_statements_landlord").on(table.landlordId),
+    index("idx_landlord_statements_parent").on(table.parentStatementId),
+  ]
 );
 
 export const landlordPayouts = pgTable(

@@ -40,6 +40,7 @@ export function LandlordStatementView({
   totals,
   issuedAt,
   agencyName,
+  propertyAddress,
 }: LandlordStatementPdfInput) {
   const { site: siteContent, name: tenantName } = getTenant();
   const address = siteContent.contact.address;
@@ -54,7 +55,7 @@ export function LandlordStatementView({
     <article className="mx-auto max-w-2xl bg-white px-6 py-8 text-neutral-900 shadow-sm ring-1 ring-black/10 print:max-w-none print:px-0 print:py-0 print:shadow-none print:ring-0 sm:px-10 sm:py-10">
       <header>
         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-neutral-500">
-          Landlord statement
+          {propertyAddress ? "Property statement" : "Landlord statement"}
         </p>
         <h1 className="mt-2 text-2xl font-semibold tracking-tight">{agency}</h1>
         {address ? (
@@ -70,6 +71,7 @@ export function LandlordStatementView({
       <hr className="my-6 border-neutral-300" />
 
       <p className="text-lg font-semibold">{landlordName || "—"}</p>
+      {propertyAddress ? <p className="font-medium">{propertyAddress}</p> : null}
       <p className="mt-1 text-sm text-neutral-700">
         Period {periodFrom} to {periodTo}
       </p>
@@ -77,7 +79,7 @@ export function LandlordStatementView({
 
       <section className="mt-8">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-neutral-500">
-          Portfolio summary
+          {propertyAddress ? "Property summary" : "Portfolio summary"}
         </h2>
         <div className="mt-3 space-y-0.5">
           <AmountRow label="Rent received" value={totals.rent} />
