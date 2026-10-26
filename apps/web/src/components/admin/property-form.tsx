@@ -58,6 +58,7 @@ export function PropertyForm({ property, imageCount = 0, onSuccess }: PropertyFo
     description: property?.description ?? "",
     features: property?.features?.join("\n") ?? "",
     status: property?.status ?? "draft",
+    landlord_id: property?.landlord_id ?? "",
   });
 
   useEffect(() => {
@@ -196,7 +197,8 @@ export function PropertyForm({ property, imageCount = 0, onSuccess }: PropertyFo
           <select
             id="landlord_id"
             name="landlord_id"
-            defaultValue={property?.landlord_id ?? ""}
+            value={draft.landlord_id}
+            onChange={(e) => updateDraft("landlord_id", e.target.value)}
             className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
           >
             <option value="">None</option>
