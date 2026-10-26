@@ -34,3 +34,29 @@ export function statementPortalLoginUrl(origin: string, statementId: string): st
   const next = statementPortalPath(statementId);
   return `${origin}/login?next=${encodeURIComponent(next)}`;
 }
+
+/**
+ * Nest individual property statements under the overall client statement they were
+ * generated with. Order of the overall statements is preserved; property statements
+ * whose overall statement is missing are listed on their own.
+ */
+export function groupStatementsWithProperties<
+  T extends { statement: { id: string; parentStatementId?: string | null } },
+>(rows: T[], labelOf?: (row: T) => string): { overall: T; properties: T[] }[] {
+  const ids = new Set(rows.map((r) => r.statement.id));
+  const children = new Map<string, T[]>();
+  for (const row of rows) {
+    const parent = row.statement.parentStatementId;
+    if (!parent || !ids.has(parent)) continue;
+    const list = children.get(parent) ?? [];
+    list.push(row);
+    children.set(parent, list);
+  }
+  return rows
+    .filter((r) => !r.statement.parentStatementId || !ids.has(r.statement.parentStatementId))
+    .map((overall) => {
+      const properties = children.get(overall.statement.id) ?? [];
+      if (labelOf) properties.sort((a, b) => labelOf(a).localeCompare(labelOf(b)));
+      return { overall, properties };
+    });
+}

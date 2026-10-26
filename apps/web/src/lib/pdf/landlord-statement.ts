@@ -17,6 +17,7 @@ export interface LandlordStatementPropertyTotals {
   costs: number;
   adjustments: number;
   net: number;
+  count?: number;
   works: LandlordStatementWorkLine[];
 }
 
@@ -38,6 +39,8 @@ export interface LandlordStatementPdfInput {
   totals: LandlordStatementTotals;
   issuedAt?: Date | string | null;
   agencyName?: string;
+  /** Set for an individual property statement; omitted on the overall client statement. */
+  propertyAddress?: string | null;
 }
 
 function row(
@@ -68,7 +71,7 @@ export function renderLandlordStatementPdf(input: LandlordStatementPdfInput): Ui
     .filter(Boolean)
     .join("  ·  ");
   const blocks: PdfBlock[] = [
-    { kind: "title", text: "Landlord statement" },
+    { kind: "title", text: input.propertyAddress ? "Property statement" : "Landlord statement" },
     { kind: "text", text: agency, bold: true },
     ...(address
       ? ([
@@ -81,10 +84,13 @@ export function renderLandlordStatementPdf(input: LandlordStatementPdfInput): Ui
     { kind: "text", text: contactLine },
     { kind: "rule" },
     { kind: "text", text: input.landlordName || "—", bold: true },
+    ...(input.propertyAddress
+      ? ([{ kind: "text" as const, text: input.propertyAddress, bold: true }] as PdfBlock[])
+      : []),
     { kind: "text", text: `Period ${input.periodFrom} to ${input.periodTo}` },
     { kind: "text", text: `Issued ${formatStatementIssuedAt(input.issuedAt)}` },
     { kind: "spacer" },
-    { kind: "heading", text: "Portfolio summary" },
+    { kind: "heading", text: input.propertyAddress ? "Property summary" : "Portfolio summary" },
     row("Rent received", totals.rent),
     row("Management fees", totals.fees),
     row("Maintenance / costs", totals.costs),
@@ -145,19 +151,36 @@ export function parseStatementUploadFilename(
   return { from: match[1], to: match[2] };
 }
 
+function filenameSlug(value: string, max = 60): string {
+  return value
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, max);
+}
+
 export function statementDownloadFilename(
   landlordName: string,
   periodFrom: string,
-  periodTo: string
+  periodTo: string,
+  propertyAddress?: string | null
 ): string {
-  const safe =
-    landlordName
-      .normalize("NFKD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .replace(/[^a-zA-Z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "")
-      .slice(0, 60) || "landlord";
-  return `statement-${safe}-${periodFrom}-${periodTo}.pdf`;
+  const safe = filenameSlug(landlordName) || "landlord";
+  const property = propertyAddress ? filenameSlug(propertyAddress) : "";
+  return property
+    ? `statement-${safe}-${property}-${periodFrom}-${periodTo}.pdf`
+    : `statement-${safe}-${periodFrom}-${periodTo}.pdf`;
+}
+
+/** Address of an individual property statement, read from its stored totals. */
+export function statementPropertyAddress(statement: {
+  propertyId?: string | null;
+  totals: unknown;
+}): string | null {
+  if (!statement.propertyId) return null;
+  const totals = (statement.totals ?? {}) as LandlordStatementTotals;
+  return totals.properties?.[0]?.address || "Property";
 }
 
 export function contentDispositionAttachment(filename: string): string {

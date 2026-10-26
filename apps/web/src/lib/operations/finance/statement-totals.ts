@@ -25,6 +25,7 @@ function emptyProperty(
     costs: 0,
     adjustments: 0,
     net: 0,
+    count: 0,
     works: [],
   };
 }
@@ -32,6 +33,7 @@ function emptyProperty(
 function applyEntry(bucket: LandlordStatementPropertyTotals, entry: StatementLedgerLine) {
   const amt = Number(entry.amount) || 0;
   bucket.net += amt;
+  bucket.count = (bucket.count ?? 0) + 1;
   if (entry.entryType === "rent_received") bucket.rent += amt;
   else if (entry.entryType === "management_fee") bucket.fees += amt;
   else if (entry.entryType === "work_order_cost") {
@@ -94,4 +96,37 @@ export function groupLandlordStatementTotals(input: {
 
 export function statementHasPropertyBreakdown(totals: LandlordStatementTotals | null | undefined): boolean {
   return Array.isArray(totals?.properties) && totals.properties.length > 0;
+}
+
+/**
+ * Totals for one property's individual statement, cut from the overall client statement
+ * so both always agree. The unallocated bucket (payouts, unassigned adjustments) has no
+ * property statement and stays on the overall one only.
+ */
+export function propertyStatementTotals(
+  property: LandlordStatementPropertyTotals
+): LandlordStatementTotals {
+  return {
+    rent: property.rent,
+    fees: property.fees,
+    costs: property.costs,
+    adjustments: property.adjustments,
+    net: property.net,
+    count: property.count,
+    works: property.works,
+    properties: [property],
+  };
+}
+
+/**
+ * Properties that get their own statement. A client with a single property in the period
+ * gets the overall statement only, since a property statement would just repeat it.
+ */
+export function propertiesForIndividualStatements(
+  totals: LandlordStatementTotals
+): (LandlordStatementPropertyTotals & { id: string })[] {
+  const real = (totals.properties ?? []).filter(
+    (p): p is LandlordStatementPropertyTotals & { id: string } => Boolean(p.id)
+  );
+  return real.length > 1 ? real : [];
 }

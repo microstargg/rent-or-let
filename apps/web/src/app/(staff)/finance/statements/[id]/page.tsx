@@ -18,7 +18,7 @@ export default async function AdminStatementPreviewPage({
   const view = await getLandlordStatementForView(id);
   if (!view) notFound();
 
-  const { statement, landlordName, totals } = view;
+  const { statement, landlordName, propertyAddress, totals } = view;
 
   return (
     <div>
@@ -27,7 +27,7 @@ export default async function AdminStatementPreviewPage({
           <Link href="/finance/statements">← Statements</Link>
         </Button>
         <AdminPageHeader
-          title={landlordName}
+          title={propertyAddress ? `${landlordName} · ${propertyAddress}` : landlordName}
           description={`Review this statement on the platform before downloading, emailing, or sending the portal link.`}
           actions={
             <div className="flex flex-wrap items-center gap-2">
@@ -50,6 +50,7 @@ export default async function AdminStatementPreviewPage({
           periodTo={statement.periodTo}
           totals={totals}
           issuedAt={statement.issuedAt}
+          propertyAddress={propertyAddress}
         />
       </div>
     </div>

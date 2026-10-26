@@ -214,3 +214,38 @@ export async function ensureAgencyMembershipSchema(): Promise<void> {
   }
   await membershipPending;
 }
+
+/** Idempotent statements from drizzle/0014_property_statements.sql. */
+export const PROPERTY_STATEMENT_MIGRATION_STATEMENTS = [
+  `ALTER TABLE landlord_statements ADD COLUMN IF NOT EXISTS property_id uuid REFERENCES properties(id) ON DELETE SET NULL`,
+  `ALTER TABLE landlord_statements ADD COLUMN IF NOT EXISTS parent_statement_id uuid REFERENCES landlord_statements(id) ON DELETE CASCADE`,
+  `CREATE INDEX IF NOT EXISTS idx_landlord_statements_parent ON landlord_statements(parent_statement_id)`,
+] as const;
+
+let propertyStatementPending: Promise<void> | null = null;
+
+async function applyPropertyStatementMigration(): Promise<void> {
+  const url = process.env.DATABASE_URL;
+  if (!url) return;
+  const sql = neon(url);
+  for (const statement of PROPERTY_STATEMENT_MIGRATION_STATEMENTS) {
+    try {
+      await sql(statement);
+    } catch (err) {
+      const msg = messageOf(err);
+      if (isIgnorableDdlError(msg)) continue;
+      console.warn("property statements migration:", msg);
+    }
+  }
+}
+
+/** Per-property landlord statements: property_id + parent_statement_id on landlord_statements. */
+export async function ensurePropertyStatementSchema(): Promise<void> {
+  if (!propertyStatementPending) {
+    propertyStatementPending = applyPropertyStatementMigration().catch((err) => {
+      propertyStatementPending = null;
+      throw err;
+    });
+  }
+  await propertyStatementPending;
+}

@@ -5,6 +5,7 @@ import {
   contentDispositionAttachment,
   renderLandlordStatementPdf,
   statementDownloadFilename,
+  statementPropertyAddress,
 } from "@/lib/pdf/landlord-statement";
 
 interface StatementDownloadRow {
@@ -14,6 +15,7 @@ interface StatementDownloadRow {
     landlordId: string;
     periodFrom: string;
     periodTo: string;
+    propertyId?: string | null;
     totals: unknown;
     issuedAt: Date | string | null;
   };
@@ -41,8 +43,10 @@ export async function landlordStatementPdfResponse(
 ): Promise<NextResponse> {
   const landlordName = `${row.firstName} ${row.lastName}`.trim();
   const totals = await statementTotalsForDownload(row.statement);
+  const propertyAddress = statementPropertyAddress(row.statement);
   const pdf = renderLandlordStatementPdf({
     landlordName,
+    propertyAddress,
     periodFrom: row.statement.periodFrom,
     periodTo: row.statement.periodTo,
     totals,
@@ -51,7 +55,8 @@ export async function landlordStatementPdfResponse(
   const filename = statementDownloadFilename(
     landlordName,
     row.statement.periodFrom,
-    row.statement.periodTo
+    row.statement.periodTo,
+    propertyAddress
   );
   return new NextResponse(Buffer.from(pdf), {
     headers: {

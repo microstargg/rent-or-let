@@ -15,8 +15,11 @@ import {
   StatPill,
 } from "@/components/admin/admin-page";
 import { formatCurrency } from "@/lib/utils";
-import { statementAdminPath } from "@/lib/finance/statement-format";
-import { statementDownloadPath } from "@/lib/pdf/landlord-statement";
+import {
+  groupStatementsWithProperties,
+  statementAdminPath,
+} from "@/lib/finance/statement-format";
+import { statementDownloadPath, statementPropertyAddress } from "@/lib/pdf/landlord-statement";
 import { StatementShareActions } from "@/components/admin/statement-share-actions";
 
 export default async function LandlordStatementsPage() {
@@ -25,12 +28,16 @@ export default async function LandlordStatementsPage() {
   const balances = branch ? await listLandlordBalances(branch.id) : [];
   const due = balances.filter((b) => b.balance > 0.001);
   const dueTotal = due.reduce((sum, b) => sum + b.balance, 0);
+  const grouped = groupStatementsWithProperties(
+    statements,
+    (row) => statementPropertyAddress(row.statement) ?? ""
+  );
 
   return (
     <div>
       <AdminPageHeader
         title="Landlord statements"
-        description="Generate period statements from the landlord ledger. Open a statement to review it on the platform before downloading, emailing, or sending the portal link. Completed jobs dated in the period appear as works deductions."
+        description="Generate period statements from the landlord ledger. Each client gets an overall statement covering every property, plus an individual statement for each property when they have more than one. Open a statement to review it on the platform before downloading, emailing, or sending the portal link. Completed jobs dated in the period appear as works deductions."
         actions={
           <Button asChild variant="outline" size="sm">
             <Link href="/finance/payouts">Go to payouts</Link>
@@ -42,7 +49,7 @@ export default async function LandlordStatementsPage() {
       <div className="mt-6 grid gap-3 sm:grid-cols-3">
         <StatPill label="Landlords owed" value={due.length} tone={due.length ? "warning" : "success"} />
         <StatPill label="Net due" value={formatCurrency(dueTotal)} tone={dueTotal > 0 ? "warning" : "neutral"} />
-        <StatPill label="Statements issued" value={statements.length} />
+        <StatPill label="Statements issued" value={grouped.length} />
       </div>
 
       <div className="mt-6">
@@ -67,34 +74,61 @@ export default async function LandlordStatementsPage() {
       </AdminSection>
 
       <AdminSection title="Issued statements">
-        {statements.length ? (
+        {grouped.length ? (
           <div className="space-y-2">
-            {statements.map(({ statement, firstName, lastName }) => (
-              <div
-                key={statement.id}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-card p-4 shadow-sm"
-              >
-                <div>
-                  <p className="font-semibold">
-                    <Link href={statementAdminPath(statement.id)} className="hover:underline">
-                      {firstName} {lastName}
-                    </Link>
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    {statement.periodFrom} → {statement.periodTo} · Net £
-                    {Number((statement.totals as { net?: number })?.net ?? 0).toFixed(2)}
-                  </p>
+            {grouped.map(({ overall: { statement, firstName, lastName }, properties }) => (
+              <div key={statement.id} className="rounded-xl border bg-card p-4 shadow-sm">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="font-semibold">
+                      <Link href={statementAdminPath(statement.id)} className="hover:underline">
+                        {firstName} {lastName}
+                      </Link>
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {statement.periodFrom} → {statement.periodTo} · Net £
+                      {Number((statement.totals as { net?: number })?.net ?? 0).toFixed(2)}
+                    </p>
+                  </div>
+                  <div className="flex flex-col items-end gap-2 sm:flex-row sm:items-center">
+                    <StatusBadge status={statement.status} />
+                    <Button asChild size="sm">
+                      <Link href={statementAdminPath(statement.id)}>View</Link>
+                    </Button>
+                    <Button asChild variant="outline" size="sm">
+                      <a href={statementDownloadPath(statement.id)}>Download PDF</a>
+                    </Button>
+                    <StatementShareActions statementId={statement.id} />
+                  </div>
                 </div>
-                <div className="flex flex-col items-end gap-2 sm:flex-row sm:items-center">
-                  <StatusBadge status={statement.status} />
-                  <Button asChild size="sm">
-                    <Link href={statementAdminPath(statement.id)}>View</Link>
-                  </Button>
-                  <Button asChild variant="outline" size="sm">
-                    <a href={statementDownloadPath(statement.id)}>Download PDF</a>
-                  </Button>
-                  <StatementShareActions statementId={statement.id} />
-                </div>
+                {properties.length > 0 && (
+                  <ul className="mt-3 divide-y border-t">
+                    {properties.map(({ statement: ps }) => (
+                      <li
+                        key={ps.id}
+                        className="flex flex-wrap items-center justify-between gap-3 py-2 pl-4 text-sm"
+                      >
+                        <div>
+                          <Link href={statementAdminPath(ps.id)} className="font-medium hover:underline">
+                            {statementPropertyAddress(ps)}
+                          </Link>
+                          <span className="text-muted-foreground">
+                            {" "}
+                            · Net £{Number((ps.totals as { net?: number })?.net ?? 0).toFixed(2)}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button asChild variant="ghost" size="sm">
+                            <Link href={statementAdminPath(ps.id)}>View</Link>
+                          </Button>
+                          <Button asChild variant="ghost" size="sm">
+                            <a href={statementDownloadPath(ps.id)}>Download PDF</a>
+                          </Button>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
             ))}
           </div>
