@@ -56,6 +56,17 @@ assert(totals.works?.[0]?.summary === "Boiler service", "legacy works array stil
 
 const individual = propertiesForIndividualStatements(totals);
 assert(individual.length === 2, "one individual statement per real property, none for unallocated");
+const singleProperty = groupLandlordStatementTotals({
+  propertyAddressById: { [a]: "1 High Street" },
+  entries: [
+    { propertyId: a, entryType: "rent_received", amount: 750 },
+    { propertyId: null, entryType: "payout", amount: -500 },
+  ],
+});
+assert(
+  propertiesForIndividualStatements(singleProperty).length === 0,
+  "single-property client gets the overall statement only, even with unallocated lines"
+);
 const highStreet = propertyStatementTotals(individual[0]);
 assert(highStreet.rent === 750 && highStreet.fees === -75, "property statement rent and fee");
 assert(highStreet.costs === -185 && highStreet.net === 490, "property statement works and net");

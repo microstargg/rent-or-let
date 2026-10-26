@@ -50,7 +50,7 @@ export async function emailLandlordStatement(opts: {
     ``,
     propertyAddress
       ? `Your property statement for ${propertyAddress} (${period}) is ready.`
-      : `Your landlord statement for ${period} is ready. Individual statements for each of your properties are in the portal too.`,
+      : `Your landlord statement for ${period} is ready.`,
     `Sign in to view and download it here:`,
     portalUrl,
     inviteLine,

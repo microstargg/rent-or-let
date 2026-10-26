@@ -118,10 +118,15 @@ export function propertyStatementTotals(
   };
 }
 
+/**
+ * Properties that get their own statement. A client with a single property in the period
+ * gets the overall statement only, since a property statement would just repeat it.
+ */
 export function propertiesForIndividualStatements(
   totals: LandlordStatementTotals
 ): (LandlordStatementPropertyTotals & { id: string })[] {
-  return (totals.properties ?? []).filter(
+  const real = (totals.properties ?? []).filter(
     (p): p is LandlordStatementPropertyTotals & { id: string } => Boolean(p.id)
   );
+  return real.length > 1 ? real : [];
 }
