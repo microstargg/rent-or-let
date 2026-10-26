@@ -22,6 +22,12 @@ export async function POST(request: Request) {
 
     let publicUrl: string;
 
+    if (!process.env.BLOB_READ_WRITE_TOKEN && process.env.VERCEL) {
+      // Vercel's filesystem doesn't persist, so the local fallback would lose the photo.
+      console.error("BLOB_READ_WRITE_TOKEN is not set; property photo uploads are disabled");
+      return NextResponse.json({ error: "Photo storage is not configured" }, { status: 500 });
+    }
+
     if (process.env.BLOB_READ_WRITE_TOKEN) {
       const blob = await put(pathname, file, { access: "public" });
       publicUrl = blob.url;
