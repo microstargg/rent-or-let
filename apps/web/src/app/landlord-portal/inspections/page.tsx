@@ -1,6 +1,7 @@
 import { requireLandlordSession } from "@/lib/auth/server";
 import { listInspectionsForLandlord } from "@/lib/db/queries";
-import { StatusBadge } from "@/components/admin/admin-page";
+import { AdminEmptyState, AdminPageHeader, StatusBadge } from "@/components/admin/admin-page";
+import { Button } from "@/components/ui/button";
 import { formatDate } from "@/lib/utils";
 
 export default async function LandlordInspectionsPage() {
@@ -10,11 +11,10 @@ export default async function LandlordInspectionsPage() {
 
   return (
     <div>
-      <h1 className="text-3xl font-bold">Inspections</h1>
-      <p className="mt-1 text-muted-foreground">Scheduled visits and completed reports</p>
-      <div className="mt-6 space-y-3">
+      <AdminPageHeader title="Inspections" description="Scheduled visits and completed reports" />
+      <div className="mt-8 space-y-3">
         {rows.map(({ inspection, propertyAddress }) => (
-          <div key={inspection.id} className="rounded-xl border p-4">
+          <div key={inspection.id} className="rounded-xl border bg-card p-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <p className="font-medium">{propertyAddress}</p>
@@ -29,16 +29,18 @@ export default async function LandlordInspectionsPage() {
               />
             </div>
             {inspection.completedAt && (
-              <a
-                className="mt-2 inline-block text-sm text-primary underline"
-                href={`/api/inspections/${inspection.id}/pdf`}
-              >
-                Download report
-              </a>
+              <Button asChild size="sm" variant="outline" className="mt-3">
+                <a href={`/api/inspections/${inspection.id}/pdf`}>Download report</a>
+              </Button>
             )}
           </div>
         ))}
-        {!rows.length && <p className="text-muted-foreground">No inspections recorded yet.</p>}
+        {!rows.length && (
+          <AdminEmptyState
+            title="No inspections yet"
+            description="Inspection visits booked by your agent will appear here."
+          />
+        )}
       </div>
     </div>
   );

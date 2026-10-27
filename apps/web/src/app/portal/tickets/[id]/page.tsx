@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getTicketForRenter, listTicketMessages } from "@/lib/db/queries";
 import { requireRenterSession } from "@/lib/auth/server";
+import { StatusBadge } from "@/components/admin/admin-page";
 import { PortalTicketMessageForm } from "@/components/portal/portal-ticket-message-form";
 
 export default async function PortalTicketDetailPage({
@@ -22,10 +23,12 @@ export default async function PortalTicketDetailPage({
   return (
     <div>
       <Link href="/portal/tickets" className="text-sm text-muted-foreground hover:underline">
-        ← Tickets
+        ← Maintenance
       </Link>
       <h1 className="mt-4 text-3xl font-bold">{ticket.summary}</h1>
-      <p className="text-muted-foreground">{ticket.status}</p>
+      <div className="mt-2">
+        <StatusBadge status={ticket.status} />
+      </div>
       {ticket.description && <p className="mt-4 text-sm">{ticket.description}</p>}
 
       <div className="mt-8 space-y-2">

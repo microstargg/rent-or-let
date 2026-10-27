@@ -10,6 +10,9 @@ import { PayInvoiceButton } from "@/components/portal/pay-invoice-button";
 import { BankTransferInstructions } from "@/components/portal/bank-transfer-instructions";
 import { getClientAccountDetails } from "@/lib/branch-settings";
 import { getPaymentRefFromMetadata } from "@/lib/payment-ref";
+import { AdminEmptyState, AdminPageHeader, StatusBadge } from "@/components/admin/admin-page";
+import { formatDate } from "@/lib/utils";
+import { formatMoney } from "@/lib/portal-format";
 
 export default async function PortalRentPage() {
   const ctx = await requireRenterSession();
@@ -28,12 +31,11 @@ export default async function PortalRentPage() {
 
   return (
     <div>
-      <h1 className="text-3xl font-bold">Rent</h1>
-      <p className="mt-1 text-muted-foreground">Your invoices and payments</p>
+      <AdminPageHeader title="Rent" description="Your invoices and payments" />
 
-      <div className="mt-6 rounded-xl border p-4">
+      <div className="mt-6 rounded-xl border bg-card p-4">
         <p className="text-sm text-muted-foreground">Current balance</p>
-        <p className="text-2xl font-bold">£{balance.toFixed(2)}</p>
+        <p className="text-2xl font-bold">{formatMoney(balance)}</p>
         <p className="text-xs text-muted-foreground">Positive = amount owed</p>
       </div>
 
@@ -51,30 +53,31 @@ export default async function PortalRentPage() {
         {rows.map(({ invoice }) => (
           <div
             key={invoice.id}
-            className="flex flex-wrap items-center justify-between gap-2 rounded-xl border p-4"
+            className="flex flex-wrap items-center justify-between gap-2 rounded-xl border bg-card p-4"
           >
             <div>
               <h2 className="font-semibold capitalize">
-                {invoice.type} — £{Number(invoice.amount).toFixed(2)}
+                {invoice.type.replaceAll("_", " ")} — {formatMoney(invoice.amount)}
               </h2>
-              <p className="text-sm text-muted-foreground">
-                Due {invoice.dueDate} · {invoice.status}
+              <p className="mt-0.5 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                Due {formatDate(invoice.dueDate)}
+                <StatusBadge status={invoice.status} />
               </p>
             </div>
             {(invoice.status === "due" || invoice.status === "partial") && (
-              <PayInvoiceButton invoiceId={invoice.id} />
-            )}
-            {(invoice.status === "due" || invoice.status === "partial") && (
-              <Link
-                href={`/portal/rent/${invoice.id}`}
-                className="text-sm text-muted-foreground underline"
-              >
-                Details
-              </Link>
+              <div className="flex items-center gap-4">
+                <Link
+                  href={`/portal/rent/${invoice.id}`}
+                  className="text-sm text-muted-foreground underline"
+                >
+                  Details
+                </Link>
+                <PayInvoiceButton invoiceId={invoice.id} />
+              </div>
             )}
           </div>
         ))}
-        {!rows.length && <p className="text-muted-foreground">No invoices</p>}
+        {!rows.length && <AdminEmptyState title="No invoices yet" />}
       </div>
     </div>
   );

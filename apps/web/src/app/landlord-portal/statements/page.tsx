@@ -6,6 +6,14 @@ import {
   statementPortalPath,
 } from "@/lib/finance/statement-format";
 import { statementDownloadPath, statementPropertyAddress } from "@/lib/pdf/landlord-statement";
+import { AdminEmptyState, AdminPageHeader } from "@/components/admin/admin-page";
+import { Button } from "@/components/ui/button";
+import { formatDate } from "@/lib/utils";
+import { formatMoney } from "@/lib/portal-format";
+
+function statementNet(totals: unknown) {
+  return formatMoney((totals as { net?: number } | null)?.net ?? 0);
+}
 
 export default async function LandlordPortalStatements() {
   const ctx = await requireLandlordSession();
@@ -19,26 +27,27 @@ export default async function LandlordPortalStatements() {
 
   return (
     <div>
-      <h1 className="text-3xl font-bold">Statements</h1>
-      <div className="mt-8 space-y-3">
+      <AdminPageHeader
+        title="Statements"
+        description="Monthly statements of rent collected, fees and money paid to you"
+      />
+      <div className="mt-8 space-y-4">
         {mine.map(({ overall: { statement }, properties }) => (
-          <div key={statement.id} className="rounded-xl border p-4">
+          <div key={statement.id} className="rounded-xl border bg-card p-4">
             <p className="font-semibold">
-              {statement.periodFrom} to {statement.periodTo}
+              {formatDate(statement.periodFrom)} to {formatDate(statement.periodTo)}
             </p>
             <p className="text-sm text-muted-foreground">
-              Net £{Number((statement.totals as { net?: number })?.net ?? 0).toFixed(2)}
+              Net to you {statementNet(statement.totals)}
+              {statement.issuedAt ? ` · issued ${formatDate(statement.issuedAt)}` : ""}
             </p>
-            <div className="mt-2 flex flex-wrap gap-4 text-sm">
-              <Link
-                href={statementPortalPath(statement.id)}
-                className="font-medium text-primary underline"
-              >
-                View statement
-              </Link>
-              <a href={statementDownloadPath(statement.id)} className="text-primary underline">
-                Download PDF
-              </a>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button asChild size="sm">
+                <Link href={statementPortalPath(statement.id)}>View statement</Link>
+              </Button>
+              <Button asChild size="sm" variant="outline">
+                <a href={statementDownloadPath(statement.id)}>Download PDF</a>
+              </Button>
             </div>
             {properties.length > 0 && (
               <div className="mt-4 border-t pt-3">
@@ -50,7 +59,7 @@ export default async function LandlordPortalStatements() {
                         {statementPropertyAddress(ps)}
                         <span className="text-muted-foreground">
                           {" "}
-                          · Net £{Number((ps.totals as { net?: number })?.net ?? 0).toFixed(2)}
+                          · Net {statementNet(ps.totals)}
                         </span>
                       </span>
                       <span className="flex gap-4">
@@ -68,7 +77,12 @@ export default async function LandlordPortalStatements() {
             )}
           </div>
         ))}
-        {!mine.length && <p className="text-muted-foreground">No statements yet</p>}
+        {!mine.length && (
+          <AdminEmptyState
+            title="No statements yet"
+            description="Your first statement will appear here after your agent's next statement run."
+          />
+        )}
       </div>
     </div>
   );
