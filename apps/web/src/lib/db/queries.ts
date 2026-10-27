@@ -1024,6 +1024,7 @@ export {
   updateWorkOrder,
   listContractors,
   createContractor,
+  updateContractor,
   deleteContractor,
   countOpenTickets,
   findBranchByMaintenanceToken,
