@@ -19,7 +19,7 @@ export async function matchPendingBankTransactions(branchId: string): Promise<{
   skipped: number;
 }> {
   const pending = await listPendingBankTransactions(branchId);
-  const candidates = await listOpenInvoiceMatchCandidates(branchId);
+  let candidates = await listOpenInvoiceMatchCandidates(branchId);
   let matched = 0;
   let exceptions = 0;
   const skipped = 0;
@@ -56,6 +56,8 @@ export async function matchPendingBankTransactions(branchId: string): Promise<{
         amount,
         method: "bank_transfer",
         externalRef,
+        paidAt: txn.bookedAt,
+        spillToTenancy: true,
       });
       if (posted?.payment) {
         await updateBankTransaction(txn.id, {
@@ -64,14 +66,8 @@ export async function matchPendingBankTransactions(branchId: string): Promise<{
           invoiceId: result.invoiceId,
           tenancyId: result.tenancyId,
         });
-        const idx = candidates.findIndex((c) => c.invoiceId === result.invoiceId);
-        if (idx >= 0) {
-          candidates[idx] = {
-            ...candidates[idx],
-            remaining: Math.max(0, candidates[idx].remaining - amount),
-          };
-          if (candidates[idx].remaining < 0.011) candidates.splice(idx, 1);
-        }
+        // The payment may have cleared several invoices; reload what is still open.
+        candidates = await listOpenInvoiceMatchCandidates(branchId);
         matched += 1;
         continue;
       }

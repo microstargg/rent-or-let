@@ -8,6 +8,8 @@ export interface MatchCandidate {
   agentRef: string | null;
   paymentRef: string | null;
   remaining: number;
+  /** Set by collapseCandidatesByTenancy: balance of the oldest open invoice. */
+  oldestRemaining?: number;
 }
 
 export interface BankTxnMatchInput {
@@ -50,19 +52,49 @@ function amountClose(a: number, b: number): boolean {
 }
 
 /**
+ * One candidate per tenancy: its oldest open invoice, so a tenant with several open
+ * invoices (arrears, or next month already raised) still has one unique match.
+ * `remaining` becomes the tenancy's total outstanding; payments spill oldest first.
+ */
+export function collapseCandidatesByTenancy(candidates: MatchCandidate[]): MatchCandidate[] {
+  const byTenancy = new Map<string, MatchCandidate[]>();
+  for (const c of candidates) {
+    const list = byTenancy.get(c.tenancyId) ?? [];
+    list.push(c);
+    byTenancy.set(c.tenancyId, list);
+  }
+  return [...byTenancy.values()].map((list) => {
+    const sorted = [...list].sort(
+      (a, b) => a.dueDate.localeCompare(b.dueDate) || a.invoiceId.localeCompare(b.invoiceId)
+    );
+    return {
+      ...sorted[0]!,
+      oldestRemaining: sorted[0]!.remaining,
+      remaining: sorted.reduce((sum, c) => sum + c.remaining, 0),
+    };
+  });
+}
+
+/** Amount equals the oldest invoice's balance or the tenancy's whole balance. */
+function amountFits(c: MatchCandidate, amount: number): boolean {
+  return amountClose(c.remaining, amount) || amountClose(c.oldestRemaining ?? c.remaining, amount);
+}
+
+/**
  * Rank open invoices against an inbound bank credit.
  * High confidence only when a unique strong signal matches (ref or exact amount+name).
  */
 export function matchBankTransaction(
   txn: BankTxnMatchInput,
-  candidates: MatchCandidate[]
+  openInvoices: MatchCandidate[]
 ): MatchResult {
+  const candidates = collapseCandidatesByTenancy(openInvoices);
   if (txn.amount <= 0 || candidates.length === 0) {
     return { confidence: "none", invoiceId: null, tenancyId: null, reason: "No candidates" };
   }
 
   const text = haystack(txn);
-  const amountMatches = candidates.filter((c) => amountClose(c.remaining, txn.amount));
+  const amountMatches = candidates.filter((c) => amountFits(c, txn.amount));
 
   // 0) Unique tenancy payment reference (highest priority)
   const byPaymentRef = candidates.filter((c) => {
@@ -84,7 +116,7 @@ export function matchBankTransaction(
   }
 
   // 1) Invoice id / short id in description
-  const byInvoiceId = candidates.filter(
+  const byInvoiceId = openInvoices.filter(
     (c) =>
       text.includes(normalize(c.invoiceId)) || text.includes(uuidPrefix(c.invoiceId))
   );
@@ -103,7 +135,7 @@ export function matchBankTransaction(
       containsToken(text, c.agentRef) ||
       (c.propertyAddress.length > 8 && containsToken(text, c.propertyAddress.split(",")[0]))
   );
-  if (byRef.length === 1 && amountClose(byRef[0].remaining, txn.amount)) {
+  if (byRef.length === 1 && amountFits(byRef[0], txn.amount)) {
     return {
       confidence: "high",
       invoiceId: byRef[0].invoiceId,

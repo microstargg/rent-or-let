@@ -35,6 +35,12 @@ export async function POST(request: Request) {
     return NextResponse.json(result);
   }
 
+  if (body.action === "raise_rent") {
+    const { raiseRentInvoices } = await import("@/lib/operations/rent/generate-invoices");
+    const result = await raiseRentInvoices(branch.id);
+    return NextResponse.json(result);
+  }
+
   if (body.action === "resolve_exception" && body.exceptionId) {
     const row = await resolvePaymentException(body.exceptionId);
     return NextResponse.json(row);
@@ -94,6 +100,8 @@ export async function POST(request: Request) {
       amount,
       method: "bank_transfer",
       externalRef,
+      paidAt: bankTxn.bookedAt,
+      spillToTenancy: true,
     });
 
     if (!posted?.payment) {

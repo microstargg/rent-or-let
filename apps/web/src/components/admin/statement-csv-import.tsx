@@ -39,9 +39,12 @@ export function StatementCsvImport() {
     <div className="rounded-xl border bg-card p-4 shadow-sm">
       <h3 className="font-semibold">Import bank statement (CSV)</h3>
       <p className="mt-1 text-sm text-muted-foreground">
-        Upload a CSV with columns <code className="text-xs">Date</code>,{" "}
-        <code className="text-xs">Description</code>, <code className="text-xs">Amount</code>{" "}
-        (positive credits only). Lines containing a tenancy payment reference auto-match.
+        Upload the CSV export from your bank. It needs a <code className="text-xs">Date</code>{" "}
+        column, a <code className="text-xs">Description</code> or{" "}
+        <code className="text-xs">Reference</code> column, and either a signed{" "}
+        <code className="text-xs">Amount</code> or a <code className="text-xs">Credit</code> /{" "}
+        <code className="text-xs">Paid in</code> column. Only money in is imported. Lines with a
+        tenancy payment reference are matched to that tenant&apos;s oldest unpaid rent first.
       </p>
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <input

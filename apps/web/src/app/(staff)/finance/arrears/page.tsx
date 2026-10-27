@@ -21,7 +21,7 @@ export default async function AdminArrearsPage() {
     <div>
       <AdminPageHeader
         title="Arrears"
-        description="Tenancies with a positive ledger balance. Focus on the oldest overdue first."
+        description="Tenancies owing rent that has fallen due. Focus on the oldest overdue first."
         actions={<ApplyLateFeesButton />}
       />
       <FinanceSubnav />
@@ -43,7 +43,7 @@ export default async function AdminArrearsPage() {
 
       <AdminSection
         title="Arrears board"
-        description="Balance is the live tenancy ledger (charges minus payments)"
+        description="Balance is rent and fees due to date minus payments received. Rent raised for a future due date is not counted until that date."
       >
         {rows.length ? (
           <AdminTable headers={["Property", "Renter", "Balance", "Days overdue", "Oldest due"]}>

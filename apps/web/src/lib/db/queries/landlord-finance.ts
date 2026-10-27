@@ -89,6 +89,7 @@ export async function postRentReceivedToLandlord(data: {
   tenancyId?: string | null;
   rentAmount: number;
   paymentId?: string | null;
+  occurredAt?: Date;
 }) {
   await ensureAgency();
   const [branch] = await db
@@ -108,6 +109,7 @@ export async function postRentReceivedToLandlord(data: {
     amount: data.rentAmount,
     paymentId: data.paymentId,
     memo: "Rent received",
+    occurredAt: data.occurredAt,
   });
 
   if (fee > 0) {
@@ -121,6 +123,7 @@ export async function postRentReceivedToLandlord(data: {
       paymentId: data.paymentId,
       memo: `Management fee ${feePercent}%`,
       meta: { fee_percent: feePercent },
+      occurredAt: data.occurredAt,
     });
   }
 

@@ -16,7 +16,10 @@ export async function generateRentInvoicesForBranch(
   periodStart: string
 ): Promise<{ created: number }> {
   const dueDate = rentDueDateForPeriodStart(periodStart);
-  const tenancyList = await getActiveTenanciesForRent(branchId);
+  // Only tenancies running on the due date: not yet started or already ended get no rent.
+  const tenancyList = (await getActiveTenanciesForRent(branchId)).filter(
+    (t) => t.startDate <= dueDate && (!t.endDate || t.endDate >= dueDate)
+  );
   if (tenancyList.length === 0) return { created: 0 };
 
   const tenancyIds = tenancyList.map((t) => t.id);
@@ -37,4 +40,25 @@ export async function generateRentInvoicesForBranch(
   if (rows.length === 0) return { created: 0 };
   await createInvoices(rows);
   return { created: rows.length };
+}
+
+/**
+ * Raise next month's rent, and this month's too if an earlier run was missed.
+ * Safe to run repeatedly: invoices already raised for a due date are skipped.
+ */
+export async function raiseRentInvoices(
+  branchId: string,
+  now = new Date()
+): Promise<{ created: number }> {
+  const periodStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+  const previousStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
+  const catchUp = await generateRentInvoicesForBranch(
+    branchId,
+    previousStart.toISOString().slice(0, 10)
+  );
+  const next = await generateRentInvoicesForBranch(
+    branchId,
+    periodStart.toISOString().slice(0, 10)
+  );
+  return { created: catchUp.created + next.created };
 }
