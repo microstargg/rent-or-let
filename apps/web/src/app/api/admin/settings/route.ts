@@ -12,6 +12,7 @@ import {
 } from "@/lib/db/queries";
 import { getAppUrl } from "@/lib/app-url";
 import { getStripe, isStripeConfigured } from "@/lib/stripe/client";
+import { parseJsonBody } from "@/lib/api-validation";
 
 export async function GET() {
   const { error } = await requireAdminApi();
@@ -51,7 +52,9 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: "No branch configured" }, { status: 400 });
   }
 
-  const body = patchSchema.parse(await request.json());
+  const parsed = await parseJsonBody(request, patchSchema);
+  if (parsed.error) return parsed.error;
+  const body = parsed.data;
   const current = await getBranchWithSettings(branch.id);
   const settings = {
     ...(current?.settings ?? {}),
@@ -121,7 +124,9 @@ export async function POST(request: Request) {
   }
 
   if (action === "renter_invite") {
-    const body = inviteSchema.parse(await request.json());
+    const parsed = await parseJsonBody(request, inviteSchema);
+    if (parsed.error) return parsed.error;
+    const body = parsed.data;
     const renter = await getRenterById(body.renter_id);
     if (!renter) {
       return NextResponse.json({ error: "Renter not found" }, { status: 404 });

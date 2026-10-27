@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -78,6 +79,12 @@ export function WorkOrderPanel({
                 </option>
               ))}
             </select>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Missing someone?{" "}
+              <Link href="/contractors" className="underline">
+                Add contractors
+              </Link>
+            </p>
           </div>
           <div>
             <Label htmlFor="wo_estimate">Estimate (£)</Label>

@@ -486,6 +486,25 @@ export async function createContractor(data: {
   return row;
 }
 
+export async function updateContractor(
+  id: string,
+  data: Partial<{
+    name: string;
+    email: string | null;
+    phone: string | null;
+    trade: string | null;
+    notes: string | null;
+  }>
+) {
+  await ensureAgency();
+  const [row] = await db
+    .update(contractors)
+    .set(data)
+    .where(and(eq(contractors.id, id), agencyEq(contractors.agencyId)))
+    .returning();
+  return row ?? null;
+}
+
 export async function deleteContractor(id: string) {
   await ensureAgency();
   await db
