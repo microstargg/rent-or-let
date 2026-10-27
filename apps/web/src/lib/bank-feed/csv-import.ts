@@ -4,7 +4,7 @@ import { agencyEq, currentAgencyId } from "@/lib/db/agency-scope";
 import { bankConnections } from "@/lib/db/schema";
 import { ensureBankFeed, insertBankTransaction } from "@/lib/db/queries/bank-feed";
 import { matchPendingBankTransactions } from "@/lib/bank-feed/sync";
-import { csvProviderTxnId } from "@/lib/payment-ref";
+import { csvProviderTxnId, pdfProviderTxnId } from "@/lib/payment-ref";
 
 export async function ensureCsvBankConnection(branchId: string) {
   await ensureBankFeed();
@@ -164,18 +164,29 @@ function normalizeCsvDate(raw: string): string | null {
   return null;
 }
 
-export async function importStatementCsvForBranch(
-  branchId: string,
-  csvText: string
-): Promise<{
+export interface StatementImportResult {
   credits: number;
+  creditTotal: number;
   imported: number;
   duplicates: number;
   matched: number;
   exceptions: number;
-}> {
+}
+
+export async function importStatementCsvForBranch(
+  branchId: string,
+  csvText: string
+): Promise<StatementImportResult> {
+  return importStatementRowsForBranch(branchId, parseStatementCsv(csvText));
+}
+
+/** Store bank credits (from a CSV or a PDF statement) and match them to open rent. */
+export async function importStatementRowsForBranch(
+  branchId: string,
+  rows: CsvStatementRow[],
+  opts: { source?: "csv" | "pdf" } = {}
+): Promise<StatementImportResult> {
   const connection = await ensureCsvBankConnection(branchId);
-  const rows = parseStatementCsv(csvText);
 
   let imported = 0;
   let duplicates = 0;
@@ -184,7 +195,12 @@ export async function importStatementCsvForBranch(
   // number repeats so re-importing an overlapping statement still skips both.
   const seen = new Map<string, number>();
   for (const row of rows) {
-    const key = csvProviderTxnId(row.date, row.amount, row.description);
+    // A PDF is read by the AI model, whose wording of a description can vary between
+    // reads, so PDF lines are keyed on date + amount only to keep re-imports idempotent.
+    const key =
+      opts.source === "pdf"
+        ? pdfProviderTxnId(row.date, row.amount)
+        : csvProviderTxnId(row.date, row.amount, row.description);
     const occurrence = seen.get(key) ?? 0;
     seen.set(key, occurrence + 1);
     const providerTxnId = occurrence === 0 ? key : `${key}_${occurrence + 1}`;
@@ -208,6 +224,7 @@ export async function importStatementCsvForBranch(
 
   return {
     credits: rows.length,
+    creditTotal: Math.round(rows.reduce((sum, r) => sum + r.amount, 0) * 100) / 100,
     imported,
     duplicates,
     matched: matchResult.matched,

@@ -24,7 +24,7 @@ export function StatementCsvImport() {
         setError(data.error ?? "Import failed");
       } else {
         setMessage(
-          `Credits ${data.credits} · imported ${data.imported} · duplicates ${data.duplicates} · matched ${data.matched} · queued ${data.exceptions}`
+          `Money in ${data.credits} lines (£${Number(data.creditTotal ?? 0).toFixed(2)}) · imported ${data.imported} · already imported ${data.duplicates} · matched ${data.matched} · queued ${data.exceptions}`
         );
         router.refresh();
       }
@@ -37,26 +37,25 @@ export function StatementCsvImport() {
 
   return (
     <div className="rounded-xl border bg-card p-4 shadow-sm">
-      <h3 className="font-semibold">Import bank statement (CSV)</h3>
+      <h3 className="font-semibold">Import bank statement (PDF or CSV)</h3>
       <p className="mt-1 text-sm text-muted-foreground">
-        Upload the CSV export from your bank. It needs a <code className="text-xs">Date</code>{" "}
-        column, a <code className="text-xs">Description</code> or{" "}
-        <code className="text-xs">Reference</code> column, and either a signed{" "}
-        <code className="text-xs">Amount</code> or a <code className="text-xs">Credit</code> /{" "}
-        <code className="text-xs">Paid in</code> column. Only money in is imported. Lines with a
-        tenancy payment reference are matched to that tenant&apos;s oldest unpaid rent first.
+        Upload the PDF statement from your bank, or a CSV export if your bank offers one. PDFs are
+        read automatically and can take up to a minute. Only money in is imported. Lines with a
+        tenancy payment reference are matched to that tenant&apos;s oldest unpaid rent first;
+        anything unclear lands in the queue below. Check the money-in total against the
+        statement.
       </p>
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <input
           type="file"
-          accept=".csv,text/csv"
+          accept=".pdf,application/pdf,.csv,text/csv"
           disabled={loading}
           onChange={(e) => onFile(e.target.files?.[0] ?? null)}
           className="text-sm file:mr-2 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-primary-foreground"
         />
         {loading && (
           <Button type="button" size="sm" variant="outline" disabled>
-            Importing…
+            Reading statement…
           </Button>
         )}
       </div>

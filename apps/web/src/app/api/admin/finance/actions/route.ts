@@ -78,7 +78,7 @@ export async function POST(request: Request) {
 
     const amount = Number(exception.amount);
     const externalRef =
-      bankTxn.providerTxnId.startsWith("csv_") || bankTxn.providerTxnId.startsWith("tl_")
+      /^(csv|pdf|tl)_/.test(bankTxn.providerTxnId)
         ? bankTxn.providerTxnId
         : `csv_${bankTxn.providerTxnId}`;
     const existing = await getPaymentByExternalRef(branch.id, externalRef);
