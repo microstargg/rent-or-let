@@ -1,4 +1,5 @@
 import Stripe from "stripe";
+import { inDemoAgency } from "@/lib/demo/server";
 
 let stripeClient: Stripe | null = null;
 
@@ -14,5 +15,6 @@ export function getStripe(): Stripe {
 }
 
 export function isStripeConfigured(): boolean {
+  if (inDemoAgency()) return false;
   return Boolean(process.env.STRIPE_SECRET_KEY);
 }

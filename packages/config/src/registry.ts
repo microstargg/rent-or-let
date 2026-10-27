@@ -1,10 +1,12 @@
 import type { TenantConfig } from "./types";
 import pmsConfig from "../../../tenants/pms/config";
 import veriPropertiesConfig from "../../../tenants/veri-properties/config";
+import demoConfig from "../../../tenants/demo/config";
 
 export const tenantRegistry = {
   pms: pmsConfig,
   "veri-properties": veriPropertiesConfig,
+  demo: demoConfig,
 } as const satisfies Record<string, TenantConfig>;
 
 export type TenantId = keyof typeof tenantRegistry;

@@ -3,6 +3,12 @@ html[data-agency="pms"] {
   --accent: oklch(0.55 0.12 45);
 }
 
+html[data-agency="demo"] {
+  --primary: oklch(0.28 0.05 265);
+  --accent: oklch(0.6 0.2 290);
+  --ring: oklch(0.6 0.2 290);
+}
+
 html[data-agency="veri-properties"] {
   --primary: oklch(0.36 0.08 155);
   --accent: oklch(0.55 0.12 155);

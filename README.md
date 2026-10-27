@@ -2,7 +2,7 @@
 
 Lettings operations platform. One LetFlow deploy on `{slug}.letflow.app`, one shared Neon database scoped by `agency_id`, optional public website on the agency's own domain.
 
-**Agencies:** Property Management Services (`pms`), Veri Properties (`veri-properties`)
+**Agencies:** Property Management Services (`pms`), Veri Properties (`veri-properties`), LetFlow Demo Lettings (`demo`, fake data, [docs/demo-portal.md](docs/demo-portal.md))
 
 ## Monorepo structure
 

@@ -2,7 +2,7 @@
 
 Use this checklist when onboarding a letting agency onto LetFlow.
 
-**Live today:** `pms` (Property Management Services / rent-or-let) and `veri-properties` (empty agency on the shared DB).
+**Live today:** `pms` (Property Management Services / rent-or-let) and `veri-properties` (empty agency on the shared DB). `demo` is a fictional agency on its own Neon project; see [demo-portal.md](demo-portal.md).
 
 ## Architecture
 
