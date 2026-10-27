@@ -65,15 +65,15 @@ export default async function PortalRentPage() {
               </p>
             </div>
             {(invoice.status === "due" || invoice.status === "partial") && (
-              <PayInvoiceButton invoiceId={invoice.id} />
-            )}
-            {(invoice.status === "due" || invoice.status === "partial") && (
-              <Link
-                href={`/portal/rent/${invoice.id}`}
-                className="text-sm text-muted-foreground underline"
-              >
-                Details
-              </Link>
+              <div className="flex items-center gap-4">
+                <Link
+                  href={`/portal/rent/${invoice.id}`}
+                  className="text-sm text-muted-foreground underline"
+                >
+                  Details
+                </Link>
+                <PayInvoiceButton invoiceId={invoice.id} />
+              </div>
             )}
           </div>
         ))}
