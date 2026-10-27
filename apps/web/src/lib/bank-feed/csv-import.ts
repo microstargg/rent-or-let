@@ -51,7 +51,16 @@ export interface CsvStatementRow {
   amount: number;
 }
 
-const DATE_HEADERS = ["date", "booking date", "booked", "transaction date", "posting date", "value date"];
+const DATE_HEADERS = [
+  "date",
+  "booking date",
+  "booked",
+  "transaction date",
+  "posting date",
+  "value date",
+  "completed date",
+  "started date",
+];
 const DESCRIPTION_HEADERS = [
   "description",
   "transaction description",
@@ -96,7 +105,10 @@ export function parseStatementCsv(text: string): CsvStatementRow[] {
     .filter(Boolean);
   if (lines.length < 2) return [];
 
-  const headerCells = splitCsvLine(lines[0]!).map((h) => h.trim().toLowerCase());
+  const delimiter = detectDelimiter(lines[0]!);
+  const headerCells = splitCsvLine(lines[0]!, delimiter).map((h) => h.trim().toLowerCase());
+  // e.g. Revolut exports pending and reverted lines too; only completed money has arrived.
+  const stateIdx = headerIndex(headerCells, ["state", "status"]);
   const dateIdx = headerIndex(headerCells, DATE_HEADERS);
   const creditIdx = headerIndex(headerCells, CREDIT_HEADERS);
   const amountIdx = creditIdx >= 0 ? creditIdx : headerIndex(headerCells, AMOUNT_HEADERS);
@@ -111,7 +123,11 @@ export function parseStatementCsv(text: string): CsvStatementRow[] {
 
   const rows: CsvStatementRow[] = [];
   for (let i = 1; i < lines.length; i++) {
-    const cells = splitCsvLine(lines[i]!);
+    const cells = splitCsvLine(lines[i]!, delimiter);
+    if (stateIdx >= 0) {
+      const state = (cells[stateIdx] ?? "").trim().toLowerCase();
+      if (state && !["completed", "complete", "booked", "posted", "settled"].includes(state)) continue;
+    }
     const dateRaw = (cells[dateIdx] ?? "").trim();
     const description = [...new Set(descIdxs.map((idx) => (cells[idx] ?? "").trim()).filter(Boolean))].join(" ");
     const amount = parseMoney(cells[amountIdx]);
@@ -123,7 +139,13 @@ export function parseStatementCsv(text: string): CsvStatementRow[] {
   return rows;
 }
 
-function splitCsvLine(line: string): string[] {
+/** Comma, tab (e.g. Revolut .tsv) or semicolon, whichever the header row uses most. */
+function detectDelimiter(header: string): string {
+  const counts = [",", "\t", ";"].map((d) => [d, header.split(d).length] as const);
+  return counts.sort((a, b) => b[1] - a[1])[0]![0];
+}
+
+function splitCsvLine(line: string, delimiter = ","): string[] {
   const out: string[] = [];
   let cur = "";
   let inQuotes = false;
@@ -138,7 +160,7 @@ function splitCsvLine(line: string): string[] {
       }
       continue;
     }
-    if (ch === "," && !inQuotes) {
+    if (ch === delimiter && !inQuotes) {
       out.push(cur);
       cur = "";
       continue;

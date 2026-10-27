@@ -29,7 +29,10 @@ export async function POST(request: Request) {
 
   try {
     if (isPdf(file)) {
-      const rows = await parseStatementPdf(new Uint8Array(await file.arrayBuffer()), file.name);
+      const { rows, statementMoneyIn } = await parseStatementPdf(
+        new Uint8Array(await file.arrayBuffer()),
+        file.name
+      );
       if (rows.length === 0) {
         return NextResponse.json(
           { error: "No money-in lines were found in that PDF. Check it is a bank statement." },
@@ -37,7 +40,7 @@ export async function POST(request: Request) {
         );
       }
       const result = await importStatementRowsForBranch(branch.id, rows, { source: "pdf" });
-      return NextResponse.json({ ok: true, source: "pdf", ...result });
+      return NextResponse.json({ ok: true, source: "pdf", statementMoneyIn, ...result });
     }
     const result = await importStatementCsvForBranch(branch.id, await file.text());
     return NextResponse.json({ ok: true, source: "csv", ...result });
