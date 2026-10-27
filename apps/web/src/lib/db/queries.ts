@@ -1009,6 +1009,7 @@ export {
 
 export {
   listTickets,
+  listTicketsForLandlord,
   searchTickets,
   TICKET_LIST_PAGE_SIZE,
   getTicketById,

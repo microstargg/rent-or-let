@@ -1,7 +1,7 @@
 import { requireRenterSession } from "@/lib/auth/server";
 import { listPetRequestsForRenter } from "@/lib/db/queries";
 import { PortalPetForm } from "@/components/portal/portal-pet-form";
-import { StatusBadge } from "@/components/admin/admin-page";
+import { AdminPageHeader, StatusBadge } from "@/components/admin/admin-page";
 import { formatDate } from "@/lib/utils";
 
 export default async function PortalPetsPage() {
@@ -11,10 +11,10 @@ export default async function PortalPetsPage() {
 
   return (
     <div>
-      <h1 className="text-3xl font-bold">Pet requests</h1>
-      <p className="mt-1 text-muted-foreground">
-        Ask in writing to keep a pet. The landlord must reply within 28 days.
-      </p>
+      <AdminPageHeader
+        title="Pet requests"
+        description="Ask in writing to keep a pet. The landlord must reply within 28 days."
+      />
       <PortalPetForm />
       <div className="mt-8 space-y-3">
         {rows.map(({ request, propertyAddress }) => (
@@ -27,7 +27,7 @@ export default async function PortalPetsPage() {
                 </p>
                 <p className="mt-2 text-sm">{request.petDescription}</p>
               </div>
-              <StatusBadge status={request.status.replaceAll("_", " ")} />
+              <StatusBadge status={request.status} />
             </div>
           </div>
         ))}

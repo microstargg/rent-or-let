@@ -32,6 +32,20 @@ export async function listTickets(branchId?: string) {
     .orderBy(desc(tickets.createdAt));
 }
 
+/** Tickets on any property owned by the landlord, newest first. */
+export async function listTicketsForLandlord(landlordId: string) {
+  await ensureAgency();
+  return db
+    .select({
+      ticket: tickets,
+      propertyAddress: properties.displayAddress,
+    })
+    .from(tickets)
+    .innerJoin(properties, eq(tickets.propertyId, properties.id))
+    .where(and(agencyEq(tickets.agencyId), eq(properties.landlordId, landlordId)))
+    .orderBy(desc(tickets.createdAt));
+}
+
 export async function searchTickets(opts: {
   branchId?: string;
   q?: string;
