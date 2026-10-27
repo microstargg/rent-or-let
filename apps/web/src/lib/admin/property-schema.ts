@@ -63,3 +63,30 @@ export function toPropertyDbFields(data: AdminPropertyInput) {
     isVacant: data.is_vacant ?? true,
   };
 }
+
+function constraintOf(error: unknown): string | null {
+  let current: unknown = error;
+  for (let depth = 0; current && depth < 5; depth++) {
+    const constraint = (current as { constraint?: unknown }).constraint;
+    if (typeof constraint === "string") return constraint;
+    current = (current as { cause?: unknown }).cause;
+  }
+  return null;
+}
+
+/** Turn a create/update failure into a message staff can act on. */
+export function propertySaveErrorMessage(error: unknown, fallback: string): string {
+  if (error instanceof z.ZodError) {
+    return error.issues
+      .map((issue) => `${issue.path.join(".").replace(/_/g, " ")}: ${issue.message}`)
+      .join("; ");
+  }
+  const constraint = constraintOf(error);
+  if (constraint?.includes("agent_ref")) {
+    return "That agent reference is already used by another property.";
+  }
+  if (constraint?.includes("slug")) {
+    return "Another property already uses this web address. Add a house number and try again.";
+  }
+  return fallback;
+}

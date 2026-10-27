@@ -2,7 +2,11 @@ import { NextResponse } from "next/server";
 import { requireStaffSession } from "@/lib/auth/server";
 import { updateProperty } from "@/lib/db/queries";
 import { syncPropertyToPortals } from "@/lib/portals/sync-worker";
-import { adminPropertySchema, toPropertyDbFields } from "@/lib/admin/property-schema";
+import {
+  adminPropertySchema,
+  propertySaveErrorMessage,
+  toPropertyDbFields,
+} from "@/lib/admin/property-schema";
 
 export async function PATCH(
   request: Request,
@@ -29,6 +33,9 @@ export async function PATCH(
     return NextResponse.json({ id });
   } catch (error) {
     console.error(error);
-    return NextResponse.json({ error: "Failed to update property" }, { status: 400 });
+    return NextResponse.json(
+      { error: propertySaveErrorMessage(error, "Failed to update property") },
+      { status: 400 }
+    );
   }
 }

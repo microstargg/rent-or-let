@@ -211,6 +211,25 @@ export async function searchProperties(opts: {
   };
 }
 
+/** Return `base`, or `base-2`, `base-3`… if another property in this agency already uses it. */
+export async function uniquePropertySlug(base: string): Promise<string> {
+  await ensureAgency();
+  const rows = await db
+    .select({ slug: properties.slug })
+    .from(properties)
+    .where(
+      and(
+        agencyEq(properties.agencyId),
+        or(eq(properties.slug, base), sql`${properties.slug} LIKE ${`${base}-%`}`)
+      )
+    );
+  const taken = new Set(rows.map((row) => row.slug));
+  if (!taken.has(base)) return base;
+  let suffix = 2;
+  while (taken.has(`${base}-${suffix}`)) suffix++;
+  return `${base}-${suffix}`;
+}
+
 export async function createProperty(data: {
   branchId: string;
   agentRef: string;

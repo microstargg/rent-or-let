@@ -18,6 +18,7 @@ export function TicketCreateForm({
   const router = useRouter();
   const closeDialog = useEntityDialogClose();
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [propertyFilter, setPropertyFilter] = useState("");
 
   const filtered = propertyFilter.trim()
@@ -29,8 +30,9 @@ export function TicketCreateForm({
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setLoading(true);
+    setError(null);
     const fd = new FormData(e.currentTarget);
-    await fetch("/api/admin/tickets", {
+    const res = await fetch("/api/admin/tickets", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -40,6 +42,12 @@ export function TicketCreateForm({
         priority: fd.get("priority") || undefined,
       }),
     });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setError(data.error ?? "Could not create ticket");
+      setLoading(false);
+      return;
+    }
     router.refresh();
     setLoading(false);
     (e.target as HTMLFormElement).reset();
@@ -96,6 +104,7 @@ export function TicketCreateForm({
           <option value="high">High</option>
         </select>
       </div>
+      {error && <p className="text-sm text-red-600">{error}</p>}
       <Button type="submit" className="min-h-11" disabled={loading}>
         {loading ? "Creating…" : "Create ticket"}
       </Button>

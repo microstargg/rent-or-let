@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireAdminApi } from "@/lib/api-auth";
 import { createTenancy, getDefaultBranch } from "@/lib/db/queries";
+import { parseJsonBody } from "@/lib/api-validation";
 
 const schema = z.object({
   property_id: z.string().uuid(),
@@ -22,7 +23,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "No branch configured" }, { status: 400 });
   }
 
-  const body = schema.parse(await request.json());
+  const parsed = await parseJsonBody(request, schema);
+  if (parsed.error) return parsed.error;
+  const body = parsed.data;
   const row = await createTenancy({
     branchId: branch.id,
     propertyId: body.property_id,

@@ -94,7 +94,13 @@ export function PropertyForm({ property, imageCount = 0, onSuccess }: PropertyFo
     const payload = {
       branch_id: property?.branch_id ?? defaultBranchId,
       agent_ref: formData.get("agent_ref") as string,
-      slug: property?.slug ?? slugify(`${street}-${town}-${postcode}`),
+      slug:
+        property?.slug ??
+        slugify(
+          [formData.get("house_name_number") as string, street, town, postcode]
+            .filter(Boolean)
+            .join(" ")
+        ),
       display_address: displayAddress,
       house_name_number: (formData.get("house_name_number") as string) || "",
       street,

@@ -14,6 +14,7 @@ import {
   getPaymentExceptionById,
   updateBankTransaction,
 } from "@/lib/db/queries/bank-feed";
+import { parseJsonBody } from "@/lib/api-validation";
 
 const bodySchema = z.object({
   action: z.string(),
@@ -28,7 +29,9 @@ export async function POST(request: Request) {
   const branch = await getDefaultBranch();
   if (!branch) return NextResponse.json({ error: "No branch" }, { status: 400 });
 
-  const body = bodySchema.parse(await request.json());
+  const parsed = await parseJsonBody(request, bodySchema);
+  if (parsed.error) return parsed.error;
+  const body = parsed.data;
 
   if (body.action === "apply_late_fees") {
     const result = await applyLateFeesForBranch(branch.id);

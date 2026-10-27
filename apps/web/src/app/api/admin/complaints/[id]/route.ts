@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireStaffSession } from "@/lib/auth/server";
 import { updateComplaint } from "@/lib/db/queries";
+import { parseJsonBody } from "@/lib/api-validation";
 
 export async function PATCH(
   request: Request,
@@ -11,12 +12,15 @@ export async function PATCH(
   const session = await requireStaffSession();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const body = z
-    .object({
+  const parsed = await parseJsonBody(
+    request,
+    z.object({
       status: z.enum(["open", "investigating", "resolved", "closed"]),
       resolved_at: z.string().nullable().optional(),
     })
-    .parse(await request.json());
+  );
+  if (parsed.error) return parsed.error;
+  const body = parsed.data;
 
   await updateComplaint(id, {
     status: body.status,

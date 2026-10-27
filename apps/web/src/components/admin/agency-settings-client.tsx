@@ -33,9 +33,12 @@ export function AgencySettingsClient({
   const [inbox, setInbox] = useState(maintenanceInbox);
   const [loading, setLoading] = useState(false);
   const [refMsg, setRefMsg] = useState<string | null>(null);
+  const [saveMsg, setSaveMsg] = useState<string | null>(null);
+  const [stripeMsg, setStripeMsg] = useState<string | null>(null);
 
   async function saveSettings() {
     setLoading(true);
+    setSaveMsg(null);
     const res = await fetch("/api/admin/settings", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -46,16 +49,23 @@ export function AgencySettingsClient({
         client_account_number: accountNumber || null,
       }),
     });
-    const data = await res.json();
+    const data = await res.json().catch(() => ({}));
+    setLoading(false);
+    if (!res.ok) {
+      setSaveMsg(`Not saved: ${data.error ?? "something went wrong"}`);
+      return;
+    }
     const token = data.settings?.maintenance_inbox_token;
     if (token && inboundDomain) setInbox(`maintenance+${token}@${inboundDomain}`);
-    setLoading(false);
+    setSaveMsg("Saved");
   }
 
   async function connectStripe() {
+    setStripeMsg(null);
     const res = await fetch("/api/admin/settings?action=stripe_connect", { method: "POST" });
-    const data = await res.json();
+    const data = await res.json().catch(() => ({}));
     if (data.url) window.location.href = data.url;
+    else setStripeMsg(data.error ?? "Could not start Stripe onboarding");
   }
 
   async function backfillRefs() {
@@ -135,6 +145,7 @@ export function AgencySettingsClient({
             Backfill payment refs
           </Button>
         </div>
+        {saveMsg && <p className="mt-2 text-sm text-muted-foreground">{saveMsg}</p>}
         {refMsg && <p className="mt-2 text-sm text-muted-foreground">{refMsg}</p>}
       </section>
 
@@ -165,6 +176,7 @@ export function AgencySettingsClient({
             Connect Stripe
           </Button>
         )}
+        {stripeMsg && <p className="mt-2 text-sm text-red-600">{stripeMsg}</p>}
       </section>
 
       <section className="rounded-xl border p-4">
@@ -182,6 +194,7 @@ export function AgencySettingsClient({
         <Button type="button" className="mt-3" size="sm" onClick={saveSettings} disabled={loading}>
           Save alert email
         </Button>
+        {saveMsg && <p className="mt-2 text-sm text-muted-foreground">{saveMsg}</p>}
       </section>
     </div>
   );

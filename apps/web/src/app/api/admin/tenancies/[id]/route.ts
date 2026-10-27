@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireAdminApi } from "@/lib/api-auth";
 import { endTenancy } from "@/lib/db/queries";
+import { parseJsonBody } from "@/lib/api-validation";
 
 export async function PATCH(
   request: Request,
@@ -11,7 +12,9 @@ export async function PATCH(
   if (error) return error;
 
   const { id } = await params;
-  const body = z.object({ action: z.literal("end") }).parse(await request.json());
+  const parsed = await parseJsonBody(request, z.object({ action: z.literal("end") }));
+  if (parsed.error) return parsed.error;
+  const body = parsed.data;
   if (body.action === "end") {
     const row = await endTenancy(id);
     return NextResponse.json(row);

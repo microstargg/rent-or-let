@@ -50,7 +50,9 @@ export function LandlordForm({ initial, onSuccess, compact }: LandlordFormProps)
       }
     );
     if (!res.ok) {
-      setError(isEdit ? "Could not update landlord" : "Could not add landlord");
+      const data = await res.json().catch(() => ({}));
+      const fallback = isEdit ? "Could not update landlord" : "Could not add landlord";
+      setError(data.error ? `${fallback}: ${data.error}` : fallback);
       setLoading(false);
       return;
     }
