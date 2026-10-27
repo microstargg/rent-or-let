@@ -11,6 +11,7 @@ import {
   refreshComplianceStatuses,
   createDocument,
 } from "@/lib/db/queries";
+import { parseJsonBody } from "@/lib/api-validation";
 
 const createSchema = z.object({
   property_id: z.string().uuid(),
@@ -93,7 +94,9 @@ export async function POST(request: Request) {
     return NextResponse.json(item, { status: 201 });
   }
 
-  const body = createSchema.parse(await request.json());
+  const parsed = await parseJsonBody(request, createSchema);
+  if (parsed.error) return parsed.error;
+  const body = parsed.data;
   const item = await createComplianceItem({
     branchId: branch.id,
     propertyId: body.property_id,

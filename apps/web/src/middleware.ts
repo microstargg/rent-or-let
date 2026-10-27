@@ -29,6 +29,7 @@ const AUTH_REQUIRED_PREFIXES = [
   "/applications",
   "/tickets",
   "/jobs",
+  "/contractors",
   "/inspections",
   "/complaints",
   "/portals",

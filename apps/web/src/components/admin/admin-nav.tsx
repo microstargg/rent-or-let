@@ -23,6 +23,7 @@ import {
   ShieldCheck,
   Camera,
   PawPrint,
+  HardHat,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -81,6 +82,7 @@ const navSections: NavSection[] = [
     items: [
       { href: "/tickets", label: "Tickets", icon: Wrench },
       { href: "/jobs/board", label: "Jobs board", icon: ClipboardList },
+      { href: "/contractors", label: "Contractors", icon: HardHat },
       { href: "/inspections", label: "Inspections", icon: Camera },
       { href: "/complaints", label: "Complaints", icon: AlertCircle },
       { href: "/portals", label: "Portal sync", icon: RefreshCw },

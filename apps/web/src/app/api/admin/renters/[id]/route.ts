@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireAdminApi } from "@/lib/api-auth";
 import { updateRenter } from "@/lib/db/queries";
+import { parseJsonBody } from "@/lib/api-validation";
 
 const schema = z.object({
   first_name: z.string().min(1).optional(),
@@ -19,7 +20,9 @@ export async function PATCH(
   if (error) return error;
 
   const { id } = await params;
-  const body = schema.parse(await request.json());
+  const parsed = await parseJsonBody(request, schema);
+  if (parsed.error) return parsed.error;
+  const body = parsed.data;
   const row = await updateRenter(id, {
     ...(body.first_name && { firstName: body.first_name }),
     ...(body.last_name && { lastName: body.last_name }),

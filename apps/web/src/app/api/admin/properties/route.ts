@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
 import { requireStaffSession } from "@/lib/auth/server";
-import { createProperty } from "@/lib/db/queries";
+import { createProperty, uniquePropertySlug } from "@/lib/db/queries";
 import { syncPropertyToPortals } from "@/lib/portals/sync-worker";
-import { adminPropertySchema, toPropertyDbFields } from "@/lib/admin/property-schema";
+import {
+  adminPropertySchema,
+  propertySaveErrorMessage,
+  toPropertyDbFields,
+} from "@/lib/admin/property-schema";
 import { slugify } from "@/lib/utils";
 
 export async function POST(request: Request) {
@@ -14,20 +18,21 @@ export async function POST(request: Request) {
     const data = adminPropertySchema.parse(body);
     const fields = toPropertyDbFields(data);
 
-    const property = await createProperty({
-      ...fields,
-      slug: data.slug || slugify(data.display_address),
-    });
+    const slug = await uniquePropertySlug(data.slug || slugify(data.display_address));
+    const property = await createProperty({ ...fields, slug });
 
     if (data.status === "available") {
       await syncPropertyToPortals(property.id, "send");
       const { notifySiteRevalidate } = await import("@/lib/public-listings");
-      await notifySiteRevalidate(["/properties", `/properties/${data.slug || property.id}`, "/"]);
+      await notifySiteRevalidate(["/properties", `/properties/${slug}`, "/"]);
     }
 
     return NextResponse.json({ id: property.id });
   } catch (error) {
     console.error(error);
-    return NextResponse.json({ error: "Failed to create property" }, { status: 400 });
+    return NextResponse.json(
+      { error: propertySaveErrorMessage(error, "Failed to create property") },
+      { status: 400 }
+    );
   }
 }

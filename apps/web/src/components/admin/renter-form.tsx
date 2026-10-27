@@ -42,7 +42,9 @@ export function RenterForm({ initial, onSuccess, compact }: RenterFormProps) {
       }
     );
     if (!res.ok) {
-      setError(isEdit ? "Could not update renter" : "Could not add renter");
+      const data = await res.json().catch(() => ({}));
+      const fallback = isEdit ? "Could not update renter" : "Could not add renter";
+      setError(data.error ? `${fallback}: ${data.error}` : fallback);
       setLoading(false);
       return;
     }
