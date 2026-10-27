@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "../index";
 import { agencyEq, currentAgencyId, ensureAgency } from "../agency-scope";
 import {
@@ -13,6 +13,13 @@ import {
 } from "../schema";
 import type { MatchCandidate } from "@/lib/bank-feed/match";
 import { getPaymentRefFromMetadata } from "@/lib/payment-ref";
+import { ensureBankFeedSchema } from "@/lib/db/ensure-schema";
+
+/** Bank tables may be missing on databases set up before the bank feed migration. */
+export async function ensureBankFeed() {
+  await ensureAgency();
+  await ensureBankFeedSchema();
+}
 
 export async function updateBankConnection(
   id: string,
@@ -23,7 +30,7 @@ export async function updateBankConnection(
     meta: Record<string, unknown>;
   }>
 ) {
-  await ensureAgency();
+  await ensureBankFeed();
   const values: Record<string, unknown> = { updatedAt: new Date(), ...patch };
   const [row] = await db
     .update(bankConnections)
@@ -34,7 +41,7 @@ export async function updateBankConnection(
 }
 
 export async function getBankConnectionById(id: string) {
-  await ensureAgency();
+  await ensureBankFeed();
   const [row] = await db
     .select()
     .from(bankConnections)
@@ -44,7 +51,7 @@ export async function getBankConnectionById(id: string) {
 }
 
 export async function listBankConnections(branchId: string) {
-  await ensureAgency();
+  await ensureBankFeed();
   return db
     .select()
     .from(bankConnections)
@@ -63,7 +70,7 @@ export async function insertBankTransaction(data: {
   counterparty?: string | null;
   raw?: Record<string, unknown>;
 }) {
-  await ensureAgency();
+  await ensureBankFeed();
   const existing = await db
     .select()
     .from(bankTransactions)
@@ -97,7 +104,7 @@ export async function insertBankTransaction(data: {
 }
 
 export async function getBankTransactionById(id: string) {
-  await ensureAgency();
+  await ensureBankFeed();
   const [row] = await db
     .select()
     .from(bankTransactions)
@@ -107,7 +114,7 @@ export async function getBankTransactionById(id: string) {
 }
 
 export async function listPendingBankTransactions(branchId: string) {
-  await ensureAgency();
+  await ensureBankFeed();
   return db
     .select()
     .from(bankTransactions)
@@ -118,7 +125,8 @@ export async function listPendingBankTransactions(branchId: string) {
         agencyEq(bankTransactions.agencyId)
       )
     )
-    .orderBy(desc(bankTransactions.bookedAt));
+    // Oldest first, so earlier receipts clear the oldest invoices.
+    .orderBy(asc(bankTransactions.bookedAt));
 }
 
 export async function updateBankTransaction(
@@ -131,7 +139,7 @@ export async function updateBankTransaction(
     exceptionId: string | null;
   }>
 ) {
-  await ensureAgency();
+  await ensureBankFeed();
   const [row] = await db
     .update(bankTransactions)
     .set(patch)
@@ -248,7 +256,7 @@ export async function getPaymentExceptionById(id: string) {
 }
 
 export async function getBankFeedSummary(branchId: string) {
-  await ensureAgency();
+  await ensureBankFeed();
   const [counts] = await db
     .select({
       pending: sql<number>`count(*) filter (where ${bankTransactions.matchStatus} = 'pending')::int`,

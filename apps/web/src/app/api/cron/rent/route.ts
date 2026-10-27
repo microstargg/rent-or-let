@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { verifyCronAuth } from "@/lib/api-auth";
 import { getDefaultBranch } from "@/lib/db/queries";
-import { generateRentInvoicesForBranch } from "@/lib/operations/rent/generate-invoices";
+import { raiseRentInvoices } from "@/lib/operations/rent/generate-invoices";
 import {
   getAgencyBySlug,
   listAgencySlugs,
@@ -21,10 +21,7 @@ export async function GET(request: Request) {
       const branch = await getDefaultBranch();
       if (!branch) return { error: "No branch configured" as const };
 
-      const periodStart = new Date();
-      periodStart.setDate(1);
-      const periodStartStr = periodStart.toISOString().slice(0, 10);
-      const generated = await generateRentInvoicesForBranch(branch.id, periodStartStr);
+      const generated = await raiseRentInvoices(branch.id);
       return generated;
     });
     agencies.push({ slug, ...result });

@@ -17,17 +17,10 @@ import {
   isTenantPayableInvoiceType,
   isWorksInvoiceType,
 } from "@/lib/operations/maintenance/constants";
-import { seedDemoWorkInvoices } from "@/lib/operations/maintenance/seed-demo-work-invoices";
+import { RaiseRentButton } from "@/components/admin/raise-rent-button";
 
 export default async function AdminInvoicesPage() {
   const branch = await getDefaultBranch();
-  if (branch) {
-    try {
-      await seedDemoWorkInvoices(branch.id);
-    } catch (err) {
-      console.error("[invoices] demo works seed failed", err);
-    }
-  }
   const rows = await listInvoices(branch?.id);
   const open = rows.filter(
     (r) =>
@@ -43,7 +36,8 @@ export default async function AdminInvoicesPage() {
     <div>
       <AdminPageHeader
         title="Invoices"
-        description="Rent charges for tenants, plus works invoices from completed jobs. Works are deducted from the landlord when you generate statements."
+        description="Rent charges for tenants, plus works invoices from completed jobs. Works are deducted from the landlord when you generate statements. Rent is raised automatically on the 1st for the following month; use Raise rent invoices to catch up if a month is missing."
+        actions={<RaiseRentButton />}
       />
       <FinanceSubnav />
 

@@ -37,3 +37,9 @@ export function csvProviderTxnId(date: string, amount: number, description: stri
   const hash = createHash("sha256").update(raw).digest("hex").slice(0, 24);
   return `csv_${hash}`;
 }
+
+/** Stable id for a PDF statement line: date + amount, numbered when repeated. */
+export function pdfProviderTxnId(date: string, amount: number): string {
+  const hash = createHash("sha256").update(`${date}|${amount.toFixed(2)}`).digest("hex").slice(0, 24);
+  return `pdf_${hash}`;
+}

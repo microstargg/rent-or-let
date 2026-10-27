@@ -82,3 +82,33 @@ export async function generateAiObject<T>(opts: {
   });
   return object;
 }
+
+/** Structured output from a document (e.g. a PDF bank statement) plus instructions. */
+export async function generateAiObjectFromFile<T>(opts: {
+  schema: z.ZodType<T>;
+  prompt: string;
+  system?: string;
+  file: { data: Uint8Array; mediaType: string; filename?: string };
+}): Promise<T> {
+  if (!isAiConfigured()) throw new Error(aiUnavailableMessage());
+  const { object } = await generateObject({
+    model: resolveModel(),
+    schema: opts.schema,
+    system: opts.system,
+    messages: [
+      {
+        role: "user",
+        content: [
+          { type: "text", text: opts.prompt },
+          {
+            type: "file",
+            data: opts.file.data,
+            mediaType: opts.file.mediaType,
+            filename: opts.file.filename,
+          },
+        ],
+      },
+    ],
+  });
+  return object;
+}

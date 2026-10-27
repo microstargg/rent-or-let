@@ -248,8 +248,28 @@ async function refreshInvoiceStatus(invoiceId: string) {
   return updated ?? null;
 }
 
+/** Open tenant-payable invoices for a tenancy, oldest due first. */
+async function listOpenTenancyInvoices(tenancyId: string) {
+  return db
+    .select()
+    .from(invoices)
+    .where(
+      and(
+        eq(invoices.tenancyId, tenancyId),
+        agencyEq(invoices.agencyId),
+        inArray(invoices.status, ["due", "partial"]),
+        inArray(invoices.type, ["rent", "late_fee"])
+      )
+    )
+    .orderBy(invoices.dueDate, invoices.id);
+}
+
 /**
  * Record a payment and allocate to an invoice. Supports partials and overpayments.
+ * With `spillToTenancy`, money left after the target invoice clears the tenancy's other
+ * open invoices oldest first (a tenant catching up on arrears, or paying in advance)
+ * before anything is flagged as an overpayment. `paidAt` dates the payment and every
+ * ledger line, so a bank receipt lands on the statement for the day it was banked.
  */
 export async function recordPaymentAndAllocate(data: {
   branchId: string;
@@ -258,6 +278,8 @@ export async function recordPaymentAndAllocate(data: {
   amount: number;
   method: string;
   externalRef?: string | null;
+  paidAt?: Date;
+  spillToTenancy?: boolean;
 }) {
   await ensureAgency();
   const invoice = await getInvoiceById(data.invoiceId);
@@ -267,13 +289,16 @@ export async function recordPaymentAndAllocate(data: {
     return { payment: null, invoice, exception: null };
   }
 
+  const paidAt = data.paidAt ?? new Date();
   const ctx = await getTenancyContext(data.tenancyId);
-  const already = await getAllocatedTotalForInvoice(data.invoiceId);
-  const remaining = Math.max(0, Number(invoice.amount) - already);
-  const payAmount = data.amount;
-  const allocateAmount = Math.min(payAmount, remaining);
-  const overpay = payAmount - allocateAmount;
+  const targets = [invoice];
+  if (data.spillToTenancy) {
+    for (const other of await listOpenTenancyInvoices(data.tenancyId)) {
+      if (other.id !== invoice.id) targets.push(other);
+    }
+  }
 
+  const payAmount = data.amount;
   const [payment] = await db
     .insert(payments)
     .values({
@@ -282,20 +307,11 @@ export async function recordPaymentAndAllocate(data: {
       tenancyId: data.tenancyId,
       invoiceId: data.invoiceId,
       amount: String(payAmount),
+      paidAt,
       method: data.method,
       externalRef: data.externalRef,
     })
     .returning();
-
-  if (allocateAmount > 0) {
-    await db.insert(paymentAllocations).values({
-      agencyId: currentAgencyId(),
-      branchId: data.branchId,
-      paymentId: payment.id,
-      invoiceId: data.invoiceId,
-      amount: String(allocateAmount),
-    });
-  }
 
   await insertLedgerEntry({
     branchId: data.branchId,
@@ -307,9 +323,26 @@ export async function recordPaymentAndAllocate(data: {
     invoiceId: data.invoiceId,
     paymentId: payment.id,
     memo: `Payment via ${data.method}`,
+    occurredAt: paidAt,
   });
 
-  if (allocateAmount > 0) {
+  let left = payAmount;
+  let allocatedTotal = 0;
+  let targetRemaining = 0;
+  for (const [index, target] of targets.entries()) {
+    const already = await getAllocatedTotalForInvoice(target.id);
+    const remaining = Math.max(0, Number(target.amount) - already);
+    if (index === 0) targetRemaining = remaining;
+    const allocateAmount = Math.round(Math.min(left, remaining) * 100) / 100;
+    if (allocateAmount <= 0) continue;
+
+    await db.insert(paymentAllocations).values({
+      agencyId: currentAgencyId(),
+      branchId: data.branchId,
+      paymentId: payment.id,
+      invoiceId: target.id,
+      amount: String(allocateAmount),
+    });
     await insertLedgerEntry({
       branchId: data.branchId,
       tenancyId: data.tenancyId,
@@ -317,26 +350,33 @@ export async function recordPaymentAndAllocate(data: {
       landlordId: ctx?.landlordId,
       entryType: "allocation",
       amount: 0,
-      invoiceId: data.invoiceId,
+      invoiceId: target.id,
       paymentId: payment.id,
       memo: `Allocated £${allocateAmount.toFixed(2)} to invoice`,
       meta: { allocated: allocateAmount },
+      occurredAt: paidAt,
     });
+    await refreshInvoiceStatus(target.id);
+    left -= allocateAmount;
+    allocatedTotal += allocateAmount;
+    if (left <= 0.001) break;
+  }
 
-    if (ctx?.landlordId) {
-      const { postRentReceivedToLandlord } = await import("./landlord-finance");
-      await postRentReceivedToLandlord({
-        branchId: data.branchId,
-        landlordId: ctx.landlordId,
-        propertyId: ctx.propertyId,
-        tenancyId: data.tenancyId,
-        rentAmount: allocateAmount,
-        paymentId: payment.id,
-      });
-    }
+  if (allocatedTotal > 0 && ctx?.landlordId) {
+    const { postRentReceivedToLandlord } = await import("./landlord-finance");
+    await postRentReceivedToLandlord({
+      branchId: data.branchId,
+      landlordId: ctx.landlordId,
+      propertyId: ctx.propertyId,
+      tenancyId: data.tenancyId,
+      rentAmount: Math.round(allocatedTotal * 100) / 100,
+      paymentId: payment.id,
+      occurredAt: paidAt,
+    });
   }
 
   let exception = null;
+  const overpay = Math.round(left * 100) / 100;
   if (overpay > 0.001) {
     exception = await createPaymentException({
       branchId: data.branchId,
@@ -347,19 +387,19 @@ export async function recordPaymentAndAllocate(data: {
       amount: overpay,
       note: `Overpayment of £${overpay.toFixed(2)}`,
     });
-  } else if (payAmount + 0.001 < remaining && payAmount > 0) {
+  } else if (payAmount + 0.001 < targetRemaining && payAmount > 0) {
     exception = await createPaymentException({
       branchId: data.branchId,
       tenancyId: data.tenancyId,
       paymentId: payment.id,
       invoiceId: data.invoiceId,
       kind: "underpayment",
-      amount: remaining - payAmount,
-      note: `Partial payment; £${(remaining - payAmount).toFixed(2)} remaining`,
+      amount: targetRemaining - payAmount,
+      note: `Partial payment; £${(targetRemaining - payAmount).toFixed(2)} remaining`,
     });
   }
 
-  const updatedInvoice = await refreshInvoiceStatus(data.invoiceId);
+  const updatedInvoice = await getInvoiceById(data.invoiceId);
   return { payment, invoice: updatedInvoice, exception };
 }
 
@@ -477,14 +517,20 @@ export async function resolvePaymentException(id: string) {
   return row ?? null;
 }
 
+/**
+ * Tenancies owing money today. Charges for invoices not yet due (next month's rent is
+ * raised a month ahead) are left out, so only rent that has fallen due counts.
+ */
 export async function listArrears(branchId: string) {
   await ensureAgency();
+  const today = new Date().toISOString().slice(0, 10);
   const balanceRows = await db
     .select({
       tenancyId: ledgerEntries.tenancyId,
-      balance: sql<string>`coalesce(sum(${ledgerEntries.amount}), 0)`,
+      balance: sql<string>`coalesce(sum(case when ${ledgerEntries.entryType} in ('charge', 'late_fee') and ${invoices.dueDate} > ${today} then 0 else ${ledgerEntries.amount} end), 0)`,
     })
     .from(ledgerEntries)
+    .leftJoin(invoices, eq(ledgerEntries.invoiceId, invoices.id))
     .where(and(eq(ledgerEntries.branchId, branchId), agencyEq(ledgerEntries.agencyId)))
     .groupBy(ledgerEntries.tenancyId);
 
@@ -521,7 +567,9 @@ export async function listArrears(branchId: string) {
       and(
         eq(invoices.branchId, branchId),
         agencyEq(invoices.agencyId),
-        inArray(invoices.status, ["due", "partial"])
+        inArray(invoices.status, ["due", "partial"]),
+        inArray(invoices.type, ["rent", "late_fee"]),
+        lte(invoices.dueDate, today)
       )
     );
 
@@ -532,7 +580,7 @@ export async function listArrears(branchId: string) {
     if (!cur || inv.dueDate < cur) oldestDueByTenancy.set(inv.tenancyId, inv.dueDate);
   }
 
-  const today = new Date();
+  const now = new Date();
   return active
     .map((r) => {
       const balance = balanceByTenancy.get(r.tenancyId) ?? 0;
@@ -540,7 +588,7 @@ export async function listArrears(branchId: string) {
       let daysOverdue = 0;
       if (oldestDue && balance > 0.001) {
         const due = new Date(oldestDue);
-        daysOverdue = Math.max(0, Math.floor((today.getTime() - due.getTime()) / 86400000));
+        daysOverdue = Math.max(0, Math.floor((now.getTime() - due.getTime()) / 86400000));
       }
       return {
         tenancyId: r.tenancyId,
@@ -700,7 +748,12 @@ export async function updateInvoiceStatus(invoiceId: string, status: string) {
 export async function getActiveTenanciesForRent(branchId: string) {
   await ensureAgency();
   return db
-    .select({ id: tenancies.id, rentAmount: tenancies.rentAmount })
+    .select({
+      id: tenancies.id,
+      rentAmount: tenancies.rentAmount,
+      startDate: tenancies.startDate,
+      endDate: tenancies.endDate,
+    })
     .from(tenancies)
     .where(
       and(
