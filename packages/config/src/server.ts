@@ -70,6 +70,7 @@ export function openAgencySlot(): AgencyStore {
 export {
   getAgencyBySlug,
   listAgencySlugs,
+  ISOLATED_AGENCY_SLUGS,
   resolveAgencySlug,
   matchAgencySlug,
   agencySlugFromHostname,

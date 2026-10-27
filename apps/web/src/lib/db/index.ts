@@ -1,6 +1,6 @@
 import { drizzle, type NeonHttpDatabase } from "drizzle-orm/neon-http";
 import { neon } from "@neondatabase/serverless";
-import { getAgency } from "@repo/config/server";
+import { getAgency, ISOLATED_AGENCY_SLUGS } from "@repo/config/server";
 import * as schema from "./schema";
 
 type Db = NeonHttpDatabase<typeof schema>;
@@ -13,7 +13,9 @@ function createDb(url: string): Db {
 
 export function getDb(): Db {
   const agency = getAgency();
-  const url = agency.runtime.databaseUrl || process.env.DATABASE_URL;
+  const url =
+    agency.runtime.databaseUrl ||
+    (ISOLATED_AGENCY_SLUGS.has(agency.slug) ? undefined : process.env.DATABASE_URL);
   if (!url) {
     throw new Error(
       `DATABASE_URL is not set for agency "${agency.slug}". Set AGENCY_${agency.slug.replace(/-/g, "_").toUpperCase()}_DATABASE_URL or DATABASE_URL.`

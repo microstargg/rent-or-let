@@ -1,0 +1,8 @@
+/* LetFlow Demo Lettings — ink + violet */
+:root {
+  --primary: oklch(0.28 0.05 265);
+  --primary-foreground: oklch(0.98 0.005 265);
+  --accent: oklch(0.6 0.2 290);
+  --accent-foreground: oklch(0.98 0.005 290);
+  --ring: oklch(0.6 0.2 290);
+}

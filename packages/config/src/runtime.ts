@@ -33,6 +33,13 @@ export interface Agency {
   runtime: AgencyRuntime;
 }
 
+/**
+ * Agencies that must run on their own Neon project (AGENCY_{SLUG}_DATABASE_URL and
+ * AGENCY_{SLUG}_NEON_AUTH_*). The public demo is wiped nightly, so it can never be
+ * allowed to resolve to the shared production database.
+ */
+export const ISOLATED_AGENCY_SLUGS: ReadonlySet<string> = new Set(["demo"]);
+
 export function listAgencySlugs(): TenantId[] {
   const fromEnv = process.env.AGENCY_SLUGS?.split(",")
     .map((s) => s.trim())
@@ -56,17 +63,22 @@ export function getAgencyRuntime(slug: string): AgencyRuntime {
   }
   slug = canonical;
 
-  const databaseUrl = firstDefined(
-    agencyEnv(slug, "DATABASE_URL"),
-    process.env.DATABASE_URL?.trim()
-  );
+  // Isolated agencies never fall back to the shared database or auth project.
+  const isolated = ISOLATED_AGENCY_SLUGS.has(slug);
+  const shared = (name: string) =>
+    isolated ? undefined : process.env[name]?.trim();
+
+  let databaseUrl = firstDefined(agencyEnv(slug, "DATABASE_URL"), shared("DATABASE_URL"));
+  if (isolated && databaseUrl && databaseUrl === process.env.DATABASE_URL?.trim()) {
+    databaseUrl = undefined;
+  }
   const neonAuthBaseUrl = firstDefined(
     agencyEnv(slug, "NEON_AUTH_BASE_URL"),
-    process.env.NEON_AUTH_BASE_URL?.trim()
+    shared("NEON_AUTH_BASE_URL")
   );
   const neonAuthCookieSecret = firstDefined(
     agencyEnv(slug, "NEON_AUTH_COOKIE_SECRET"),
-    process.env.NEON_AUTH_COOKIE_SECRET?.trim()
+    shared("NEON_AUTH_COOKIE_SECRET")
   );
 
   const isFallback = slug === fallbackAgencySlug();

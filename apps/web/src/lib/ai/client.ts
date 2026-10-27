@@ -1,6 +1,7 @@
 import { generateObject, generateText, type LanguageModel } from "ai";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import type { z } from "zod";
+import { demoAiEnabled, inDemoAgency } from "@/lib/demo/server";
 
 /** Google AI Studio Flash. Swap via AI_MODEL when you move to paid. */
 const GOOGLE_FLASH_MODEL = "gemini-3.6-flash";
@@ -30,10 +31,12 @@ function gatewayConfigured(): boolean {
 }
 
 export function isAiConfigured(): boolean {
+  if (inDemoAgency() && !demoAiEnabled()) return false;
   return Boolean(googleApiKey() || gatewayConfigured());
 }
 
 export function aiUnavailableMessage(): string {
+  if (inDemoAgency()) return "AI assist is switched off in the demo.";
   return "AI is not configured. Add a free Google AI Studio key as GOOGLE_GENERATIVE_AI_API_KEY, or set AI_GATEWAY_API_KEY for Vercel AI Gateway.";
 }
 

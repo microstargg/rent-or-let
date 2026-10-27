@@ -16,10 +16,14 @@ import {
   scanListingCopy,
 } from "@/lib/listings/discrimination-scan";
 
+import { inDemoAgency } from "@/lib/demo/server";
+
 function enabledPortalsForBranch(branch: {
   rightmoveSyncEnabled: boolean;
   otmSyncEnabled: boolean;
 }): PortalName[] {
+  // The public demo never pushes its fake listings to real portals.
+  if (inDemoAgency()) return [];
   const portals: PortalName[] = [];
   if (branch.rightmoveSyncEnabled) portals.push("rightmove");
   if (branch.otmSyncEnabled) portals.push("onthemarket");
@@ -83,6 +87,7 @@ export async function processSyncJob(
   portal: PortalName,
   action: "send" | "remove"
 ): Promise<{ success: boolean; message?: string }> {
+  if (inDemoAgency()) return { success: false, message: "Portal sync is switched off in the demo." };
   const result = await getPropertyWithBranch(propertyId);
   if (!result) return { success: false, message: "Property not found" };
 

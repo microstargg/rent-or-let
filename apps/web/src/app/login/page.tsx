@@ -3,14 +3,23 @@ import { auth } from "@/lib/auth/instance";
 import { bindRequestAgency } from "@/lib/agency";
 import { resolvePostLoginPath } from "@/lib/auth/redirect";
 import { LoginForm } from "./login-form";
+import { DemoLoginPanel } from "@/components/demo/demo-login-panel";
+import { isDemoAgencySlug } from "@/lib/demo/constants";
 
 export default async function LoginPage({
   searchParams,
 }: {
   searchParams: Promise<{ error?: string; registered?: string; next?: string }>;
 }) {
-  await bindRequestAgency();
+  const agency = await bindRequestAgency();
   const params = await searchParams;
+  if (isDemoAgencySlug(agency.slug)) {
+    return (
+      <DemoLoginPanel
+        error={params.error ? "The demo is unavailable right now. Please try again shortly." : undefined}
+      />
+    );
+  }
   const { data } = await auth.getSession();
   if (data?.user && !params.error) {
     redirect(await resolvePostLoginPath(data.user.id, params.next, data.user.email));

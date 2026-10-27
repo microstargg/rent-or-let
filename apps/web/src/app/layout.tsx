@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { TenantProvider } from "@repo/config";
 import { CookieConsent } from "@/components/compliance/cookie-consent";
+import { DemoBanner } from "@/components/demo/demo-banner";
+import { isDemoAgencySlug } from "@/lib/demo/constants";
 import { bindRequestAgency } from "@/lib/agency";
 import { getAppUrl } from "@/lib/app-url";
 import "./globals.css";
@@ -47,6 +49,7 @@ export default async function RootLayout({
     <html lang="en-GB" data-agency={agency.slug} data-platform-host={agency.runtime.platformHost}>
       <body className={`${geistSans.variable} ${geistMono.variable} font-sans`}>
         <TenantProvider tenant={agency.config}>
+          {isDemoAgencySlug(agency.slug) && <DemoBanner />}
           <main className="min-h-screen">{children}</main>
           <CookieConsent />
         </TenantProvider>
