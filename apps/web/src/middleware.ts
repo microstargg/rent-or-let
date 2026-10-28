@@ -2,6 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { AGENCY_SLUG_HEADER } from "@repo/config/host";
 import { getAgencyBySlug, resolveAgencySlug } from "@repo/config/runtime";
 import { getAuthForAgency } from "@/lib/auth/factory";
+import {
+  DEMO_ACCESS_COOKIE,
+  DEMO_ACCESS_PATH,
+  hasDemoAccess,
+  isDemoAccessExempt,
+} from "@/lib/demo/access";
+import { isDemoAgencySlug } from "@/lib/demo/constants";
 
 const PUBLIC_PREFIXES = [
   "/login",
@@ -36,7 +43,7 @@ const AUTH_REQUIRED_PREFIXES = [
   "/settings",
 ];
 
-export default function middleware(request: NextRequest) {
+export default async function middleware(request: NextRequest) {
   const slug = resolveAgencySlug(
     request.headers.get("x-forwarded-host") ?? request.headers.get("host"),
     request.headers.get(AGENCY_SLUG_HEADER)
@@ -46,6 +53,24 @@ export default function middleware(request: NextRequest) {
   requestHeaders.set(AGENCY_SLUG_HEADER, slug);
   const requestWithSlug = new NextRequest(request, { headers: requestHeaders });
   const { pathname } = request.nextUrl;
+
+  // The demo is invite-only: everything sits behind a shared access code.
+  if (
+    isDemoAgencySlug(slug) &&
+    !isDemoAccessExempt(pathname) &&
+    !(await hasDemoAccess(request.cookies.get(DEMO_ACCESS_COOKIE)?.value))
+  ) {
+    if (pathname.startsWith("/api/")) {
+      return NextResponse.json({ error: "Access code required" }, { status: 401 });
+    }
+    const url = request.nextUrl.clone();
+    url.pathname = DEMO_ACCESS_PATH;
+    url.search = "";
+    if (pathname !== "/" || request.nextUrl.search) {
+      url.searchParams.set("next", `${pathname}${request.nextUrl.search}`);
+    }
+    return NextResponse.redirect(url);
+  }
 
   if (pathname === "/admin" || pathname.startsWith("/admin/")) {
     const url = request.nextUrl.clone();
