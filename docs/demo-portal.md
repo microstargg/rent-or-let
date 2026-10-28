@@ -15,7 +15,12 @@ public "try it" page. Every name, address, phone number and figure is made up.
 
 ## Getting in
 
-`demo.letflow.app/login` shows three buttons: explore as letting agent, landlord or tenant.
+Every page on demo.letflow.app first asks for a shared access code (`/demo-access`). The code
+is `DEMO_ACCESS_CODE`; a correct entry sets an `lf-demo-access` cookie for 30 days. Changing the
+code signs everyone out of the demo. If `DEMO_ACCESS_CODE` is unset, the demo is closed to
+everyone. The cron route and static assets skip the gate.
+
+After the code, `demo.letflow.app/login` shows three buttons: explore as letting agent, landlord or tenant.
 Each signs in to a shared account (`agent@`, `landlord@`, `renter@demo.letflow.app`) using
 `DEMO_LOGIN_PASSWORD`. The first click creates the account in the demo's Neon Auth. Visitors
 cannot change those accounts' passwords, emails or sessions (blocked in `/api/auth`).
@@ -42,6 +47,7 @@ AGENCY_DEMO_DATABASE_URL=...            # letflow-demo pooled connection string
 AGENCY_DEMO_NEON_AUTH_BASE_URL=...      # letflow-demo Neon Auth base URL
 AGENCY_DEMO_NEON_AUTH_COOKIE_SECRET=... # random 32+ bytes, demo only
 DEMO_LOGIN_PASSWORD=...                 # random, shared by the three demo accounts
+DEMO_ACCESS_CODE=...                    # code visitors enter before seeing anything
 ```
 
 Add `demo.letflow.app` as a domain on the platform project. If `AGENCY_SLUGS` is set, the
