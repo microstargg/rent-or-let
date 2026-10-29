@@ -1,4 +1,4 @@
-import { eq, and, desc, asc, isNull, lt } from "drizzle-orm";
+import { eq, and, desc, asc, isNull, lt, sql } from "drizzle-orm";
 import { db } from "../index";
 import { agencyEq, currentAgencyId, ensureAgency } from "../agency-scope";
 import { tenancies, inspections, notices, properties, renters, documents } from "../schema";
@@ -7,6 +7,8 @@ import { createTask } from "./finance";
 import {
   defaultInspectionReport,
   addMonthsIso,
+  parseInspectionReport,
+  reportFromBaseline,
   type InspectionReport,
 } from "@/lib/inspections/report";
 
@@ -85,6 +87,15 @@ export async function createInspection(data: {
     .from(properties)
     .where(and(eq(properties.id, data.propertyId), agencyEq(properties.agencyId)))
     .limit(1);
+
+  // Interim and move-out visits start from the check-in so rooms line up for comparison.
+  const baseline = data.type === "move_in" ? null : await findCheckInInspection(data);
+  const baselineReport = baseline ? parseInspectionReport(baseline.meta) : null;
+  const report =
+    baselineReport && baselineReport.rooms.length
+      ? reportFromBaseline(baselineReport)
+      : defaultInspectionReport(property?.bedrooms ?? 2);
+
   const [row] = await db
     .insert(inspections)
     .values({
@@ -95,10 +106,66 @@ export async function createInspection(data: {
       type: data.type,
       scheduledAt: data.scheduledAt ?? null,
       notes: data.notes ?? null,
-      meta: { report: defaultInspectionReport(property?.bedrooms ?? 2) },
+      meta: {
+        report,
+        ...(baseline && baselineReport
+          ? { baseline: baselineReport, baseline_inspection_id: baseline.id }
+          : {}),
+      },
     })
     .returning();
   return row;
+}
+
+/** Latest completed check-in for the tenancy, else for the property. */
+async function findCheckInInspection(data: { propertyId: string; tenancyId?: string | null }) {
+  const scope = data.tenancyId
+    ? eq(inspections.tenancyId, data.tenancyId)
+    : eq(inspections.propertyId, data.propertyId);
+  const [row] = await db
+    .select()
+    .from(inspections)
+    .where(
+      and(
+        scope,
+        eq(inspections.type, "move_in"),
+        agencyEq(inspections.agencyId)
+      )
+    )
+    .orderBy(sql`${inspections.completedAt} desc nulls last`, desc(inspections.createdAt))
+    .limit(1);
+  return row ?? null;
+}
+
+export type InspectionPhotoTarget =
+  | { kind: "element"; room: number; element: number }
+  | { kind: "room"; room: number }
+  | { kind: "meter"; meter: number };
+
+/** Attach an uploaded photo to the stored report straight away so it survives a lost tab. */
+export async function addInspectionPhoto(id: string, target: InspectionPhotoTarget, url: string) {
+  await ensureAgency();
+  const existing = await getInspectionById(id);
+  if (!existing) return null;
+  const meta =
+    existing.inspection.meta && typeof existing.inspection.meta === "object"
+      ? (existing.inspection.meta as Record<string, unknown>)
+      : {};
+  const report = parseInspectionReport(meta);
+  if (target.kind === "meter") {
+    const meter = report.meters[target.meter];
+    if (meter) meter.photoUrl = url;
+  } else {
+    const room = report.rooms[target.room];
+    if (room && target.kind === "room") room.photoUrls.push(url);
+    const el = room && target.kind === "element" ? room.elements[target.element] : undefined;
+    if (el) el.photoUrls.push(url);
+  }
+  await db
+    .update(inspections)
+    .set({ meta: { ...meta, report } })
+    .where(and(eq(inspections.id, id), agencyEq(inspections.agencyId)));
+  return report;
 }
 
 export async function completeInspection(

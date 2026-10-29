@@ -15,6 +15,7 @@ interface WorkOrderRow {
     scheduledFor: Date | null;
     costEstimate: string | null;
     finalCost: string | null;
+    clientCharge: string | null;
   };
   contractorName: string | null;
   invoice: {
@@ -37,8 +38,10 @@ export function WorkOrderPanel({
   const router = useRouter();
   const [contractorId, setContractorId] = useState(contractors[0]?.id ?? "");
   const [estimate, setEstimate] = useState("");
+  const [charge, setCharge] = useState("");
   const [scheduledFor, setScheduledFor] = useState("");
   const [finalCosts, setFinalCosts] = useState<Record<string, string>>({});
+  const [charges, setCharges] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
 
   async function patch(body: unknown) {
@@ -87,7 +90,7 @@ export function WorkOrderPanel({
             </p>
           </div>
           <div>
-            <Label htmlFor="wo_estimate">Estimate (£)</Label>
+            <Label htmlFor="wo_estimate">Contractor estimate (£)</Label>
             <Input
               id="wo_estimate"
               type="number"
@@ -97,6 +100,19 @@ export function WorkOrderPanel({
               placeholder="0.00"
               value={estimate}
               onChange={(e) => setEstimate(e.target.value)}
+            />
+          </div>
+          <div>
+            <Label htmlFor="wo_charge">Charge client (£)</Label>
+            <Input
+              id="wo_charge"
+              type="number"
+              step="0.01"
+              inputMode="decimal"
+              className="mt-1 min-h-11"
+              placeholder="Same as cost"
+              value={charge}
+              onChange={(e) => setCharge(e.target.value)}
             />
           </div>
           <div>
@@ -120,10 +136,12 @@ export function WorkOrderPanel({
                 action: "create",
                 contractor_id: contractorId || null,
                 cost_estimate: estimate ? Number(estimate) : null,
+                client_charge: charge ? Number(charge) : null,
                 scheduled_for: scheduledFor || null,
               },
             }).then(() => {
               setEstimate("");
+              setCharge("");
               setScheduledFor("");
             });
           }}
@@ -139,6 +157,9 @@ export function WorkOrderPanel({
             workOrder.finalCost ??
             workOrder.costEstimate ??
             "";
+          const chargeValue = charges[workOrder.id] ?? workOrder.clientCharge ?? "";
+          const cost = Number(workOrder.finalCost ?? workOrder.costEstimate ?? 0);
+          const billed = Number(workOrder.clientCharge ?? 0) || cost;
           const isDone =
             workOrder.status === "completed" || workOrder.status === "cancelled";
 
@@ -149,7 +170,9 @@ export function WorkOrderPanel({
                   <p className="font-medium">{contractorName ?? "Unassigned"}</p>
                   <p className="mt-1 text-sm text-muted-foreground">
                     {workOrder.costEstimate && `Est £${workOrder.costEstimate}`}
-                    {workOrder.finalCost && ` · Final £${workOrder.finalCost}`}
+                    {workOrder.finalCost && ` · Contractor £${workOrder.finalCost}`}
+                    {workOrder.clientCharge && ` · Client £${workOrder.clientCharge}`}
+                    {cost > 0 && billed !== cost && ` · Margin £${(billed - cost).toFixed(2)}`}
                     {workOrder.scheduledFor &&
                       ` · ${new Date(workOrder.scheduledFor).toLocaleDateString("en-GB")}`}
                   </p>
@@ -180,7 +203,7 @@ export function WorkOrderPanel({
                     </Button>
                   )}
                   <div className="min-w-[8rem] flex-1">
-                    <Label htmlFor={`final-${workOrder.id}`}>Final £</Label>
+                    <Label htmlFor={`final-${workOrder.id}`}>Contractor £</Label>
                     <Input
                       id={`final-${workOrder.id}`}
                       type="number"
@@ -190,6 +213,24 @@ export function WorkOrderPanel({
                       value={costValue}
                       onChange={(e) =>
                         setFinalCosts((prev) => ({
+                          ...prev,
+                          [workOrder.id]: e.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+                  <div className="min-w-[8rem] flex-1">
+                    <Label htmlFor={`charge-${workOrder.id}`}>Charge client £</Label>
+                    <Input
+                      id={`charge-${workOrder.id}`}
+                      type="number"
+                      step="0.01"
+                      inputMode="decimal"
+                      className="mt-1 min-h-11"
+                      placeholder="Same as cost"
+                      value={chargeValue}
+                      onChange={(e) =>
+                        setCharges((prev) => ({
                           ...prev,
                           [workOrder.id]: e.target.value,
                         }))
@@ -208,6 +249,7 @@ export function WorkOrderPanel({
                           final_cost: Number(
                             costValue || workOrder.costEstimate || 0
                           ),
+                          client_charge: chargeValue ? Number(chargeValue) : null,
                         },
                       })
                     }

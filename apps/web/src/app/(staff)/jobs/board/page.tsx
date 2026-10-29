@@ -178,7 +178,8 @@ export default async function JobsBoardPage({
                     <p className="mt-2 text-sm">
                       {contractorName ?? "Unassigned"}
                       {workOrder.costEstimate && ` · est £${workOrder.costEstimate}`}
-                      {workOrder.finalCost && ` · final £${workOrder.finalCost}`}
+                      {workOrder.finalCost && ` · contractor £${workOrder.finalCost}`}
+                      {workOrder.clientCharge && ` · client £${workOrder.clientCharge}`}
                     </p>
                     {workOrder.scheduledFor && (
                       <p className="mt-1 text-xs text-muted-foreground">
@@ -202,6 +203,7 @@ export default async function JobsBoardPage({
                   status={workOrder.status}
                   costEstimate={workOrder.costEstimate}
                   finalCost={workOrder.finalCost}
+                  clientCharge={workOrder.clientCharge}
                 />
               </article>
             ))}

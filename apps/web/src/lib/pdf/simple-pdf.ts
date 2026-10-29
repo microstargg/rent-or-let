@@ -157,18 +157,34 @@ export function buildSimplePdf(title: string, lines: string[]): Uint8Array {
   return assemblePdf(objects);
 }
 
-function assemblePdf(objects: string[]): Uint8Array {
+/** An object whose stream is raw bytes (e.g. a JPEG); `dict` must not include /Length. */
+interface BinaryPdfObject {
+  dict: string;
+  data: Uint8Array;
+}
+
+function assemblePdf(objects: (string | BinaryPdfObject)[]): Uint8Array {
   const header = "%PDF-1.4\n";
   const chunks: Uint8Array[] = [textEncoder.encode(header)];
   const offsets = [0];
   let offset = byteLength(header);
 
   objects.forEach((body, i) => {
-    const obj = `${i + 1} 0 obj\n${body}\nendobj\n`;
-    const bytes = textEncoder.encode(obj);
     offsets.push(offset);
-    chunks.push(bytes);
-    offset += bytes.length;
+    const parts: Uint8Array[] =
+      typeof body === "string"
+        ? [textEncoder.encode(`${i + 1} 0 obj\n${body}\nendobj\n`)]
+        : [
+            textEncoder.encode(
+              `${i + 1} 0 obj\n${body.dict.replace(/>>\s*$/, ` /Length ${body.data.length} >>`)}\nstream\n`
+            ),
+            body.data,
+            textEncoder.encode("\nendstream\nendobj\n"),
+          ];
+    for (const p of parts) {
+      chunks.push(p);
+      offset += p.length;
+    }
   });
 
   const xrefStart = offset;
@@ -212,7 +228,44 @@ export type PdfBlock =
   | { kind: "text"; text: string; bold?: boolean }
   | { kind: "row"; label: string; value: string; bold?: boolean; indent?: boolean }
   | { kind: "rule" }
-  | { kind: "spacer" };
+  | { kind: "spacer" }
+  | { kind: "images"; images: PdfImage[] };
+
+export interface PdfImage {
+  data: Uint8Array;
+  width: number;
+  height: number;
+  components: number;
+}
+
+/** Read width/height from a baseline or progressive JPEG. Returns null for anything else. */
+export function readJpeg(data: Uint8Array): PdfImage | null {
+  if (data.length < 4 || data[0] !== 0xff || data[1] !== 0xd8) return null;
+  let i = 2;
+  while (i + 9 < data.length) {
+    if (data[i] !== 0xff) return null;
+    const marker = data[i + 1]!;
+    if (marker === 0xd8 || marker === 0x01 || (marker >= 0xd0 && marker <= 0xd7)) {
+      i += 2;
+      continue;
+    }
+    const len = (data[i + 2]! << 8) | data[i + 3]!;
+    // SOF0..SOF15 except DHT (C4), JPG (C8) and DAC (CC)
+    if (marker >= 0xc0 && marker <= 0xcf && marker !== 0xc4 && marker !== 0xc8 && marker !== 0xcc) {
+      const height = (data[i + 5]! << 8) | data[i + 6]!;
+      const width = (data[i + 7]! << 8) | data[i + 8]!;
+      const components = data[i + 9]!;
+      if (!width || !height || ![1, 3, 4].includes(components)) return null;
+      return { data, width, height, components };
+    }
+    i += 2 + len;
+  }
+  return null;
+}
+
+const IMAGES_PER_ROW = 3;
+const IMAGE_GAP = 8;
+const IMAGE_CELL_H = 116;
 
 const AMOUNT_SIZE = 10;
 const HEADING_SIZE = 12;
@@ -223,7 +276,20 @@ function blockHeight(block: PdfBlock): number {
   if (block.kind === "heading") return 22;
   if (block.kind === "rule") return 14;
   if (block.kind === "spacer") return 10;
+  if (block.kind === "images") return IMAGE_CELL_H + IMAGE_GAP;
   return 16;
+}
+
+/** One block per row of photos so a long set of photos can break across pages. */
+function splitImageRows(blocks: PdfBlock[]): PdfBlock[] {
+  return blocks.flatMap((block) => {
+    if (block.kind !== "images") return [block];
+    const rows: PdfBlock[] = [];
+    for (let i = 0; i < block.images.length; i += IMAGES_PER_ROW) {
+      rows.push({ kind: "images", images: block.images.slice(i, i + IMAGES_PER_ROW) });
+    }
+    return rows;
+  });
 }
 
 export function buildStyledPdf(blocks: PdfBlock[]): Uint8Array {
@@ -238,7 +304,7 @@ export function buildStyledPdf(blocks: PdfBlock[]): Uint8Array {
     y = top;
   };
 
-  for (const block of blocks) {
+  for (const block of splitImageRows(blocks)) {
     const h = blockHeight(block);
     if (y - h < BOTTOM_MARGIN) flush();
     current.push(block);
@@ -247,7 +313,7 @@ export function buildStyledPdf(blocks: PdfBlock[]): Uint8Array {
   flush();
   if (pages.length === 0) pages.push([]);
 
-  const objects: string[] = [];
+  const objects: (string | BinaryPdfObject)[] = [];
   objects.push("<< /Type /Catalog /Pages 2 0 R >>");
   const pageIds: number[] = [];
   const contentIds: number[] = [];
@@ -258,18 +324,50 @@ export function buildStyledPdf(blocks: PdfBlock[]): Uint8Array {
   }
   const regularFontId = nextId++;
   const boldFontId = nextId++;
+  // Image XObjects come after the fonts, one per distinct photo, numbered in page order.
+  const imageObjects = new Map<Uint8Array, { name: string; id: number; image: PdfImage }>();
+  const pageImages = pages.map((page) =>
+    page.flatMap((b) => (b.kind === "images" ? b.images : [])).map((image) => {
+      let placed = imageObjects.get(image.data);
+      if (!placed) {
+        const id = nextId++;
+        placed = { name: `Im${id}`, id, image };
+        imageObjects.set(image.data, placed);
+      }
+      return placed;
+    })
+  );
   const kids = pageIds.map((id) => `${id} 0 R`).join(" ");
   objects.push(`<< /Type /Pages /Kids [ ${kids} ] /Count ${pages.length} >>`);
 
   const amountRight = PAGE_WIDTH - MARGIN_X;
 
   for (let i = 0; i < pages.length; i++) {
+    const images = pageImages[i]!;
+    const xobjects = images.length
+      ? ` /XObject << ${[...new Set(images)].map((im) => `/${im.name} ${im.id} 0 R`).join(" ")} >>`
+      : "";
     objects.push(
-      `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${PAGE_WIDTH.toFixed(2)} ${PAGE_HEIGHT.toFixed(2)}] /Resources << /Font << /F1 ${regularFontId} 0 R /F2 ${boldFontId} 0 R >> >> /Contents ${contentIds[i]} 0 R >>`
+      `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${PAGE_WIDTH.toFixed(2)} ${PAGE_HEIGHT.toFixed(2)}] /Resources << /Font << /F1 ${regularFontId} 0 R /F2 ${boldFontId} 0 R >>${xobjects} >> /Contents ${contentIds[i]} 0 R >>`
     );
     let cursorY = top;
+    let imageIndex = 0;
     const ops: string[] = [];
     for (const block of pages[i]) {
+      if (block.kind === "images") {
+        const cellW = (amountRight - MARGIN_X - IMAGE_GAP * (IMAGES_PER_ROW - 1)) / IMAGES_PER_ROW;
+        block.images.forEach((img, col) => {
+          const placed = images[imageIndex++]!;
+          const scale = Math.min(cellW / img.width, IMAGE_CELL_H / img.height);
+          const w = img.width * scale;
+          const h = img.height * scale;
+          const x = MARGIN_X + col * (cellW + IMAGE_GAP) + (cellW - w) / 2;
+          const y = cursorY - IMAGE_GAP / 2 - h;
+          ops.push(`q ${w.toFixed(2)} 0 0 ${h.toFixed(2)} ${x.toFixed(2)} ${y.toFixed(2)} cm /${placed.name} Do Q`);
+        });
+        cursorY -= blockHeight(block);
+        continue;
+      }
       if (block.kind === "rule") {
         const ruleY = cursorY - 6;
         ops.push("0.75 w");
@@ -334,5 +432,15 @@ export function buildStyledPdf(blocks: PdfBlock[]): Uint8Array {
   objects.push(
     "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>"
   );
+  for (const im of imageObjects.values()) {
+    const colorSpace =
+      im.image.components === 1 ? "/DeviceGray" : im.image.components === 4 ? "/DeviceCMYK" : "/DeviceRGB";
+    // Adobe CMYK JPEGs are stored inverted.
+    const decode = im.image.components === 4 ? " /Decode [1 0 1 0 1 0 1 0]" : "";
+    objects.push({
+      dict: `<< /Type /XObject /Subtype /Image /Width ${im.image.width} /Height ${im.image.height} /ColorSpace ${colorSpace} /BitsPerComponent 8 /Filter /DCTDecode${decode} >>`,
+      data: im.image.data,
+    });
+  }
   return assemblePdf(objects);
 }

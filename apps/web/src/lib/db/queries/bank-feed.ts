@@ -113,6 +113,7 @@ export async function getBankTransactionById(id: string) {
   return row ?? null;
 }
 
+/** Pending money-in lines; money-out lines are matched separately against payouts and jobs. */
 export async function listPendingBankTransactions(branchId: string) {
   await ensureBankFeed();
   return db
@@ -122,11 +123,29 @@ export async function listPendingBankTransactions(branchId: string) {
       and(
         eq(bankTransactions.branchId, branchId),
         eq(bankTransactions.matchStatus, "pending"),
+        sql`${bankTransactions.amount} > 0`,
         agencyEq(bankTransactions.agencyId)
       )
     )
     // Oldest first, so earlier receipts clear the oldest invoices.
     .orderBy(asc(bankTransactions.bookedAt));
+}
+
+/** Money-out lines not yet tied to a payout or job (pending, or unmatched from an earlier upload). */
+export async function listUnmatchedOutgoingTransactions(branchId: string) {
+  await ensureBankFeed();
+  return db
+    .select()
+    .from(bankTransactions)
+    .where(
+      and(
+        eq(bankTransactions.branchId, branchId),
+        inArray(bankTransactions.matchStatus, ["pending", "unmatched"]),
+        sql`${bankTransactions.amount} < 0`,
+        agencyEq(bankTransactions.agencyId)
+      )
+    )
+    .orderBy(bankTransactions.bookedAt);
 }
 
 export async function updateBankTransaction(
@@ -137,6 +156,9 @@ export async function updateBankTransaction(
     invoiceId: string | null;
     tenancyId: string | null;
     exceptionId: string | null;
+    landlordPayoutId: string | null;
+    workOrderId: string | null;
+    raw: Record<string, unknown>;
   }>
 ) {
   await ensureBankFeed();

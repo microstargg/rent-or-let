@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  CalendarCheck,
   Building2,
   Inbox,
   FileText,
@@ -40,6 +41,7 @@ const navSections: SidebarNavSection[] = [
   {
     label: "Finance",
     items: [
+      { href: "/finance/month-end", label: "Month end", icon: CalendarCheck },
       { href: "/finance/invoices", label: "Invoices", icon: Receipt },
       { href: "/finance/arrears", label: "Arrears", icon: AlertTriangle },
       { href: "/finance/exceptions", label: "Exceptions", icon: Scale },

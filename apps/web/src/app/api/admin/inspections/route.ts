@@ -2,12 +2,10 @@ import { NextResponse } from "next/server";
 import { requireAdminApi } from "@/lib/api-auth";
 import {
   getDefaultBranch,
-  getInspectionById,
-  saveInspectionReport,
   createInspection,
   listInspections,
 } from "@/lib/db/queries";
-import { inspectionReportSchema } from "@/lib/inspections/report";
+import { INSPECTION_TYPES } from "@/lib/inspections/report";
 
 export async function GET() {
   const { error } = await requireAdminApi();
@@ -31,6 +29,9 @@ export async function POST(request: Request) {
   };
   if (!body.property_id || !body.type) {
     return NextResponse.json({ error: "property_id and type required" }, { status: 400 });
+  }
+  if (!(INSPECTION_TYPES as readonly string[]).includes(body.type)) {
+    return NextResponse.json({ error: "Unknown inspection type" }, { status: 400 });
   }
   const row = await createInspection({
     branchId: branch.id,

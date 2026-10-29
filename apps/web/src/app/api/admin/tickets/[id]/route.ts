@@ -82,6 +82,7 @@ export async function PATCH(
       scheduled_for?: string | null;
       cost_estimate?: number | null;
       final_cost?: number | null;
+      client_charge?: number | null;
     };
 
     if (wo.action === "create") {
@@ -91,6 +92,7 @@ export async function PATCH(
         contractorId: wo.contractor_id,
         scheduledFor: wo.scheduled_for ? new Date(wo.scheduled_for) : null,
         costEstimate: wo.cost_estimate,
+        clientCharge: wo.client_charge,
       });
       return NextResponse.json(row);
     }
@@ -101,7 +103,7 @@ export async function PATCH(
     }
 
     if (wo.action === "complete" && wo.id && wo.final_cost != null) {
-      const result = await completeWorkOrder(wo.id, wo.final_cost);
+      const result = await completeWorkOrder(wo.id, wo.final_cost, wo.client_charge);
       return NextResponse.json(result);
     }
 
@@ -112,6 +114,7 @@ export async function PATCH(
         scheduledFor: wo.scheduled_for ? new Date(wo.scheduled_for) : null,
         costEstimate: wo.cost_estimate,
         finalCost: wo.final_cost,
+        clientCharge: wo.client_charge,
       });
       return NextResponse.json(result);
     }

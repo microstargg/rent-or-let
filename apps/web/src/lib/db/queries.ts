@@ -1105,6 +1105,7 @@ export {
   listInspections,
   getInspectionById,
   saveInspectionReport,
+  addInspectionPhoto,
   scheduleInterimInspections,
   listInspectionsForLandlord,
   listOverdueInspections,

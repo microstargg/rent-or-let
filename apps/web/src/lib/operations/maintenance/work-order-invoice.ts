@@ -23,7 +23,8 @@ export function workOrderChargeDate(wo: { scheduledFor: Date | null }): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-export function workOrderInvoiceAmount(wo: {
+/** What the contractor is paid: final cost, else the estimate. */
+export function workOrderContractorCost(wo: {
   finalCost: string | null;
   costEstimate: string | null;
 }): number {
@@ -32,6 +33,17 @@ export function workOrderInvoiceAmount(wo: {
   const estimate = wo.costEstimate != null ? Number(wo.costEstimate) : NaN;
   if (Number.isFinite(estimate) && estimate > 0) return Math.round(estimate * 100) / 100;
   return 0;
+}
+
+/** What the landlord is billed: the client charge when set, else the contractor cost. */
+export function workOrderInvoiceAmount(wo: {
+  finalCost: string | null;
+  costEstimate: string | null;
+  clientCharge?: string | null;
+}): number {
+  const charge = wo.clientCharge != null ? Number(wo.clientCharge) : NaN;
+  if (Number.isFinite(charge) && charge > 0) return Math.round(charge * 100) / 100;
+  return workOrderContractorCost(wo);
 }
 
 export function workOrderOccurredAt(dueDate: string): Date {
@@ -89,6 +101,7 @@ export async function upsertWorkOrderInvoice(wo: typeof workOrders.$inferSelect)
     ticket_id: ticket.id,
     ticket_summary: ticket.summary,
     property_address: property.displayAddress,
+    contractor_cost: workOrderContractorCost(wo),
   });
 
   if (existing) {

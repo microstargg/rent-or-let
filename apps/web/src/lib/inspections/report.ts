@@ -15,6 +15,8 @@ export const inspectionElementSchema = z.object({
 export const inspectionRoomSchema = z.object({
   name: z.string().min(1),
   notes: z.string().optional().default(""),
+  photoUrls: z.array(z.string()).default([]),
+  done: z.boolean().default(false),
   elements: z.array(inspectionElementSchema).default([]),
 });
 
@@ -45,30 +47,44 @@ export function parseInspectionReport(meta: unknown): InspectionReport {
   return emptyInspectionReport();
 }
 
+/** Check-in report a move-out is compared against (stored on the move-out's meta). */
+export function parseBaselineReport(meta: unknown): InspectionReport | null {
+  if (!meta || typeof meta !== "object" || !("baseline" in meta)) return null;
+  const parsed = inspectionReportSchema.safeParse((meta as { baseline: unknown }).baseline);
+  return parsed.success ? parsed.data : null;
+}
+
+/** Same rooms and items as the check-in, with notes, photos and readings cleared for the new visit. */
+export function reportFromBaseline(baseline: InspectionReport): InspectionReport {
+  return {
+    rooms: baseline.rooms.map((room) => ({
+      name: room.name,
+      notes: "",
+      photoUrls: [],
+      done: false,
+      elements: room.elements.map((el) => ({
+        name: el.name,
+        condition: el.condition,
+        notes: "",
+        photoUrls: [],
+      })),
+    })),
+    meters: baseline.meters.map((m) => ({ type: m.type, reading: "", photoUrl: "" })),
+  };
+}
+
 export function defaultInspectionReport(bedrooms: number): InspectionReport {
   const rooms = [
-    { name: "Entrance / hall", notes: "", elements: defaultElements("Doors", "Walls", "Flooring", "Lighting") },
-    { name: "Kitchen", notes: "", elements: defaultElements("Units", "Worktops", "Appliances", "Sink") },
-    { name: "Living room", notes: "", elements: defaultElements("Walls", "Flooring", "Windows", "Radiator") },
+    defaultRoom("Entrance / hall", "Doors", "Walls", "Flooring", "Lighting"),
+    defaultRoom("Kitchen", "Units", "Worktops", "Appliances", "Sink"),
+    defaultRoom("Living room", "Walls", "Flooring", "Windows", "Radiator"),
   ];
   const n = Math.max(1, Math.min(bedrooms || 1, 6));
   for (let i = 1; i <= n; i++) {
-    rooms.push({
-      name: `Bedroom ${i}`,
-      notes: "",
-      elements: defaultElements("Walls", "Flooring", "Windows", "Radiator"),
-    });
+    rooms.push(defaultRoom(`Bedroom ${i}`, "Walls", "Flooring", "Windows", "Radiator"));
   }
-  rooms.push({
-    name: "Bathroom",
-    notes: "",
-    elements: defaultElements("Suite", "Tiling", "Extractor", "Flooring"),
-  });
-  rooms.push({
-    name: "Exterior",
-    notes: "",
-    elements: defaultElements("Doors", "Windows", "Garden / yard"),
-  });
+  rooms.push(defaultRoom("Bathroom", "Suite", "Tiling", "Extractor", "Flooring"));
+  rooms.push(defaultRoom("Exterior", "Doors", "Windows", "Garden / yard"));
   return {
     rooms,
     meters: [
@@ -77,6 +93,10 @@ export function defaultInspectionReport(bedrooms: number): InspectionReport {
       { type: "water", reading: "", photoUrl: "" },
     ],
   };
+}
+
+function defaultRoom(name: string, ...elements: string[]): InspectionReport["rooms"][number] {
+  return { name, notes: "", photoUrls: [], done: false, elements: defaultElements(...elements) };
 }
 
 function defaultElements(...names: string[]) {

@@ -30,7 +30,7 @@ Skip balance brought forward, balance carried forward, and running balance figur
 Also give the total money in / payments in printed in the statement summary, if there is one.`;
 
 /**
- * Credits from a PDF bank statement, read by the AI model, in the same shape as a CSV
+ * Lines from a PDF bank statement (money out as negative amounts), read by the AI model, in the same shape as a CSV
  * import, plus the money-in total printed on the statement so the read can be checked.
  */
 export async function parseStatementPdf(
@@ -46,10 +46,12 @@ export async function parseStatementPdf(
 
   const rows: CsvStatementRow[] = [];
   for (const t of transactions) {
-    const amount = Math.round(Number(t.moneyIn ?? 0) * 100) / 100;
-    if (!Number.isFinite(amount) || amount <= 0) continue;
+    const moneyIn = Math.abs(Number(t.moneyIn ?? 0));
+    const moneyOut = Math.abs(Number(t.moneyOut ?? 0));
+    const amount = Math.round((moneyIn > 0 ? moneyIn : -moneyOut) * 100) / 100;
+    if (!Number.isFinite(amount) || amount === 0) continue;
     if (!/^\d{4}-\d{2}-\d{2}$/.test(t.date)) continue;
-    rows.push({ date: t.date, description: t.description.trim(), amount });
+    rows.push({ date: t.date, description: t.description.trim(), amount, balance: null });
   }
   const statementMoneyIn =
     moneyInTotal != null && Number.isFinite(moneyInTotal) ? Math.round(moneyInTotal * 100) / 100 : null;

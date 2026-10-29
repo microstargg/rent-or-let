@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { requireAdminApi } from "@/lib/api-auth";
 import { getInspectionById, listInspections } from "@/lib/db/queries";
 import { pdfResponse, renderInspectionPdf } from "@/lib/pdf/compliance-docs";
+import { loadInspectionPhotos } from "@/lib/pdf/inspection-photos";
 
 export async function GET(
   _request: Request,
@@ -40,6 +41,7 @@ export async function GET(
     notes: row.inspection.notes,
     meta: row.inspection.meta,
     compare,
+    photos: await loadInspectionPhotos(row.inspection.meta),
   });
   return pdfResponse(pdf, `inspection-${row.inspection.type}.pdf`);
 }

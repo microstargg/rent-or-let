@@ -35,7 +35,7 @@ export async function POST(request: Request) {
       );
       if (rows.length === 0) {
         return NextResponse.json(
-          { error: "No money-in lines were found in that PDF. Check it is a bank statement." },
+          { error: "No transactions were found in that PDF. Check it is a bank statement." },
           { status: 400 }
         );
       }

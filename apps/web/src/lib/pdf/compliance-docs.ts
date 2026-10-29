@@ -1,4 +1,4 @@
-import { buildStyledPdf, type PdfBlock } from "./simple-pdf";
+import { buildStyledPdf, type PdfBlock, type PdfImage } from "./simple-pdf";
 import { getTenant } from "@repo/config/server";
 import { parseInspectionReport } from "@/lib/inspections/report";
 import { contentDispositionAttachment } from "./landlord-statement";
@@ -18,10 +18,21 @@ export function renderInspectionPdf(input: {
   notes?: string | null;
   meta: unknown;
   compare?: { type: string; completedAt?: Date | string | null; meta: unknown } | null;
+  /** Photos already fetched and decoded, keyed by URL. Missing URLs are counted, not drawn. */
+  photos?: Map<string, PdfImage>;
 }): Uint8Array {
   const { site: siteContent, name: tenantName } = getTenant();
   const agencyLabel = siteContent.contact.address?.line1 ?? tenantName;
   const report = parseInspectionReport(input.meta);
+  let missingPhotos = 0;
+  const pushPhotos = (urls: string[]) => {
+    const images = urls.flatMap((url) => {
+      const img = input.photos?.get(url);
+      if (!img) missingPhotos++;
+      return img ? [img] : [];
+    });
+    if (images.length) blocks.push({ kind: "images", images });
+  };
   const compareReport = input.compare ? parseInspectionReport(input.compare.meta) : null;
   const blocks: PdfBlock[] = [
     { kind: "title", text: `${typeLabel(input.type)} inspection` },
@@ -48,11 +59,13 @@ export function renderInspectionPdf(input: {
       ? `${meter.reading || "—"} (was ${prev.reading})`
       : meter.reading || "—";
     blocks.push({ kind: "row", label: meter.type, value });
+    if (meter.photoUrl) pushPhotos([meter.photoUrl]);
   }
 
   for (const room of report.rooms) {
     blocks.push({ kind: "heading", text: room.name });
     if (room.notes) blocks.push({ kind: "text", text: room.notes });
+    pushPhotos(room.photoUrls);
     const prevRoom = compareReport?.rooms.find((r) => r.name === room.name);
     for (const el of room.elements) {
       const prev = prevRoom?.elements.find((e) => e.name === el.name);
@@ -64,7 +77,15 @@ export function renderInspectionPdf(input: {
         label: el.notes ? `${el.name} — ${el.notes}` : el.name,
         value,
       });
+      pushPhotos(el.photoUrls);
     }
+  }
+
+  if (missingPhotos) {
+    blocks.push({
+      kind: "text",
+      text: `${missingPhotos} photo(s) could not be included (not a JPEG or not reachable). They are still on the online report.`,
+    });
   }
 
   if (input.compare) {

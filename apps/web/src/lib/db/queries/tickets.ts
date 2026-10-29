@@ -287,6 +287,7 @@ export async function createWorkOrder(data: {
   scheduledFor?: Date | null;
   status?: string;
   costEstimate?: number | null;
+  clientCharge?: number | null;
 }) {
   await ensureAgency();
   const [row] = await db
@@ -299,6 +300,7 @@ export async function createWorkOrder(data: {
       scheduledFor: data.scheduledFor,
       status: data.status ?? "draft",
       costEstimate: data.costEstimate != null ? String(data.costEstimate) : null,
+      clientCharge: data.clientCharge != null ? String(data.clientCharge) : null,
     })
     .returning();
   return row;
@@ -312,6 +314,7 @@ export async function updateWorkOrder(
     status: string;
     costEstimate: number | null;
     finalCost: number | null;
+    clientCharge: number | null;
   }>
 ) {
   await ensureAgency();
@@ -373,6 +376,9 @@ export async function updateWorkOrder(
       }),
       ...(data.finalCost !== undefined && {
         finalCost: data.finalCost != null ? String(data.finalCost) : null,
+      }),
+      ...(data.clientCharge !== undefined && {
+        clientCharge: data.clientCharge != null ? String(data.clientCharge) : null,
       }),
       meta: newMeta,
     })
@@ -447,9 +453,13 @@ export async function approveWorkOrder(id: string) {
   return updateWorkOrder(id, { status: "approved" });
 }
 
-export async function completeWorkOrder(id: string, finalCost: number) {
+export async function completeWorkOrder(id: string, finalCost: number, clientCharge?: number | null) {
   await ensureAgency();
-  return updateWorkOrder(id, { status: "completed", finalCost });
+  return updateWorkOrder(id, {
+    status: "completed",
+    finalCost,
+    ...(clientCharge !== undefined && { clientCharge }),
+  });
 }
 
 export async function attachDocumentToTicket(data: {

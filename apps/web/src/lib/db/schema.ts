@@ -467,7 +467,10 @@ export const workOrders = pgTable(
     scheduledFor: timestamp("scheduled_for", { withTimezone: true }),
     status: text("status").notNull().default("draft"),
     costEstimate: numeric("cost_estimate", { precision: 12, scale: 2 }),
+    /** What the contractor is paid. */
     finalCost: numeric("final_cost", { precision: 12, scale: 2 }),
+    /** What the landlord is charged; null means charge the contractor cost. */
+    clientCharge: numeric("client_charge", { precision: 12, scale: 2 }),
     meta: jsonb("meta").notNull().default({}),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -936,6 +939,11 @@ export const bankTransactions = pgTable(
     exceptionId: uuid("exception_id").references(() => paymentExceptions.id, {
       onDelete: "set null",
     }),
+    /** Outgoing lines: the landlord payout or contractor job this money paid. */
+    landlordPayoutId: uuid("landlord_payout_id").references(() => landlordPayouts.id, {
+      onDelete: "set null",
+    }),
+    workOrderId: uuid("work_order_id").references(() => workOrders.id, { onDelete: "set null" }),
     raw: jsonb("raw").notNull().default({}),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },

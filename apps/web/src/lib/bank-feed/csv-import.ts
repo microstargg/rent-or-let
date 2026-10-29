@@ -4,6 +4,7 @@ import { agencyEq, currentAgencyId } from "@/lib/db/agency-scope";
 import { bankConnections } from "@/lib/db/schema";
 import { ensureBankFeed, insertBankTransaction } from "@/lib/db/queries/bank-feed";
 import { matchPendingBankTransactions } from "@/lib/bank-feed/sync";
+import { matchOutgoingBankTransactions } from "@/lib/bank-feed/match-outgoing";
 import { csvProviderTxnId, pdfProviderTxnId } from "@/lib/payment-ref";
 
 export async function ensureCsvBankConnection(branchId: string) {
@@ -48,7 +49,10 @@ export async function ensureCsvBankConnection(branchId: string) {
 export interface CsvStatementRow {
   date: string;
   description: string;
+  /** Positive = money in, negative = money out. */
   amount: number;
+  /** Running balance after this line, when the export includes one. */
+  balance: number | null;
 }
 
 const DATE_HEADERS = [
@@ -73,7 +77,9 @@ const DESCRIPTION_HEADERS = [
   "name",
 ];
 const CREDIT_HEADERS = ["credit", "credit amount", "paid in", "money in", "in"];
+const DEBIT_HEADERS = ["debit", "debit amount", "paid out", "money out", "out"];
 const AMOUNT_HEADERS = ["amount", "value", "amount (gbp)", "amount(gbp)", "amount gbp"];
+const BALANCE_HEADERS = ["balance", "running balance", "balance (gbp)"];
 
 function headerIndex(headers: string[], names: string[]): number {
   for (const name of names) {
@@ -83,19 +89,28 @@ function headerIndex(headers: string[], names: string[]): number {
   return -1;
 }
 
-function parseMoney(raw: string | undefined): number {
-  const cleaned = (raw ?? "").trim().replace(/[£,\s]/g, "");
-  if (!cleaned) return NaN;
-  // Some banks show debits as (12.50)
-  const negative = /^\(.*\)$/.test(cleaned);
-  const n = Number(cleaned.replace(/[()]/g, ""));
-  return negative ? -n : n;
+function parseMoney(raw: string | undefined): number | null {
+  let v = (raw ?? "").trim().replace(/[£,\s]/g, "");
+  if (!v) return null;
+  let sign = 1;
+  // Some banks show debits as (12.50), or suffix CR / DR
+  if (/^\(.*\)$/.test(v)) {
+    sign = -1;
+    v = v.slice(1, -1);
+  }
+  if (/CR$/i.test(v)) v = v.slice(0, -2);
+  else if (/DR$/i.test(v)) {
+    sign = -sign;
+    v = v.slice(0, -2);
+  }
+  const n = Number(v);
+  return Number.isFinite(n) ? sign * n : null;
 }
 
 /**
  * Parse a bank statement CSV export. Needs a date column, a description column and
- * either a signed Amount column (positive = credit) or a separate Credit / Paid in column,
- * which covers the usual UK bank exports. Only credits are returned.
+ * either separate Paid in / Paid out (Credit / Debit) columns or one signed Amount column
+ * (negative = money out), which covers the usual UK bank exports.
  */
 export function parseStatementCsv(text: string): CsvStatementRow[] {
   const lines = text
@@ -111,13 +126,15 @@ export function parseStatementCsv(text: string): CsvStatementRow[] {
   const stateIdx = headerIndex(headerCells, ["state", "status"]);
   const dateIdx = headerIndex(headerCells, DATE_HEADERS);
   const creditIdx = headerIndex(headerCells, CREDIT_HEADERS);
-  const amountIdx = creditIdx >= 0 ? creditIdx : headerIndex(headerCells, AMOUNT_HEADERS);
+  const debitIdx = headerIndex(headerCells, DEBIT_HEADERS);
+  const amountIdx = headerIndex(headerCells, AMOUNT_HEADERS);
+  const balanceIdx = headerIndex(headerCells, BALANCE_HEADERS);
   // Use every text column that looks like a description, so a reference in either is seen.
   const descIdxs = DESCRIPTION_HEADERS.map((h) => headerCells.indexOf(h)).filter((i) => i >= 0);
 
-  if (dateIdx < 0 || descIdxs.length === 0 || amountIdx < 0) {
+  if (dateIdx < 0 || descIdxs.length === 0 || (amountIdx < 0 && creditIdx < 0 && debitIdx < 0)) {
     throw new Error(
-      "CSV must include a Date column, a Description (or Reference) column, and an Amount or Credit column"
+      "CSV must include a Date column, a Description (or Reference) column, and an Amount or Paid in / Paid out columns"
     );
   }
 
@@ -130,11 +147,19 @@ export function parseStatementCsv(text: string): CsvStatementRow[] {
     }
     const dateRaw = (cells[dateIdx] ?? "").trim();
     const description = [...new Set(descIdxs.map((idx) => (cells[idx] ?? "").trim()).filter(Boolean))].join(" ");
-    const amount = parseMoney(cells[amountIdx]);
-    if (!dateRaw || !Number.isFinite(amount) || amount <= 0) continue;
+    let amount: number | null;
+    if (creditIdx >= 0 || debitIdx >= 0) {
+      const paidIn = creditIdx >= 0 ? parseMoney(cells[creditIdx]) : null;
+      const paidOut = debitIdx >= 0 ? parseMoney(cells[debitIdx]) : null;
+      amount = paidIn ? Math.abs(paidIn) : paidOut ? -Math.abs(paidOut) : null;
+    } else {
+      amount = parseMoney(cells[amountIdx]);
+    }
+    if (!dateRaw || amount == null || amount === 0) continue;
     const date = normalizeCsvDate(dateRaw);
     if (!date) continue;
-    rows.push({ date, description, amount });
+    const balance = balanceIdx >= 0 ? parseMoney(cells[balanceIdx]) : null;
+    rows.push({ date, description, amount, balance });
   }
   return rows;
 }
@@ -189,10 +214,15 @@ function normalizeCsvDate(raw: string): string | null {
 export interface StatementImportResult {
   credits: number;
   creditTotal: number;
+  debits: number;
   imported: number;
   duplicates: number;
   matched: number;
   exceptions: number;
+  outgoingMatched: number;
+  outgoingUnmatched: number;
+  from: string | null;
+  to: string | null;
 }
 
 export async function importStatementCsvForBranch(
@@ -202,7 +232,10 @@ export async function importStatementCsvForBranch(
   return importStatementRowsForBranch(branchId, parseStatementCsv(csvText));
 }
 
-/** Store bank credits (from a CSV or a PDF statement) and match them to open rent. */
+/**
+ * Store bank lines (from a CSV or a PDF statement), match money in to open rent and
+ * money out to landlord payouts and contractor jobs.
+ */
 export async function importStatementRowsForBranch(
   branchId: string,
   rows: CsvStatementRow[],
@@ -234,22 +267,29 @@ export async function importStatementRowsForBranch(
       bookedAt,
       amount: row.amount,
       description: row.description,
+      raw: row.balance != null ? { balance: row.balance } : {},
     });
     if (created) imported += 1;
     else duplicates += 1;
   }
 
-  const matchResult =
-    imported > 0
-      ? await matchPendingBankTransactions(branchId)
-      : { matched: 0, exceptions: 0, skipped: 0 };
+  // Always run: payouts recorded since the last upload can now match lines already imported.
+  const matchResult = await matchPendingBankTransactions(branchId);
+  const outgoing = await matchOutgoingBankTransactions(branchId);
 
+  const credits = rows.filter((r) => r.amount > 0);
+  const dates = rows.map((r) => r.date).sort();
   return {
-    credits: rows.length,
-    creditTotal: Math.round(rows.reduce((sum, r) => sum + r.amount, 0) * 100) / 100,
+    credits: credits.length,
+    creditTotal: Math.round(credits.reduce((sum, r) => sum + r.amount, 0) * 100) / 100,
+    debits: rows.length - credits.length,
     imported,
     duplicates,
     matched: matchResult.matched,
     exceptions: matchResult.exceptions,
+    outgoingMatched: outgoing.matched,
+    outgoingUnmatched: outgoing.unmatched,
+    from: dates[0] ?? null,
+    to: dates[dates.length - 1] ?? null,
   };
 }

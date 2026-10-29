@@ -162,6 +162,22 @@ export function LifecycleActions({
           >
             Schedule interim now
           </Button>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={!selected || loading === "move_out"}
+            onClick={() =>
+              post("move_out", {
+                action: "create_inspection",
+                property_id: selected!.propertyId,
+                tenancy_id: selected!.id,
+                type: "move_out",
+                scheduled_at: new Date().toISOString(),
+              })
+            }
+          >
+            Create move-out inspection
+          </Button>
           <div className="grid gap-2 sm:grid-cols-2">
             <div>
               <Label htmlFor="proposed_rent">Proposed rent (pcm)</Label>

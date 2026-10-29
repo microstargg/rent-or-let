@@ -13,6 +13,8 @@ export const JOB_INVOICE_MIGRATION_STATEMENTS = [
   `CREATE INDEX IF NOT EXISTS idx_invoices_property ON invoices(property_id)`,
   `CREATE INDEX IF NOT EXISTS idx_invoices_landlord ON invoices(landlord_id)`,
   `ALTER TABLE landlord_ledger_entries ADD COLUMN IF NOT EXISTS invoice_id uuid REFERENCES invoices(id) ON DELETE SET NULL`,
+  // drizzle/0014_month_end.sql
+  `ALTER TABLE work_orders ADD COLUMN IF NOT EXISTS client_charge numeric(12, 2)`,
 ] as const;
 
 const REQUIRED_INVOICE_COLUMNS = ["property_id", "landlord_id", "work_order_id"] as const;
@@ -40,7 +42,7 @@ export function isMissingInvoiceColumnError(err: unknown): boolean {
   const msg = chunks.join(" ");
   return (
     /does not exist/i.test(msg) &&
-    /invoices|landlord_ledger_entries|property_id|landlord_id|work_order_id|invoice_id/i.test(msg)
+    /invoices|landlord_ledger_entries|property_id|landlord_id|work_order_id|invoice_id|client_charge|landlord_payout_id/i.test(msg)
   );
 }
 
@@ -299,6 +301,11 @@ export const BANK_FEED_MIGRATION_STATEMENTS = [
   `CREATE UNIQUE INDEX IF NOT EXISTS bank_transactions_branch_provider_txn ON bank_transactions(branch_id, provider_txn_id)`,
   `CREATE INDEX IF NOT EXISTS idx_bank_transactions_connection ON bank_transactions(connection_id)`,
   `CREATE INDEX IF NOT EXISTS idx_bank_transactions_match_status ON bank_transactions(branch_id, match_status)`,
+  // drizzle/0014_month_end.sql: outgoing lines link to the payout or contractor job they paid
+  `ALTER TABLE bank_transactions ADD COLUMN IF NOT EXISTS landlord_payout_id uuid REFERENCES landlord_payouts(id) ON DELETE SET NULL`,
+  `ALTER TABLE bank_transactions ADD COLUMN IF NOT EXISTS work_order_id uuid REFERENCES work_orders(id) ON DELETE SET NULL`,
+  `CREATE INDEX IF NOT EXISTS idx_bank_transactions_payout ON bank_transactions(landlord_payout_id)`,
+  `CREATE INDEX IF NOT EXISTS idx_bank_transactions_work_order ON bank_transactions(work_order_id)`,
 ] as const;
 
 let bankFeedPending: Promise<void> | null = null;

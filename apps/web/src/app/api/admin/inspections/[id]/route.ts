@@ -5,8 +5,10 @@ import {
   getDefaultBranch,
   getInspectionById,
   saveInspectionReport,
+  addInspectionPhoto,
   createDocument,
 } from "@/lib/db/queries";
+import type { InspectionPhotoTarget } from "@/lib/db/queries/lifecycle";
 import { inspectionReportSchema } from "@/lib/inspections/report";
 
 export async function GET(
@@ -38,6 +40,10 @@ export async function PATCH(
     const form = await request.formData();
     const file = form.get("file") as File | null;
     if (!file) return NextResponse.json({ error: "Missing file" }, { status: 400 });
+    if (!file.type.startsWith("image/")) {
+      return NextResponse.json({ error: "Photos must be images" }, { status: 400 });
+    }
+    const target = parsePhotoTarget(form);
     const ext = file.name.split(".").pop() ?? "jpg";
     const pathname = `inspections/${id}/${Date.now()}.${ext}`;
     let url: string;
@@ -61,7 +67,8 @@ export async function PATCH(
       url,
       filename: file.name,
     });
-    return NextResponse.json(doc);
+    const report = target ? await addInspectionPhoto(id, target, url) : null;
+    return NextResponse.json({ ...doc, report });
   }
 
   const body = await request.json();
@@ -74,4 +81,19 @@ export async function PATCH(
     complete: Boolean(body.complete),
   });
   return NextResponse.json(row);
+}
+
+function parsePhotoTarget(form: FormData): InspectionPhotoTarget | null {
+  const kind = form.get("target");
+  const num = (key: string) => {
+    const n = Number(form.get(key));
+    return Number.isInteger(n) && n >= 0 ? n : null;
+  };
+  const room = num("room");
+  if (kind === "element" && room != null && num("element") != null) {
+    return { kind, room, element: num("element")! };
+  }
+  if (kind === "room" && room != null) return { kind, room };
+  if (kind === "meter" && num("meter") != null) return { kind, meter: num("meter")! };
+  return null;
 }

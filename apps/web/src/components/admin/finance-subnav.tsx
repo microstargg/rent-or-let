@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
 const financeLinks = [
+  { href: "/finance/month-end", label: "Month end" },
   { href: "/finance/invoices", label: "Invoices" },
   { href: "/finance/arrears", label: "Arrears" },
   { href: "/finance/exceptions", label: "Exceptions" },

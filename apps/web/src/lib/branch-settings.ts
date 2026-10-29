@@ -21,6 +21,15 @@ export interface BranchSettings {
   client_account_name?: string;
   client_account_sort_code?: string;
   client_account_number?: string;
+  /** Month-end client account checks, keyed by "YYYY-MM". */
+  client_account_checks?: Record<string, ClientAccountCheck>;
+}
+
+export interface ClientAccountCheck {
+  bank_balance: number;
+  expected: number;
+  difference: number;
+  saved_at: string;
 }
 
 export function parseBranchSettings(raw: unknown): BranchSettings {

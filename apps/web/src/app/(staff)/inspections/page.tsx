@@ -1,5 +1,7 @@
 import Link from "next/link";
-import { getDefaultBranch, listInspections } from "@/lib/db/queries";
+import { getDefaultBranch, listInspections, listTenancies } from "@/lib/db/queries";
+import { NewInspectionDialog } from "@/components/admin/new-inspection-dialog";
+import { displayPersonName } from "@/lib/person-name";
 import {
   AdminEmptyState,
   AdminPageHeader,
@@ -12,12 +14,23 @@ import { formatDate } from "@/lib/utils";
 export default async function AdminInspectionsPage() {
   const branch = await getDefaultBranch();
   const rows = branch ? await listInspections(branch.id) : [];
+  const tenancyRows = branch ? await listTenancies(branch.id) : [];
+  const tenancyOptions = tenancyRows.map(
+    ({ tenancy, propertyAddress, renterFirstName, renterLastName }) => ({
+      id: tenancy.id,
+      propertyId: tenancy.propertyId,
+      label: `${propertyAddress} — ${displayPersonName(renterFirstName, renterLastName)}${
+        tenancy.status === "active" ? "" : ` (${tenancy.status})`
+      }`,
+    })
+  );
 
   return (
     <div>
       <AdminPageHeader
         title="Inspections"
         description="Room-by-room check-in, interim and check-out reports."
+        actions={<NewInspectionDialog tenancies={tenancyOptions} />}
       />
       <AdminSection title="Scheduled and completed">
         {rows.length ? (
@@ -45,7 +58,7 @@ export default async function AdminInspectionsPage() {
         ) : (
           <AdminEmptyState
             title="No inspections yet"
-            description="Create a move-in inspection from Deposits & notices."
+            description="Use New inspection to start a check-in, interim or check-out."
           />
         )}
       </AdminSection>

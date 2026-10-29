@@ -24,6 +24,7 @@ interface JobBoardActionsProps {
   status: string;
   costEstimate: string | null;
   finalCost: string | null;
+  clientCharge: string | null;
 }
 
 export function JobBoardActions({
@@ -32,11 +33,13 @@ export function JobBoardActions({
   status,
   costEstimate,
   finalCost,
+  clientCharge,
 }: JobBoardActionsProps) {
   const router = useRouter();
   const [completeOpen, setCompleteOpen] = useState(false);
   const [updateOpen, setUpdateOpen] = useState(false);
   const [cost, setCost] = useState(finalCost ?? costEstimate ?? "");
+  const [charge, setCharge] = useState(clientCharge ?? "");
   const [note, setNote] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -69,6 +72,7 @@ export function JobBoardActions({
           action: "complete",
           id: workOrderId,
           final_cost: final,
+          client_charge: charge ? Number(charge) : null,
         },
       });
       if (note.trim()) {
@@ -130,13 +134,14 @@ export function JobBoardActions({
             <DialogHeader>
               <DialogTitle>Complete job</DialogTitle>
               <DialogDescription>
-                Enter the final cost and an optional update for the ticket thread.
+                Enter what the contractor charged, what to bill the client, and an optional
+                update for the ticket thread.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-3">
               <div>
                 <label className="text-sm font-medium" htmlFor={`final-${workOrderId}`}>
-                  Final cost (£)
+                  Contractor cost (£)
                 </label>
                 <Input
                   id={`final-${workOrderId}`}
@@ -147,6 +152,26 @@ export function JobBoardActions({
                   value={cost}
                   onChange={(e) => setCost(e.target.value)}
                 />
+              </div>
+              <div>
+                <label className="text-sm font-medium" htmlFor={`charge-${workOrderId}`}>
+                  Charge client (£)
+                </label>
+                <Input
+                  id={`charge-${workOrderId}`}
+                  type="number"
+                  step="0.01"
+                  inputMode="decimal"
+                  className="mt-1 min-h-11"
+                  placeholder="Same as contractor cost"
+                  value={charge}
+                  onChange={(e) => setCharge(e.target.value)}
+                />
+                {Number(charge) > 0 && Number(cost) > 0 && (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Margin £{(Number(charge) - Number(cost)).toFixed(2)}
+                  </p>
+                )}
               </div>
               <div>
                 <label className="text-sm font-medium" htmlFor={`note-${workOrderId}`}>
