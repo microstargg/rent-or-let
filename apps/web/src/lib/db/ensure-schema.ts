@@ -1,4 +1,26 @@
 import { neon } from "@neondatabase/serverless";
+import { currentDatabaseUrl } from "./index";
+
+/**
+ * Apply a migration once per database. The demo agency has its own database, so keying
+ * on the shared DATABASE_URL alone left it without new columns and its pages failed.
+ */
+function oncePerDatabase(
+  done: Map<string, Promise<void>>,
+  apply: (url: string) => Promise<void>
+): Promise<void> {
+  const url = currentDatabaseUrl();
+  if (!url) return Promise.resolve();
+  let p = done.get(url);
+  if (!p) {
+    p = apply(url).catch((err) => {
+      done.delete(url);
+      throw err;
+    });
+    done.set(url, p);
+  }
+  return p;
+}
 
 /**
  * Idempotent statements from drizzle/0010_job_invoices.sql.
@@ -19,7 +41,7 @@ export const JOB_INVOICE_MIGRATION_STATEMENTS = [
 
 const REQUIRED_INVOICE_COLUMNS = ["property_id", "landlord_id", "work_order_id"] as const;
 
-let pending: Promise<void> | null = null;
+const jobInvoiceDone = new Map<string, Promise<void>>();
 
 function messageOf(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
@@ -46,10 +68,7 @@ export function isMissingInvoiceColumnError(err: unknown): boolean {
   );
 }
 
-async function applyJobInvoiceMigration(): Promise<void> {
-  const url = process.env.DATABASE_URL;
-  if (!url) return;
-
+async function applyJobInvoiceMigration(url: string): Promise<void> {
   const sql = neon(url);
   const errors: string[] = [];
 
@@ -97,14 +116,8 @@ async function applyJobInvoiceMigration(): Promise<void> {
 }
 
 export async function ensureJobInvoiceSchema(opts?: { force?: boolean }): Promise<void> {
-  if (opts?.force) pending = null;
-  if (!pending) {
-    pending = applyJobInvoiceMigration().catch((err) => {
-      pending = null;
-      throw err;
-    });
-  }
-  await pending;
+  if (opts?.force) jobInvoiceDone.clear();
+  await oncePerDatabase(jobInvoiceDone, applyJobInvoiceMigration);
 }
 
 const PET_REQUEST_DDL = `
@@ -126,11 +139,9 @@ CREATE TABLE IF NOT EXISTS pet_requests (
   updated_at timestamptz NOT NULL DEFAULT now()
 )`.replace(/\s+/g, " ").trim();
 
-let petPending: Promise<void> | null = null;
+const petDone = new Map<string, Promise<void>>();
 
-async function applyPetRequestMigration(): Promise<void> {
-  const url = process.env.DATABASE_URL;
-  if (!url) return;
+async function applyPetRequestMigration(url: string): Promise<void> {
   const sql = neon(url);
   try {
     await sql(PET_REQUEST_DDL);
@@ -147,13 +158,7 @@ async function applyPetRequestMigration(): Promise<void> {
 }
 
 export async function ensurePetRequestsSchema(): Promise<void> {
-  if (!petPending) {
-    petPending = applyPetRequestMigration().catch((err) => {
-      petPending = null;
-      throw err;
-    });
-  }
-  await petPending;
+  await oncePerDatabase(petDone, applyPetRequestMigration);
 }
 
 const MEMBERSHIP_MIGRATION_STATEMENTS = [
@@ -224,11 +229,9 @@ export const PROPERTY_STATEMENT_MIGRATION_STATEMENTS = [
   `CREATE INDEX IF NOT EXISTS idx_landlord_statements_parent ON landlord_statements(parent_statement_id)`,
 ] as const;
 
-let propertyStatementPending: Promise<void> | null = null;
+const propertyStatementDone = new Map<string, Promise<void>>();
 
-async function applyPropertyStatementMigration(): Promise<void> {
-  const url = process.env.DATABASE_URL;
-  if (!url) return;
+async function applyPropertyStatementMigration(url: string): Promise<void> {
   const sql = neon(url);
   for (const statement of PROPERTY_STATEMENT_MIGRATION_STATEMENTS) {
     try {
@@ -243,13 +246,7 @@ async function applyPropertyStatementMigration(): Promise<void> {
 
 /** Per-property landlord statements: property_id + parent_statement_id on landlord_statements. */
 export async function ensurePropertyStatementSchema(): Promise<void> {
-  if (!propertyStatementPending) {
-    propertyStatementPending = applyPropertyStatementMigration().catch((err) => {
-      propertyStatementPending = null;
-      throw err;
-    });
-  }
-  await propertyStatementPending;
+  await oncePerDatabase(propertyStatementDone, applyPropertyStatementMigration);
 }
 
 /**
@@ -308,11 +305,9 @@ export const BANK_FEED_MIGRATION_STATEMENTS = [
   `CREATE INDEX IF NOT EXISTS idx_bank_transactions_work_order ON bank_transactions(work_order_id)`,
 ] as const;
 
-let bankFeedPending: Promise<void> | null = null;
+const bankFeedDone = new Map<string, Promise<void>>();
 
-async function applyBankFeedMigration(): Promise<void> {
-  const url = process.env.DATABASE_URL;
-  if (!url) return;
+async function applyBankFeedMigration(url: string): Promise<void> {
   const sql = neon(url);
   for (const statement of BANK_FEED_MIGRATION_STATEMENTS) {
     try {
@@ -327,11 +322,5 @@ async function applyBankFeedMigration(): Promise<void> {
 
 /** bank_connections + bank_transactions, used by the bank statement import. */
 export async function ensureBankFeedSchema(): Promise<void> {
-  if (!bankFeedPending) {
-    bankFeedPending = applyBankFeedMigration().catch((err) => {
-      bankFeedPending = null;
-      throw err;
-    });
-  }
-  await bankFeedPending;
+  await oncePerDatabase(bankFeedDone, applyBankFeedMigration);
 }

@@ -11,11 +11,18 @@ function createDb(url: string): Db {
   return drizzle(neon(url), { schema });
 }
 
+/** The current agency's database: its own URL, else the shared DATABASE_URL (not for isolated agencies). */
+export function currentDatabaseUrl(): string | undefined {
+  const agency = getAgency();
+  return (
+    agency.runtime.databaseUrl ||
+    (ISOLATED_AGENCY_SLUGS.has(agency.slug) ? undefined : process.env.DATABASE_URL)
+  );
+}
+
 export function getDb(): Db {
   const agency = getAgency();
-  const url =
-    agency.runtime.databaseUrl ||
-    (ISOLATED_AGENCY_SLUGS.has(agency.slug) ? undefined : process.env.DATABASE_URL);
+  const url = currentDatabaseUrl();
   if (!url) {
     throw new Error(
       `DATABASE_URL is not set for agency "${agency.slug}". Set AGENCY_${agency.slug.replace(/-/g, "_").toUpperCase()}_DATABASE_URL or DATABASE_URL.`
