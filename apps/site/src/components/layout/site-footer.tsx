@@ -1,11 +1,15 @@
 import Link from "next/link";
 import { headers } from "next/headers";
 import { hostnameOf, isSharedPreviewHost } from "@repo/config/host";
-import { getTenant } from "@/lib/tenant";
+import { getSiteAgency } from "@/lib/agency";
+import { portalLoginUrl } from "@/lib/platform";
 import { SiteLogo } from "@/components/brand/site-logo";
 
 export async function SiteFooter() {
-  const { site: siteContent, name, id } = await getTenant();
+  const agency = await getSiteAgency();
+  const { site: siteContent, name, id } = agency.config;
+  const tenantPortalUrl = portalLoginUrl(agency, "/portal");
+  const landlordPortalUrl = portalLoginUrl(agency, "/landlord-portal");
   const h = await headers();
   const host = hostnameOf(h.get("x-forwarded-host") ?? h.get("host"));
   const showSiteSwitcher = isSharedPreviewHost(host);
@@ -72,6 +76,12 @@ export async function SiteFooter() {
                 <Link href="/contact" className="hover:text-white">
                   Contact
                 </Link>
+                <a href={tenantPortalUrl} className="hover:text-white">
+                  Tenant login
+                </a>
+                <a href={landlordPortalUrl} className="hover:text-white">
+                  Landlord login
+                </a>
               </nav>
             </div>
             <div>
@@ -142,7 +152,15 @@ export async function SiteFooter() {
               {email}
             </a>
           </p>
-          <nav className="mt-4 flex flex-wrap gap-x-4 gap-y-2 text-sm">{legalLinks}</nav>
+          <nav className="mt-4 flex flex-wrap gap-x-4 gap-y-2 text-sm">
+            <a href={tenantPortalUrl} className="font-medium text-primary hover:underline">
+              Tenant login
+            </a>
+            <a href={landlordPortalUrl} className="font-medium text-primary hover:underline">
+              Landlord login
+            </a>
+          </nav>
+          <nav className="mt-2 flex flex-wrap gap-x-4 gap-y-2 text-sm">{legalLinks}</nav>
         </div>
       </div>
       <div className="border-t py-4 text-center text-xs text-muted-foreground">

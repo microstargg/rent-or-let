@@ -78,10 +78,10 @@ export default async function PropertyDetailPage({
 
             <div className="mt-4 flex flex-wrap gap-4 text-sm text-muted-foreground">
               <span className="flex items-center gap-1">
-                <Bed className="h-4 w-4" /> {property.bedrooms} bedrooms
+                <Bed className="h-4 w-4" /> {property.bedrooms} {property.bedrooms === 1 ? "bedroom" : "bedrooms"}
               </span>
               <span className="flex items-center gap-1">
-                <Bath className="h-4 w-4" /> {property.bathrooms} bathrooms
+                <Bath className="h-4 w-4" /> {property.bathrooms} {property.bathrooms === 1 ? "bathroom" : "bathrooms"}
               </span>
               <span className="flex items-center gap-1">
                 <Calendar className="h-4 w-4" /> Available from{" "}
@@ -200,7 +200,7 @@ export default async function PropertyDetailPage({
                   "rounded-full bg-[var(--accent)] text-[oklch(0.2_0.02_50)] hover:bg-[oklch(0.82_0.09_55)]"
               )}
             >
-              <Link href="/apply">Apply to rent this property</Link>
+              <Link href={`/apply?property=${property.id}`}>Apply to rent this property</Link>
             </Button>
           </div>
         </div>

@@ -3,7 +3,7 @@ import { ArrowRight, Building2, Shield, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PropertyCard } from "@/components/properties/property-card";
 import { VeriHome } from "@/components/marketing/veri-home";
-import { fetchListings } from "@/lib/platform";
+import { fetchListingsOrEmpty } from "@/lib/platform";
 import { getTenant } from "@/lib/tenant";
 
 export default async function HomePage() {
@@ -14,7 +14,7 @@ export default async function HomePage() {
     return <VeriHome tenant={tenant} />;
   }
 
-  const featured = (await fetchListings()).slice(0, 3);
+  const featured = (await fetchListingsOrEmpty()).slice(0, 3);
 
   return (
     <>
