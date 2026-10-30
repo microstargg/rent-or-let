@@ -5,6 +5,7 @@ import { PropertyCard } from "@/components/properties/property-card";
 import { VeriHome } from "@/components/marketing/veri-home";
 import { fetchListingsOrEmpty } from "@/lib/platform";
 import { getTenant } from "@/lib/tenant";
+import { formatCurrency } from "@/lib/utils";
 
 export default async function HomePage() {
   const tenant = await getTenant();
@@ -20,36 +21,67 @@ export default async function HomePage() {
   const trustPoints = (home?.trustPoints ?? siteContent.about.highlights).slice(0, 3);
   const trustIcons = [Shield, Users, Building2];
 
+  // Hero photo: the first featured home that has one, so the hero always shows a real listing.
+  const heroListing = featured.find((listing) => listing.images.length > 0);
+  const heroImage =
+    heroListing?.images.find((image) => image.isPrimary) ?? heroListing?.images[0];
+
   return (
     <>
       <section className="relative overflow-hidden bg-primary text-primary-foreground">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.12),transparent_55%)]" />
-        <div className="container relative mx-auto max-w-6xl px-4 py-20 md:py-28">
-          <p className="mb-4 text-sm font-medium uppercase tracking-widest text-primary-foreground/80">
-            {home?.eyebrow ?? (region ? `Letting agents in ${region}` : "UK letting agents")}
-          </p>
-          <h1 className="max-w-3xl text-4xl font-bold tracking-tight md:text-5xl lg:text-6xl">
-            {home?.title ?? "Quality rental homes, managed properly"}
-          </h1>
-          <p className="mt-6 max-w-2xl text-lg text-primary-foreground/90">
-            {siteContent.hero.subtitle}
-          </p>
-          <div className="mt-10 flex flex-wrap gap-4">
-            <Button asChild size="lg" variant="secondary">
-              <Link href="/properties">
-                View properties
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Link>
-            </Button>
-            <Button
-              asChild
-              size="lg"
-              variant="outline"
-              className="border-primary-foreground/30 bg-transparent text-primary-foreground hover:bg-primary-foreground/10"
-            >
-              <Link href="/contact">Contact us</Link>
-            </Button>
+        <div className="container relative mx-auto grid max-w-6xl items-center gap-12 px-4 py-20 md:py-28 lg:grid-cols-[1.25fr_1fr]">
+          <div>
+            <p className="mb-4 text-sm font-medium uppercase tracking-widest text-primary-foreground/80">
+              {home?.eyebrow ?? (region ? `Letting agents in ${region}` : "UK letting agents")}
+            </p>
+            <h1 className="max-w-3xl text-4xl font-bold tracking-tight md:text-5xl lg:text-6xl">
+              {home?.title ?? "Quality rental homes, managed properly"}
+            </h1>
+            <p className="mt-6 max-w-2xl text-lg text-primary-foreground/90">
+              {siteContent.hero.subtitle}
+            </p>
+            <div className="mt-10 flex flex-wrap gap-4">
+              <Button asChild size="lg" variant="secondary">
+                <Link href="/properties">
+                  View properties
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Link>
+              </Button>
+              <Button
+                asChild
+                size="lg"
+                variant="outline"
+                className="border-primary-foreground/30 bg-transparent text-primary-foreground hover:bg-primary-foreground/10"
+              >
+                <Link href="/contact">Contact us</Link>
+              </Button>
+            </div>
           </div>
+          {heroListing && heroImage ? (
+            <Link
+              href={`/properties/${heroListing.slug}`}
+              className="group relative hidden overflow-hidden rounded-2xl shadow-2xl ring-1 ring-white/15 lg:block"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={heroImage.url}
+                alt={heroImage.altText ?? heroListing.displayAddress}
+                className="aspect-[4/3] w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.03]"
+              />
+              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 via-black/40 to-transparent p-5 pt-16">
+                <p className="text-xs font-medium uppercase tracking-widest text-white/75">
+                  Featured home
+                </p>
+                <p className="mt-1 text-lg font-semibold text-white">
+                  {heroListing.displayAddress}
+                </p>
+                <p className="text-sm text-white/85">
+                  {formatCurrency(heroListing.pricePcm)} pcm · {heroListing.bedrooms} bed
+                </p>
+              </div>
+            </Link>
+          ) : null}
         </div>
       </section>
 
