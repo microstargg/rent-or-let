@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -253,8 +254,12 @@ export function TenantApplicationForm({
             />
           </div>
           <p className="text-xs text-muted-foreground">
-            By submitting, you consent to us processing your data for referencing and tenancy
-            purposes. See our Privacy Notice.
+            We use these details to assess your application, carry out referencing and Right to
+            Rent checks, and share them with the landlord. See our{" "}
+            <Link href="/legal/privacy" className="underline hover:text-primary">
+              Privacy Notice
+            </Link>
+            .
           </p>
           {status === "error" && (
             <p className="text-sm text-red-600">

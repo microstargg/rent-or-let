@@ -92,6 +92,11 @@ export function LoginForm({ notice, error, next }: LoginFormProps) {
               Create an account
             </Link>
           </p>
+          <p className="mt-2 text-center text-xs text-muted-foreground">
+            <Link href="/legal/privacy" className="underline hover:text-primary">
+              Privacy Notice
+            </Link>
+          </p>
         </CardContent>
       </Card>
     </div>

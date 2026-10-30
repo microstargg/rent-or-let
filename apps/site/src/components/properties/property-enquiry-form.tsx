@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -61,6 +62,13 @@ export function PropertyEnquiryForm({ propertyId }: PropertyEnquiryFormProps) {
         <Label htmlFor="message">Message</Label>
         <Textarea id="message" name="message" rows={4} required />
       </div>
+      <p className="text-xs text-muted-foreground">
+        We use these details to reply about this property and arrange viewings. See our{" "}
+        <Link href="/legal/privacy" className="underline hover:text-primary">
+          Privacy Notice
+        </Link>
+        .
+      </p>
       {status === "error" && (
         <p className="text-sm text-red-600">Something went wrong. Please try again.</p>
       )}

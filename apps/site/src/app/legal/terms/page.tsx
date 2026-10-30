@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { getTenant } from "@/lib/tenant";
 import { isVeriAgency } from "@/lib/veri";
-import { cn } from "@/lib/utils";
+import Link from "next/link";
+import { LegalPage } from "@/components/legal/legal-page";
 
 export const metadata: Metadata = {
   title: "Terms and Conditions",
@@ -13,12 +14,7 @@ export default async function TermsPage() {
   const isVeri = isVeriAgency(id);
 
   return (
-    <div
-      className={cn(
-        "container mx-auto max-w-3xl px-4 py-12 prose prose-neutral",
-        isVeri && "pt-28 md:pt-32"
-      )}
-    >
+    <LegalPage className={isVeri ? "pt-28 md:pt-32" : undefined}>
       <h1>Terms and Conditions</h1>
       <p>
         These terms govern your use of the {name} website operated at {siteHost}.
@@ -48,6 +44,15 @@ export default async function TermsPage() {
         We are not liable for indirect or consequential loss arising from use of this website,
         except where prohibited by law.
       </p>
-    </div>
+
+      <h2>Your personal data</h2>
+      <p>
+        Our <Link href="/legal/privacy">Privacy Notice</Link> explains how we use the information
+        you give us through this website.
+      </p>
+
+      <h2>Governing law</h2>
+      <p>These terms are governed by the law of England and Wales.</p>
+    </LegalPage>
   );
 }

@@ -41,6 +41,16 @@ export interface SiteContent {
     scheme: string;
     certificateUrl: string;
   };
+  /** Data protection details shown on the privacy notice. Each field is optional. */
+  legal?: {
+    /** Registered company name, if different from the trading name. */
+    companyName?: string;
+    companyNumber?: string;
+    /** ICO data protection fee registration number, e.g. "ZA123456". */
+    icoRegistrationNumber?: string;
+    /** Inbox for privacy requests. Defaults to contact.email. */
+    privacyEmail?: string;
+  };
   memberships: string[];
   deposits: {
     note: string;
