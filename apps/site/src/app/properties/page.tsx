@@ -7,7 +7,7 @@ import { PropertyCard } from "@/components/properties/property-card";
 import { PageHero } from "@/components/marketing/page-hero";
 import { VeriEm, VeriHeading, VeriPanel } from "@/components/marketing/veri-ui";
 import { Button } from "@/components/ui/button";
-import { fetchListings } from "@/lib/platform";
+import { fetchListingsOrEmpty } from "@/lib/platform";
 import { getTenant } from "@/lib/tenant";
 import { isVeriAgency } from "@/lib/veri";
 
@@ -37,7 +37,7 @@ export default async function PropertiesPage({ searchParams }: PropertiesPagePro
   const { id, site } = await getTenant();
   const isVeri = isVeriAgency(id);
   const params = await searchParams;
-  const properties = await fetchListings({
+  const properties = await fetchListingsOrEmpty({
     minBedrooms: params.beds ? Number(params.beds) : undefined,
     maxRent: params.maxRent ? Number(params.maxRent) : undefined,
     town: params.town,

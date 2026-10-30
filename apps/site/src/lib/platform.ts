@@ -31,6 +31,18 @@ export async function fetchListings(filters?: {
   return data.listings;
 }
 
+/** Same as fetchListings, but a platform outage renders an empty list instead of a 500. */
+export async function fetchListingsOrEmpty(
+  filters?: Parameters<typeof fetchListings>[0]
+): Promise<PublicListing[]> {
+  try {
+    return await fetchListings(filters);
+  } catch (error) {
+    console.error("[platform] listings unavailable", error);
+    return [];
+  }
+}
+
 export async function fetchListing(slug: string): Promise<PublicListing | null> {
   const agency = await getSiteAgency();
   const res = await fetch(`${platformOrigin(agency)}${PUBLIC_API.listing(slug)}`, {
@@ -40,6 +52,11 @@ export async function fetchListing(slug: string): Promise<PublicListing | null> 
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(`Listing ${slug} failed (${res.status})`);
   return res.json() as Promise<PublicListing>;
+}
+
+/** Platform login that lands on the renter or landlord portal after sign-in. */
+export function portalLoginUrl(agency: Agency, portal: "/portal" | "/landlord-portal"): string {
+  return `${platformOrigin(agency)}/login?next=${encodeURIComponent(portal)}`;
 }
 
 export function platformApiUrl(path: string, agency: Agency): string {

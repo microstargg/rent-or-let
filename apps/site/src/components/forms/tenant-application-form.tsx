@@ -9,12 +9,29 @@ import { platformPost, PUBLIC_API } from "@/lib/platform-client";
 
 interface TenantApplicationFormProps {
   properties: { id: string; label: string }[];
+  initialPropertyId?: string;
 }
 
-export function TenantApplicationForm({ properties }: TenantApplicationFormProps) {
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+export function TenantApplicationForm({
+  properties,
+  initialPropertyId,
+}: TenantApplicationFormProps) {
   const [step, setStep] = useState(1);
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
-  const [formData, setFormData] = useState<Record<string, string>>({});
+  const [formData, setFormData] = useState<Record<string, string>>(
+    initialPropertyId ? { property_id: initialPropertyId } : {}
+  );
+
+  // Mirror the platform's required fields so applicants can't reach submit with a payload it rejects.
+  const filled = (name: string) => Boolean(formData[name]?.trim());
+  const step1Complete =
+    filled("first_name") &&
+    filled("last_name") &&
+    filled("phone") &&
+    EMAIL_PATTERN.test(formData.email?.trim() ?? "");
+  const step2Complete = filled("employment_status") && filled("current_address");
 
   function updateField(name: string, value: string) {
     setFormData((prev) => ({ ...prev, [name]: value }));
@@ -25,10 +42,10 @@ export function TenantApplicationForm({ properties }: TenantApplicationFormProps
     try {
       const res = await platformPost(PUBLIC_API.applications, {
         property_id: formData.property_id || null,
-        first_name: formData.first_name,
-        last_name: formData.last_name,
-        email: formData.email,
-        phone: formData.phone,
+        first_name: formData.first_name.trim(),
+        last_name: formData.last_name.trim(),
+        email: formData.email.trim(),
+        phone: formData.phone.trim(),
         employment_status: formData.employment_status,
         annual_income: formData.annual_income ? Number(formData.annual_income) : null,
         current_address: formData.current_address,
@@ -126,7 +143,7 @@ export function TenantApplicationForm({ properties }: TenantApplicationFormProps
               ))}
             </select>
           </div>
-          <Button onClick={() => setStep(2)} disabled={!formData.first_name || !formData.email}>
+          <Button onClick={() => setStep(2)} disabled={!step1Complete}>
             Continue
           </Button>
         </div>
@@ -195,7 +212,7 @@ export function TenantApplicationForm({ properties }: TenantApplicationFormProps
             <Button variant="outline" onClick={() => setStep(1)}>
               Back
             </Button>
-            <Button onClick={() => setStep(3)} disabled={!formData.current_address}>
+            <Button onClick={() => setStep(3)} disabled={!step2Complete}>
               Continue
             </Button>
           </div>
@@ -240,7 +257,9 @@ export function TenantApplicationForm({ properties }: TenantApplicationFormProps
             purposes. See our Privacy Notice.
           </p>
           {status === "error" && (
-            <p className="text-sm text-red-600">Submission failed. Please try again.</p>
+            <p className="text-sm text-red-600">
+              Submission failed. Please check your details and try again.
+            </p>
           )}
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => setStep(2)}>

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { TenantApplicationForm } from "@/components/forms/tenant-application-form";
 import { PageHero } from "@/components/marketing/page-hero";
 import { VeriPanel } from "@/components/marketing/veri-ui";
-import { fetchListings } from "@/lib/platform";
+import { fetchListingsOrEmpty } from "@/lib/platform";
 import { getTenant } from "@/lib/tenant";
 import { isVeriAgency } from "@/lib/veri";
 
@@ -14,8 +14,14 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-export default async function ApplyPage() {
-  const properties = await fetchListings();
+interface ApplyPageProps {
+  searchParams: Promise<{ property?: string }>;
+}
+
+export default async function ApplyPage({ searchParams }: ApplyPageProps) {
+  const properties = await fetchListingsOrEmpty();
+  const { property } = await searchParams;
+  const initialPropertyId = properties.some((p) => p.id === property) ? property : undefined;
   const { id } = await getTenant();
   const isVeri = isVeriAgency(id);
 
@@ -36,6 +42,7 @@ export default async function ApplyPage() {
             </p>
             <TenantApplicationForm
               properties={properties.map((p) => ({ id: p.id, label: p.displayAddress }))}
+              initialPropertyId={initialPropertyId}
             />
           </VeriPanel>
         ) : (
@@ -46,6 +53,7 @@ export default async function ApplyPage() {
             </p>
             <TenantApplicationForm
               properties={properties.map((p) => ({ id: p.id, label: p.displayAddress }))}
+              initialPropertyId={initialPropertyId}
             />
           </div>
         )}
