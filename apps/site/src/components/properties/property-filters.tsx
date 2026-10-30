@@ -48,15 +48,22 @@ export function PropertyFilters() {
         >
           Min bedrooms
         </Label>
-        <Input
+        <select
           id="beds"
           name="beds"
-          type="number"
-          min={1}
           defaultValue={searchParams.get("beds") ?? ""}
-          placeholder="Any"
-          className={isVeri ? "mt-2 h-11 rounded-full border-foreground/15 bg-background" : undefined}
-        />
+          className={cn(
+            "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            isVeri && "mt-2 h-11 rounded-full border-foreground/15 px-4"
+          )}
+        >
+          <option value="">Any</option>
+          {[1, 2, 3, 4, 5].map((n) => (
+            <option key={n} value={n}>
+              {n}+
+            </option>
+          ))}
+        </select>
       </div>
       <div>
         <Label
@@ -70,6 +77,8 @@ export function PropertyFilters() {
           name="maxRent"
           type="number"
           min={0}
+          step={25}
+          inputMode="numeric"
           defaultValue={searchParams.get("maxRent") ?? ""}
           placeholder="Any"
           className={isVeri ? "mt-2 h-11 rounded-full border-foreground/15 bg-background" : undefined}
@@ -86,11 +95,11 @@ export function PropertyFilters() {
           id="town"
           name="town"
           defaultValue={searchParams.get("town") ?? ""}
-          placeholder="e.g. Durham, Newcastle"
+          placeholder="Town or area"
           className={isVeri ? "mt-2 h-11 rounded-full border-foreground/15 bg-background" : undefined}
         />
       </div>
-      <div className={isVeri ? "flex items-end" : "flex items-end"}>
+      <div className="flex items-end">
         <Button
           type="submit"
           className={cn(

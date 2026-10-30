@@ -31,16 +31,26 @@ export async function fetchListings(filters?: {
   return data.listings;
 }
 
+/**
+ * Same as fetchListings, but returns null when the platform is unreachable so
+ * pages can render a friendly fallback instead of erroring.
+ */
+export async function tryFetchListings(
+  filters?: Parameters<typeof fetchListings>[0]
+): Promise<PublicListing[] | null> {
+  try {
+    return await fetchListings(filters);
+  } catch (error) {
+    console.error("[site] listings unavailable", error);
+    return null;
+  }
+}
+
 /** Same as fetchListings, but a platform outage renders an empty list instead of a 500. */
 export async function fetchListingsOrEmpty(
   filters?: Parameters<typeof fetchListings>[0]
 ): Promise<PublicListing[]> {
-  try {
-    return await fetchListings(filters);
-  } catch (error) {
-    console.error("[platform] listings unavailable", error);
-    return [];
-  }
+  return (await tryFetchListings(filters)) ?? [];
 }
 
 export async function fetchListing(slug: string): Promise<PublicListing | null> {

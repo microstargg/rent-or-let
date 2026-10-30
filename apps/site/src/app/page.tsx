@@ -15,6 +15,10 @@ export default async function HomePage() {
   }
 
   const featured = (await fetchListingsOrEmpty()).slice(0, 3);
+  const home = siteContent.home;
+  const region = siteContent.region;
+  const trustPoints = (home?.trustPoints ?? siteContent.about.highlights).slice(0, 3);
+  const trustIcons = [Shield, Users, Building2];
 
   return (
     <>
@@ -22,10 +26,10 @@ export default async function HomePage() {
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.12),transparent_55%)]" />
         <div className="container relative mx-auto max-w-6xl px-4 py-20 md:py-28">
           <p className="mb-4 text-sm font-medium uppercase tracking-widest text-primary-foreground/80">
-            Teesside letting agents
+            {home?.eyebrow ?? (region ? `Letting agents in ${region}` : "UK letting agents")}
           </p>
           <h1 className="max-w-3xl text-4xl font-bold tracking-tight md:text-5xl lg:text-6xl">
-            Affordable homes with landlord services you can rely on
+            {home?.title ?? "Quality rental homes, managed properly"}
           </h1>
           <p className="mt-6 max-w-2xl text-lg text-primary-foreground/90">
             {siteContent.hero.subtitle}
@@ -51,29 +55,16 @@ export default async function HomePage() {
 
       <section className="container mx-auto max-w-6xl px-4 py-16">
         <div className="grid gap-8 md:grid-cols-3">
-          {[
-            {
-              icon: Shield,
-              title: "Client Money Protection",
-              text: "We are members of the UKALA Client Protection Scheme.",
-            },
-            {
-              icon: Users,
-              title: "40+ years experience",
-              text: "Residential and commercial property management across Teesside.",
-            },
-            {
-              icon: Building2,
-              title: "One call service",
-              text: "Dedicated support for landlords and tenants, 24-hour emergency call-outs.",
-            },
-          ].map(({ icon: Icon, title, text }) => (
-            <div key={title} className="rounded-xl border bg-card p-6 shadow-sm">
-              <Icon className="mb-4 h-8 w-8 text-primary" />
-              <h2 className="text-lg font-semibold">{title}</h2>
-              <p className="mt-2 text-muted-foreground">{text}</p>
-            </div>
-          ))}
+          {trustPoints.map(({ title, description }, index) => {
+            const Icon = trustIcons[index] ?? Shield;
+            return (
+              <div key={title} className="rounded-xl border bg-card p-6 shadow-sm">
+                <Icon className="mb-4 h-8 w-8 text-primary" />
+                <h2 className="text-lg font-semibold">{title}</h2>
+                <p className="mt-2 text-muted-foreground">{description}</p>
+              </div>
+            );
+          })}
         </div>
       </section>
 
@@ -84,7 +75,7 @@ export default async function HomePage() {
               <div>
                 <h2 className="text-3xl font-bold">Featured properties</h2>
                 <p className="mt-2 text-muted-foreground">
-                  Quality homes across Middlesbrough and Teesside
+                  {region ? `Quality homes across ${region}` : "Homes available to rent now"}
                 </p>
               </div>
               <Button asChild variant="outline">
@@ -118,7 +109,7 @@ export default async function HomePage() {
             >
               <h3 className="font-semibold">For landlords</h3>
               <p className="mt-2 text-sm text-muted-foreground">
-                Full management, tenant finding, and compliance support.
+                {home?.landlordsBlurb ?? "Full management, tenant finding, and compliance support."}
               </p>
             </Link>
             <Link
@@ -127,7 +118,7 @@ export default async function HomePage() {
             >
               <h3 className="font-semibold">For tenants</h3>
               <p className="mt-2 text-sm text-muted-foreground">
-                Advice, maintenance, and quality homes in Teesside.
+                {home?.tenantsBlurb ?? "Advice, maintenance, and quality homes to rent."}
               </p>
             </Link>
           </div>

@@ -15,6 +15,11 @@ export function TenantProvider({
   return <TenantContext.Provider value={tenant}>{children}</TenantContext.Provider>;
 }
 
+/** Like useTenant, but returns null outside a TenantProvider (e.g. error boundaries). */
+export function useOptionalTenant(): TenantConfig | null {
+  return useContext(TenantContext);
+}
+
 export function useTenant(): TenantConfig {
   const tenant = useContext(TenantContext);
   if (!tenant) {

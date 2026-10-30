@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Bed, Bath, Calendar, ExternalLink } from "lucide-react";
+import { ArrowLeft, Bed, Bath, Calendar, ExternalLink, Home, Sofa } from "lucide-react";
 import { fetchListing } from "@/lib/platform";
 import { formatCurrency, formatDate, cn } from "@/lib/utils";
 import { getTenant } from "@/lib/tenant";
@@ -43,6 +43,13 @@ export default async function PropertyDetailPage({
         isVeri && "pt-28 md:pt-32"
       )}
     >
+      <Link
+        href="/properties"
+        className="mb-6 inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        All properties
+      </Link>
       <div className="grid gap-10 lg:grid-cols-3">
         <div className="lg:col-span-2">
           <div className={isVeri ? "overflow-hidden rounded-[1.75rem]" : undefined}>
@@ -83,10 +90,43 @@ export default async function PropertyDetailPage({
               <span className="flex items-center gap-1">
                 <Bath className="h-4 w-4" /> {property.bathrooms} {property.bathrooms === 1 ? "bathroom" : "bathrooms"}
               </span>
+              {property.propertyType && (
+                <span className="flex items-center gap-1 capitalize">
+                  <Home className="h-4 w-4" /> {property.propertyType}
+                </span>
+              )}
+              {property.furnished && (
+                <span className="flex items-center gap-1 capitalize">
+                  <Sofa className="h-4 w-4" /> {property.furnished.replace(/[_-]/g, " ")}
+                </span>
+              )}
               <span className="flex items-center gap-1">
                 <Calendar className="h-4 w-4" /> Available from{" "}
                 {formatDate(property.availableFrom)}
               </span>
+            </div>
+
+            {/* On small screens the enquiry card sits below the details; give a shortcut to it. */}
+            <div className="mt-6 flex gap-3 lg:hidden">
+              <Button
+                asChild
+                className={cn(
+                  "flex-1",
+                  isVeri &&
+                    "rounded-full bg-[var(--accent)] text-[oklch(0.2_0.02_50)] hover:bg-[oklch(0.82_0.09_55)]"
+                )}
+              >
+                <a href="#enquire">Enquire</a>
+              </Button>
+              <Button
+                asChild
+                variant="outline"
+                className={cn("flex-1", isVeri && "rounded-full")}
+              >
+                <Link href={`/apply?property=${encodeURIComponent(property.id)}`}>
+                  Apply to rent
+                </Link>
+              </Button>
             </div>
 
             <div className="mt-6 prose prose-neutral max-w-none">
@@ -148,7 +188,7 @@ export default async function PropertyDetailPage({
           </div>
         </div>
 
-        <div>
+        <div id="enquire" className="scroll-mt-24">
           <div
             className={
               isVeri
@@ -184,7 +224,10 @@ export default async function PropertyDetailPage({
                   Or email{" "}
                   <a
                     href={`mailto:${siteContent.contact.email}`}
-                    className="font-medium text-[oklch(0.45_0.06_55)]"
+                    className={cn(
+                      "font-medium",
+                      isVeri ? "text-[oklch(0.45_0.06_55)]" : "text-primary"
+                    )}
                   >
                     {siteContent.contact.email}
                   </a>
@@ -193,14 +236,16 @@ export default async function PropertyDetailPage({
             </p>
             <Button
               asChild
-              variant={isVeri ? "default" : "link"}
+              variant={isVeri ? "default" : "outline"}
               className={cn(
                 "mt-2 w-full",
                 isVeri &&
                   "rounded-full bg-[var(--accent)] text-[oklch(0.2_0.02_50)] hover:bg-[oklch(0.82_0.09_55)]"
               )}
             >
-              <Link href={`/apply?property=${property.id}`}>Apply to rent this property</Link>
+              <Link href={`/apply?property=${encodeURIComponent(property.id)}`}>
+                Apply to rent this property
+              </Link>
             </Button>
           </div>
         </div>

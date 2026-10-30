@@ -25,11 +25,13 @@ export default async function AboutPage() {
 
   const sidebarCopy = isVeri
     ? "We support landlords and tenants throughout every tenancy with clear processes and email-first communication. Fully remote, fully accountable."
-    : "We offer advice to our tenants and landlords throughout every tenancy. With a one-call service and 24-hour emergency call-outs, you can put your trust in us.";
+    : about.sidebar ??
+      "We support landlords and tenants throughout every tenancy, with clear processes and a team that keeps you informed.";
 
   const whyChoose = isVeri
     ? "Quality homes managed with transparent fees and compliant processes — without needing a high-street office."
-    : "Good quality properties within the Teesside area, backed by decades of local expertise.";
+    : about.whyChoose ??
+      "Quality homes managed with transparent fees and compliant processes.";
 
   const pillars = isVeri
     ? [
@@ -49,23 +51,11 @@ export default async function AboutPage() {
           text: "No shop-front hours. Reach us when it suits you — we keep the conversation documented and moving.",
         },
       ]
-    : [
-        {
-          icon: Users,
-          title: "Dedicated support",
-          text: "A personal service for landlords and tenants — we are big enough to cope and small enough to care.",
-        },
-        {
-          icon: Building2,
-          title: "Residential & commercial",
-          text: "Full lettings and management across residential and commercial property throughout Teesside.",
-        },
-        {
-          icon: Heart,
-          title: "Tenants who stay",
-          text: "Our tenants rarely move other than when they outgrow their home or leave the area — a testament to the quality of our service.",
-        },
-      ];
+    : (about.pillars ?? about.highlights).slice(0, 3).map((pillar, index) => ({
+        icon: [Users, Building2, Heart][index] ?? Users,
+        title: pillar.title,
+        text: pillar.description,
+      }));
 
   return (
     <>

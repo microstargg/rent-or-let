@@ -1,7 +1,7 @@
 export type { SiteContent, TenantConfig, TenantLogoText } from "./types";
 export { tenantRegistry, getTenantConfig } from "./registry";
 export type { TenantId } from "./registry";
-export { TenantProvider, useTenant } from "./tenant-context";
+export { TenantProvider, useOptionalTenant, useTenant } from "./tenant-context";
 export {
   AGENCY_SLUG_HEADER,
   AGENCY_COOKIE_NAME,

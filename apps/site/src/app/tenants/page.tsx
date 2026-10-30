@@ -274,7 +274,7 @@ export default async function TenantsPage() {
         description={
           isVeri
             ? "Browse available homes or apply online — email us anytime with questions."
-            : "Browse our available properties across Middlesbrough and Teesside, or apply online today."
+            : `Browse our available properties${siteContent.region ? ` across ${siteContent.region}` : ""}, or apply online today.`
         }
         primaryHref="/properties"
         primaryLabel="View properties"
