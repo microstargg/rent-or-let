@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ArrowUpRight, Menu, Phone, X } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { SiteLogo } from "@/components/brand/site-logo";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -24,6 +24,13 @@ export function SiteHeader() {
   const { site: siteContent, id } = tenant;
   const isVeri = id === "veri-properties";
   const phone = siteContent.contact.phone;
+
+  // Close the mobile menu whenever the route changes (e.g. back/forward).
+  useEffect(() => {
+    setOpen(false);
+  }, [pathname]);
+
+  const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
 
   if (isVeri) {
     return (
@@ -125,9 +132,10 @@ export function SiteHeader() {
             <Link
               key={href}
               href={href}
+              aria-current={isActive(href) ? "page" : undefined}
               className={cn(
                 "text-sm font-medium transition-colors hover:text-primary",
-                pathname === href ? "text-primary" : "text-foreground/80"
+                isActive(href) ? "text-primary" : "text-foreground/80"
               )}
             >
               {label}
@@ -149,27 +157,45 @@ export function SiteHeader() {
 
         <button
           type="button"
-          className="md:hidden"
+          className="-mr-2 rounded-md p-2 md:hidden"
           onClick={() => setOpen(!open)}
           aria-label={open ? "Close menu" : "Open menu"}
+          aria-expanded={open}
+          aria-controls="mobile-nav"
         >
           {open ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
         </button>
       </div>
 
       {open && (
-        <nav className="border-t px-4 py-4 md:hidden">
-          <div className="flex flex-col gap-3">
+        <nav id="mobile-nav" className="border-t px-4 py-3 md:hidden">
+          <div className="flex flex-col">
             {navLinks.map(({ href, label }) => (
               <Link
                 key={href}
                 href={href}
-                className="text-sm font-medium"
+                aria-current={isActive(href) ? "page" : undefined}
+                className={cn(
+                  "rounded-md px-2 py-3 text-base font-medium",
+                  isActive(href) ? "bg-muted text-primary" : "text-foreground/90"
+                )}
                 onClick={() => setOpen(false)}
               >
                 {label}
               </Link>
             ))}
+            <Button asChild className="mt-3 w-full">
+              {phone ? (
+                <a href={`tel:${phone.replace(/\s/g, "")}`}>
+                  <Phone className="mr-1 h-4 w-4" />
+                  Call {phone}
+                </a>
+              ) : (
+                <Link href="/contact" onClick={() => setOpen(false)}>
+                  Get in touch
+                </Link>
+              )}
+            </Button>
           </div>
         </nav>
       )}

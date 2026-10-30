@@ -63,14 +63,14 @@ export async function PropertyCard({ property }: { property: PublicListing }) {
   }
 
   return (
-    <Card className="overflow-hidden transition-shadow hover:shadow-md">
-      <div className="aspect-[4/3] bg-muted">
+    <Card className="group relative overflow-hidden transition-shadow focus-within:ring-2 focus-within:ring-ring hover:shadow-md">
+      <div className="aspect-[4/3] overflow-hidden bg-muted">
         {primaryImage ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={primaryImage}
             alt={property.displayAddress}
-            className="h-full w-full object-cover"
+            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
           />
         ) : (
           <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
@@ -84,7 +84,11 @@ export async function PropertyCard({ property }: { property: PublicListing }) {
           <span className="text-sm font-normal text-muted-foreground"> pcm</span>
         </p>
         <h3 className="mt-1 font-semibold leading-snug">
-          <Link href={`/properties/${property.slug}`} className="hover:text-primary">
+          {/* Stretched link: the whole card is clickable. */}
+          <Link
+            href={`/properties/${property.slug}`}
+            className="after:absolute after:inset-0 after:content-[''] focus-visible:outline-none group-hover:text-primary"
+          >
             {property.displayAddress}
           </Link>
         </h3>

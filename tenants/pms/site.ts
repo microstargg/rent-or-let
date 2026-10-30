@@ -3,6 +3,27 @@ export const siteContent = {
     subtitle:
       "Family-owned letting agents operating from Middlesbrough. We are landlords ourselves and understand what is required.",
   },
+  region: "Middlesbrough and Teesside",
+  home: {
+    eyebrow: "Teesside letting agents",
+    title: "Affordable homes with landlord services you can rely on",
+    trustPoints: [
+      {
+        title: "Client Money Protection",
+        description: "We are members of the UKALA Client Protection Scheme.",
+      },
+      {
+        title: "40+ years experience",
+        description: "Residential and commercial property management across Teesside.",
+      },
+      {
+        title: "One call service",
+        description: "Dedicated support for landlords and tenants, 24-hour emergency call-outs.",
+      },
+    ],
+    landlordsBlurb: "Full management, tenant finding, and compliance support.",
+    tenantsBlurb: "Advice, maintenance, and quality homes in Teesside.",
+  },
   about: {
     summary:
       "Property Management Services are letting agents operating in the Teesside area. The business is family owned and run from our office in Middlesbrough. We are big enough to cope and small enough to care — with over 40 years of experience in residential and commercial property management.",
@@ -16,6 +37,23 @@ export const siteContent = {
       { title: "Family owned", description: "Run from our Middlesbrough office with a personal, hands-on approach." },
       { title: "Landlords ourselves", description: "We understand your priorities because we manage our own properties too." },
       { title: "People first", description: "Big enough to cope and small enough to care — it is very much a people industry." },
+    ],
+    sidebar:
+      "We offer advice to our tenants and landlords throughout every tenancy. With a one-call service and 24-hour emergency call-outs, you can put your trust in us.",
+    whyChoose: "Good quality properties within the Teesside area, backed by decades of local expertise.",
+    pillars: [
+      {
+        title: "Dedicated support",
+        description: "A personal service for landlords and tenants — we are big enough to cope and small enough to care.",
+      },
+      {
+        title: "Residential & commercial",
+        description: "Full lettings and management across residential and commercial property throughout Teesside.",
+      },
+      {
+        title: "Tenants who stay",
+        description: "Our tenants rarely move other than when they outgrow their home or leave the area — a testament to the quality of our service.",
+      },
     ],
   },
   contact: {

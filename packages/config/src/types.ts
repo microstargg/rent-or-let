@@ -2,10 +2,25 @@ export interface SiteContent {
   hero: {
     subtitle: string;
   };
+  /** Where the agency lets homes, e.g. "Middlesbrough and Teesside". Omit for UK-wide / remote. */
+  region?: string;
+  /** Homepage copy for the standard layout. Omit to use neutral defaults + about.highlights. */
+  home?: {
+    eyebrow: string;
+    title: string;
+    trustPoints: Array<{ title: string; description: string }>;
+    landlordsBlurb: string;
+    tenantsBlurb: string;
+  };
   about: {
     summary: string;
     paragraphs: string[];
     highlights: Array<{ title: string; description: string }>;
+    /** Sidebar + "why choose us" copy on /about. Omit to use neutral defaults. */
+    sidebar?: string;
+    whyChoose?: string;
+    /** Three pillars on /about. Omit to use the first three highlights. */
+    pillars?: Array<{ title: string; description: string }>;
   };
   contact: {
     /** Omit for remote / email-only agencies */
