@@ -60,6 +60,7 @@ export function CookieConsent() {
       <button
         type="button"
         onClick={() => setVisible(true)}
+        data-cookie-settings
         className="fixed bottom-4 left-4 z-40 rounded-full border bg-background px-3 py-1.5 text-xs shadow-md hover:bg-muted"
       >
         Cookie settings
