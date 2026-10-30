@@ -35,7 +35,7 @@ export async function PATCH(
     const pathname = `tickets/${id}/${Date.now()}.${ext}`;
     let url: string;
     if (process.env.BLOB_READ_WRITE_TOKEN) {
-      const blob = await put(pathname, file, { access: "public" });
+      const blob = await put(pathname, file, { access: "public", addRandomSuffix: true });
       url = blob.url;
     } else {
       const { writeFile, mkdir } = await import("fs/promises");

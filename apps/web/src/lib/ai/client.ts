@@ -3,7 +3,7 @@ import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import type { z } from "zod";
 import { demoAiEnabled, inDemoAgency } from "@/lib/demo/server";
 
-/** Google AI Studio Flash. Swap via AI_MODEL when you move to paid. */
+/** Gemini Flash. Swap via AI_MODEL. */
 const GOOGLE_FLASH_MODEL = "gemini-3.6-flash";
 /** Vercel AI Gateway slug when no Google key is set (Vercel deploy / paid path). */
 const GATEWAY_MODEL = `google/${GOOGLE_FLASH_MODEL}`;
@@ -37,13 +37,14 @@ export function isAiConfigured(): boolean {
 
 export function aiUnavailableMessage(): string {
   if (inDemoAgency()) return "AI assist is switched off in the demo.";
-  return "AI is not configured. Add a free Google AI Studio key as GOOGLE_GENERATIVE_AI_API_KEY, or set AI_GATEWAY_API_KEY for Vercel AI Gateway.";
+  return "AI is not configured. Deploy on Vercel to use AI Gateway, set AI_GATEWAY_API_KEY, or add a paid Gemini API key as GOOGLE_GENERATIVE_AI_API_KEY.";
 }
 
 /**
- * Vercel AI SDK model. Prefers Google's free Generative Language API when a
- * Google key is present; otherwise routes `provider/model` strings through
- * AI Gateway so you can switch to a paid model without code changes.
+ * Vercel AI SDK model. Uses a direct Google key when present, otherwise routes
+ * `provider/model` strings through AI Gateway. The Google key must belong to a
+ * project with billing on: Google's terms only allow paid Gemini API services in
+ * apps used by people in the UK.
  */
 function resolveModel(): LanguageModel | string {
   const override = process.env.AI_MODEL?.trim();
@@ -61,10 +62,14 @@ function resolveModel(): LanguageModel | string {
     : override;
 }
 
+/** Prompts hold tenant and landlord data: never route them to a provider that trains on them. */
+const PROVIDER_OPTIONS = { gateway: { disallowPromptTraining: true } };
+
 export async function generateAiText(prompt: string, system?: string): Promise<string> {
   if (!isAiConfigured()) throw new Error(aiUnavailableMessage());
   const { text } = await generateText({
     model: resolveModel(),
+    providerOptions: PROVIDER_OPTIONS,
     system,
     prompt,
   });
@@ -79,6 +84,7 @@ export async function generateAiObject<T>(opts: {
   if (!isAiConfigured()) throw new Error(aiUnavailableMessage());
   const { object } = await generateObject({
     model: resolveModel(),
+    providerOptions: PROVIDER_OPTIONS,
     schema: opts.schema,
     system: opts.system,
     prompt: opts.prompt,
@@ -96,6 +102,7 @@ export async function generateAiObjectFromFile<T>(opts: {
   if (!isAiConfigured()) throw new Error(aiUnavailableMessage());
   const { object } = await generateObject({
     model: resolveModel(),
+    providerOptions: PROVIDER_OPTIONS,
     schema: opts.schema,
     system: opts.system,
     messages: [
