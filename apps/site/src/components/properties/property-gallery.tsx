@@ -5,10 +5,11 @@ import { useState } from "react";
 interface PropertyGalleryProps {
   images: Array<{ url: string; altText?: string }>;
   displayAddress: string;
+  initialIndex?: number;
 }
 
-export function PropertyGallery({ images, displayAddress }: PropertyGalleryProps) {
-  const [activeIndex, setActiveIndex] = useState(0);
+export function PropertyGallery({ images, displayAddress, initialIndex = 0 }: PropertyGalleryProps) {
+  const [activeIndex, setActiveIndex] = useState(initialIndex);
 
   if (images.length === 0) {
     return (

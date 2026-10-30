@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { Geist, Geist_Mono, Instrument_Serif, Outfit } from "next/font/google";
+import localFont from "next/font/local";
 import { TenantProvider } from "@repo/config";
 import { AGENCY_SLUG_HEADER } from "@repo/config/host";
 import { getAgencyBySlug } from "@repo/config/runtime";
@@ -33,6 +34,14 @@ const veriSerif = Instrument_Serif({
   subsets: ["latin"],
   weight: "400",
   style: ["normal", "italic"],
+});
+
+// Default agency layout typeface (self-hosted, SIL Open Font License; see src/fonts/OFL.txt).
+const agencySans = localFont({
+  src: "../fonts/hanken-grotesk-latin-wght.woff2",
+  variable: "--font-agency-sans",
+  weight: "100 900",
+  display: "swap",
 });
 
 const previewMetadata: Metadata = {
@@ -80,7 +89,7 @@ export default async function RootLayout({
   const isVeri = agency.slug === "veri-properties";
   const fontVars = isVeri
     ? `${veriSans.variable} ${veriSerif.variable} ${geistMono.variable}`
-    : `${geistSans.variable} ${geistMono.variable}`;
+    : `${geistSans.variable} ${geistMono.variable} ${agencySans.variable}`;
 
   return (
     <html lang="en-GB" data-agency={agency.slug} data-platform-host={agency.runtime.platformHost}>

@@ -8,7 +8,8 @@ export interface SiteContent {
   home?: {
     eyebrow: string;
     title: string;
-    trustPoints: Array<{ title: string; description: string }>;
+    /** `stat` is an optional short headline figure for the facts band, e.g. "40+ yrs". */
+    trustPoints: Array<{ title: string; description: string; stat?: string }>;
     landlordsBlurb: string;
     tenantsBlurb: string;
   };

@@ -9,14 +9,17 @@ export const siteContent = {
     title: "Affordable homes with landlord services you can rely on",
     trustPoints: [
       {
+        stat: "UKALA",
         title: "Client Money Protection",
         description: "We are members of the UKALA Client Protection Scheme.",
       },
       {
+        stat: "40+ yrs",
         title: "40+ years experience",
         description: "Residential and commercial property management across Teesside.",
       },
       {
+        stat: "24 hr",
         title: "One call service",
         description: "Dedicated support for landlords and tenants, 24-hour emergency call-outs.",
       },

@@ -108,63 +108,128 @@ export async function SiteFooter() {
     );
   }
 
+  const tel = phone ? `tel:${phone.replace(/\s/g, "")}` : null;
+  const linkClass = "block py-1 text-white/75 transition-colors hover:text-white";
+  const weekdays = hours?.filter(({ hours: dayHours }) => /\d/.test(dayHours)) ?? [];
+  const sameHours = weekdays.length > 1 && weekdays.every(({ hours: h }) => h === weekdays[0].hours);
+  const hoursSummary = sameHours
+    ? `${weekdays[0].day.slice(0, 3)} – ${weekdays[weekdays.length - 1].day.slice(0, 3)} ${weekdays[0].hours}`
+    : null;
+
   return (
-    <footer className="border-t bg-muted/30">
-      <div className="container mx-auto grid max-w-6xl gap-8 px-4 py-12 md:grid-cols-3">
-        <div>
-          <SiteLogo href="/" size="sm" />
-          {address ? (
-            <p className="mt-2 text-sm text-muted-foreground">
-              {address.line1}
-              <br />
-              {address.line2}
-              <br />
-              {address.city}, {address.postcode}
-            </p>
-          ) : null}
-        </div>
-        {hours && hours.length > 0 ? (
+    <footer className="bg-[var(--ink)] text-white/70">
+      <div className="container mx-auto max-w-6xl px-4 pb-8 pt-14 md:pt-18">
+        <div className="flex flex-col gap-6 border-b border-white/10 pb-10 md:flex-row md:items-end md:justify-between">
           <div>
-            <h3 className="mb-3 text-sm font-semibold">Opening hours</h3>
-            <ul className="space-y-1 text-sm text-muted-foreground">
-              {hours.map(({ day, hours: dayHours }) => (
-                <li key={day}>
-                  {day}: {dayHours}
-                </li>
-              ))}
-            </ul>
+            <p className="text-sm font-semibold text-white/55">
+              {tel ? "Talk to the office" : "Get in touch"}
+            </p>
+            {tel ? (
+              <a
+                href={tel}
+                className="mt-2 block text-[clamp(2.5rem,6vw,4.25rem)] font-extrabold leading-none tracking-[-0.035em] text-white tabular-nums transition-opacity hover:opacity-85"
+              >
+                {phone}
+              </a>
+            ) : (
+              <a
+                href={`mailto:${email}`}
+                className="mt-2 block break-all text-[clamp(1.75rem,4vw,3rem)] font-extrabold leading-tight tracking-[-0.03em] text-white"
+              >
+                {email}
+              </a>
+            )}
           </div>
-        ) : (
-          <div />
-        )}
-        <div>
-          <h3 className="mb-3 text-sm font-semibold">Contact</h3>
-          <p className="text-sm text-muted-foreground">
-            {phone ? (
-              <>
-                <a className="hover:text-foreground" href={`tel:${phone.replace(/\s/g, "")}`}>
-                  {phone}
-                </a>
-                <br />
-              </>
-            ) : null}
-            <a className="hover:text-foreground" href={`mailto:${email}`}>
+          {tel ? (
+            <a
+              href={`mailto:${email}`}
+              className="inline-flex h-11 items-center self-start rounded-md bg-white px-5 text-[15px] font-semibold text-[var(--ink)] transition-colors hover:bg-white/90 md:self-auto"
+            >
               {email}
             </a>
-          </p>
-          <nav className="mt-4 flex flex-wrap gap-x-4 gap-y-2 text-sm">
-            <a href={tenantPortalUrl} className="font-medium text-primary hover:underline">
+          ) : null}
+        </div>
+
+        <div className="grid grid-cols-2 gap-8 pt-10 text-[15px] md:grid-cols-[2fr_1fr_1fr_1fr]">
+          <div className="col-span-2 md:col-span-1">
+            <h2 className="mb-3 text-sm font-semibold text-white">{name}</h2>
+            {address ? (
+              <p>
+                {address.line1 !== name ? (
+                  <>
+                    {address.line1}
+                    <br />
+                  </>
+                ) : null}
+                {address.line2}
+                <br />
+                {address.city} {address.postcode}
+              </p>
+            ) : null}
+            {hours && hours.length > 0 ? (
+              hoursSummary ? (
+                <p className="mt-3 tabular-nums">{hoursSummary}</p>
+              ) : (
+                <ul className="mt-3 space-y-0.5 tabular-nums">
+                  {hours.map(({ day, hours: dayHours }) => (
+                    <li key={day}>
+                      {day}: {dayHours}
+                    </li>
+                  ))}
+                </ul>
+              )
+            ) : null}
+          </div>
+          <nav aria-label="Renting">
+            <h2 className="mb-3 text-sm font-semibold text-white">Renting</h2>
+            <Link href="/properties" className={linkClass}>
+              Homes to let
+            </Link>
+            <Link href="/apply" className={linkClass}>
+              Apply to rent
+            </Link>
+            <Link href="/tenants" className={linkClass}>
+              Tenant advice
+            </Link>
+            <a href={tenantPortalUrl} className={linkClass}>
               Tenant login
             </a>
-            <a href={landlordPortalUrl} className="font-medium text-primary hover:underline">
+          </nav>
+          <nav aria-label="Landlords">
+            <h2 className="mb-3 text-sm font-semibold text-white">Landlords</h2>
+            <Link href="/landlords" className={linkClass}>
+              Our services
+            </Link>
+            <Link href="/contact" className={linkClass}>
+              Talk to us about letting
+            </Link>
+            <a href={landlordPortalUrl} className={linkClass}>
               Landlord login
             </a>
           </nav>
-          <nav className="mt-2 flex flex-wrap gap-x-4 gap-y-2 text-sm">{legalLinks}</nav>
+          <nav aria-label="Company">
+            <h2 className="mb-3 text-sm font-semibold text-white">Company</h2>
+            <Link href="/about" className={linkClass}>
+              About
+            </Link>
+            <Link href="/contact" className={linkClass}>
+              Contact
+            </Link>
+          </nav>
         </div>
-      </div>
-      <div className="border-t py-4 text-center text-xs text-muted-foreground">
-        © {new Date().getFullYear()} {name}. All rights reserved.
+
+        <div className="mt-12 flex flex-col gap-3 border-t border-white/10 pt-6 text-[13px] text-white/50 md:flex-row md:items-center md:justify-between">
+          <p>
+            © {new Date().getFullYear()} {name}
+            {siteContent.cmp?.scheme ? ` · ${siteContent.cmp.scheme}` : ""}
+          </p>
+          <nav
+            aria-label="Legal"
+            className="flex flex-wrap gap-x-4 gap-y-1 [&_a]:text-white/60 [&_a:hover]:text-white"
+          >
+            {legalLinks}
+          </nav>
+        </div>
       </div>
     </footer>
   );
