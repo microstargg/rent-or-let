@@ -22,9 +22,17 @@ If an agency changes them, update its notice too.
 | Cookie consent records | `cookie_consents` | 2 years | Delete | Evidence of consent; holds no identifier beyond a random ID |
 | Staff accounts | `staff_profiles` | While employed + 6 months | Delete | Access no longer needed |
 
-## Platform work needed
+## Automatic deletion
 
-The platform does not delete anything automatically yet. A retention job (a cron route like the
-existing ones in `apps/web/src/app/api/cron`) should delete or anonymise rows past these periods
-for each agency database. It must be off by default and switched on per agency once that agency
-has agreed its periods, because deletion cannot be undone.
+`/api/cron/retention` runs weekly (Sunday 04:00 UTC) and covers four rules so far: enquiries
+older than 12 months, rejected applications older than 6 months, complaints resolved more than
+6 years ago, and cookie consent records older than 2 years. Periods live in
+`apps/web/src/lib/db/queries/retention.ts`.
+
+It only counts rows by default. It deletes for an agency only when that agency's slug is in the
+`RETENTION_ENFORCE_AGENCIES` environment variable (comma separated, e.g. `pms,veri-properties`),
+because deletion cannot be undone. Check the dry-run counts in the cron response before adding
+an agency.
+
+The six-year rules for tenancy, finance, maintenance and landlord records are not automated
+yet, because a tenancy's end date has to drive them.
