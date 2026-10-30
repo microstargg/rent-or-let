@@ -117,8 +117,11 @@ replace professional or legal advice.
 
 ## 10. General
 
-10.1 Neither party may transfer this Agreement without the other's consent, except we may
-transfer it to a buyer of our business on notice to you.
+10.1 Neither party may transfer this Agreement without the other's consent, except that we may
+transfer or novate it, including the DPA, on written notice to you: (a) to a company we set up or
+control to carry on the Let Flow business; or (b) to a buyer of our business. You agree now to
+any such transfer and will sign any document reasonably needed to confirm it. The new party
+takes on all of our obligations, and the terms do not otherwise change.
 
 10.2 Notices must be in writing and sent by email to the addresses on the Order Form.
 
