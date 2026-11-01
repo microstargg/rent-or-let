@@ -11,6 +11,7 @@ import { CookieConsent } from "@/components/compliance/cookie-consent";
 import { VeriHeader } from "@/veri/header";
 import { VeriFooter } from "@/veri/footer";
 import { TickObserver, tickBootScript } from "@/veri/tick-observer";
+import { TickDefs } from "@/veri/ui";
 import { VERI_AGENCY_ID } from "@/lib/veri";
 import "./globals.css";
 import "./agency-themes.css";
@@ -108,6 +109,7 @@ export default async function RootLayout({
         <body className={`${veriSans.variable} ${veriMono.variable}`}>
           <script dangerouslySetInnerHTML={{ __html: tickBootScript }} />
           <TenantProvider tenant={agency.config}>
+            <TickDefs />
             <VeriHeader />
             <main id="main" className="min-h-[60vh]">
               {children}

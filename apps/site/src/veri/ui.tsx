@@ -14,71 +14,100 @@ type TickProps = {
   box?: boolean;
 };
 
-/** A ballpoint tick: the one mark the whole Veri site is built around. */
-export function Tick({ className, i, drawn, hover, box }: TickProps) {
+const RIBBON_RIGHT = "M567 448L690 285C702 268 720 258 740 258H798C803 258 805 263 802 267L594 541C603 527 605 508 600 494Z";
+const RIBBON_LEFT = "M415 358H478C494 358 510 368 520 382L600 494C608 507 607 526 596 540C588 550 577 556 565 556C552 556 540 550 532 539L411 366C409 362 411 358 415 358Z";
+const RIBBON_SHADOW = "M560 440L640 400L650 470L594 545Z";
+
+/** The three ribbon pieces: back arm, fold shadow, front arm. Fills come from <TickDefs>. */
+function RibbonPaths({ dark }: { dark?: boolean }) {
+  const set = dark ? "vtd" : "vt";
   return (
-    <svg
-      className={cn("v-tick", box && "v-tick--box", className)}
-      viewBox="0 0 24 24"
-      fill="none"
-      aria-hidden
-      focusable="false"
-      data-static={drawn ? "" : undefined}
-      data-hover={hover ? "" : undefined}
-      style={i != null ? ({ "--i": i } as CSSProperties) : undefined}
-    >
-      {box ? (
-        <rect x="2.5" y="6.5" width="14" height="14" rx="1.5" stroke="currentColor" strokeWidth={1.6} />
-      ) : null}
-      <path
-        d={box ? "M5.6 13.4c1.5.9 2.8 2.2 3.8 3.8C12.3 11.6 16.3 6.9 22 3" : "M3.4 13.3c2.2 1.3 4 3.1 5.5 5.4C11.7 12.5 15.7 7.6 21 4"}
-        pathLength={1}
-        stroke="currentColor"
-        strokeWidth={2.6}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+    <>
+      <path className="vt-r" fill={`url(#${set}-r)`} d={RIBBON_RIGHT} />
+      <path className="vt-s" fill={`url(#${set}-s)`} clipPath="url(#vt-c)" d={RIBBON_SHADOW} />
+      <path className="vt-l" fill={`url(#${set}-l)`} d={RIBBON_LEFT} />
+    </>
+  );
+}
+
+/**
+ * Shared gradients for every ribbon tick on the page, rendered once in the layout.
+ * Kept out of display:none so the references resolve in every browser.
+ */
+export function TickDefs() {
+  const grad = (id: string, x1: number, y1: number, x2: number, y2: number, stops: Array<[number, string, number?]>) => (
+    <linearGradient id={id} gradientUnits="userSpaceOnUse" x1={x1} y1={y1} x2={x2} y2={y2}>
+      {stops.map(([offset, color, opacity]) => (
+        <stop key={offset} offset={offset} stopColor={color} stopOpacity={opacity ?? 1} />
+      ))}
+    </linearGradient>
+  );
+  return (
+    <svg aria-hidden focusable="false" width="0" height="0" style={{ position: "absolute", width: 0, height: 0, overflow: "hidden" }}>
+      <defs>
+        {grad("vt-l", 430, 360, 575, 552, [[0, "#3520FD"], [1, "#4A2BFF"]])}
+        {grad("vt-r", 590, 520, 790, 262, [[0, "#2010C2"], [0.38, "#2E1BE7"], [0.7, "#3820FC"], [1, "#4026FD"]])}
+        {grad("vt-s", 584, 471, 612, 451, [[0, "#10069C"], [0.45, "#10069C", 0.55], [1, "#10069C", 0]])}
+        {grad("vtd-l", 430, 360, 575, 552, [[0, "#9C8DFF"], [1, "#B3A8FF"]])}
+        {grad("vtd-r", 590, 520, 790, 262, [[0, "#5A44E6"], [0.38, "#6D58F2"], [0.7, "#8170FA"], [1, "#8E7EFF"]])}
+        {grad("vtd-s", 584, 471, 612, 451, [[0, "#2B1BA8"], [0.45, "#2B1BA8", 0.6], [1, "#2B1BA8", 0]])}
+        <clipPath id="vt-c" clipPathUnits="userSpaceOnUse">
+          <path d={RIBBON_RIGHT} />
+        </clipPath>
+      </defs>
     </svg>
   );
 }
 
-/** The logo tick: a folded ribbon tick that doubles as the V of Veri. */
-export function LogoTick({ id = "v", className }: { id?: string; className?: string }) {
+/**
+ * The tick the whole Veri site is built around: the logo's folded ribbon.
+ * The box variant (inside buttons and doors) stays a pen stroke, so it reads at button size
+ * and on the blue button.
+ */
+export function Tick({ className, i, drawn, hover, box }: TickProps) {
+  const common = {
+    "aria-hidden": true,
+    focusable: "false" as const,
+    "data-static": drawn ? "" : undefined,
+    "data-hover": hover ? "" : undefined,
+    style: i != null ? ({ "--i": i } as CSSProperties) : undefined,
+  };
+  if (box) {
+    return (
+      <svg className={cn("v-tick v-tick--box", className)} viewBox="0 0 24 24" fill="none" {...common}>
+        <rect x="2.5" y="6.5" width="14" height="14" rx="1.5" stroke="currentColor" strokeWidth={1.6} />
+        <path
+          d="M5.6 13.4c1.5.9 2.8 2.2 3.8 3.8C12.3 11.6 16.3 6.9 22 3"
+          pathLength={1}
+          stroke="currentColor"
+          strokeWidth={2.6}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    );
+  }
   return (
-    <svg
-      className={cn("v-logo-tick", className)}
-      viewBox="408 254 398 306"
-      aria-hidden
-      focusable="false"
-    >
-      <defs>
-        <linearGradient id={`${id}-l`} x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#3620FE" />
-          <stop offset="1" stopColor="#4126FD" />
-        </linearGradient>
-        <linearGradient id={`${id}-r`} x1="0" y1="1" x2="1" y2="0">
-          <stop offset="0" stopColor="#2C19E4" />
-          <stop offset="0.35" stopColor="#3820F8" />
-          <stop offset="1" stopColor="#4327FD" />
-        </linearGradient>
-      </defs>
-      <path
-        fill={`url(#${id}-l)`}
-        d="M415 358H478C494 358 510 368 520 382L600 494C608 507 607 526 596 540C588 550 577 556 565 556C552 556 540 550 532 539L411 366C409 362 411 358 415 358Z"
-      />
-      <path
-        fill={`url(#${id}-r)`}
-        d="M567 448L690 285C702 268 720 258 740 258H798C803 258 805 263 802 267L594 541C603 527 605 508 600 494Z"
-      />
+    <svg className={cn("v-tick v-tick--ribbon", className)} viewBox="400 201 412 412" {...common}>
+      <RibbonPaths />
+    </svg>
+  );
+}
+
+/** The logo tick: a folded ribbon tick that doubles as the V of Veri. Always in brand colours. */
+export function LogoTick({ className }: { className?: string }) {
+  return (
+    <svg className={cn("v-logo-tick", className)} viewBox="408 254 398 306" aria-hidden focusable="false">
+      <RibbonPaths />
     </svg>
   );
 }
 
 /** The wordmark: the V of Veri is the ribbon tick. */
-export function Wordmark({ className, id }: { className?: string; id?: string }) {
+export function Wordmark({ className }: { className?: string }) {
   return (
     <span className={cn("v-word", className)} aria-hidden>
-      <LogoTick id={id} />
+      <LogoTick />
       <span className="v-word__eri">eri</span>
     </span>
   );

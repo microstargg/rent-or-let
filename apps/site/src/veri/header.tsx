@@ -41,7 +41,7 @@ export function VeriHeader() {
       </a>
       <div className="v-wrap v-head__bar">
         <Link href="/" className="v-head__brand" aria-label={`${name}, home`}>
-          <Wordmark id="vh" />
+          <Wordmark />
         </Link>
 
         <nav aria-label="Main" className="v-nav">
