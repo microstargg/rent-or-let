@@ -1,0 +1,665 @@
+/*
+ * Veri Properties: its own design system (see src/veri/DESIGN.md).
+ * Tokens are scoped to the Veri agency so nothing leaks into the default layout.
+ */
+html[data-agency="veri-properties"] {
+  --v-paper: #f4f5f2;
+  --v-white: #ffffff;
+  --v-ink: #121417;
+  --v-ink-2: #1c2024;
+  --v-muted: #575d63;
+  --v-line: #d5d8d2;
+  --v-pen: #2541e8;
+  --v-pen-ink: #a9b6ff;
+  --v-ease: cubic-bezier(0.2, 0.7, 0.1, 1);
+  --v-gutter: clamp(1rem, 3vw, 2.5rem);
+  --v-head: 4.5rem;
+
+  /* Map the shared UI tokens (forms, dialogs, cookie banner) onto Veri's palette. */
+  --background: var(--v-paper);
+  --foreground: var(--v-ink);
+  --card: var(--v-white);
+  --card-foreground: var(--v-ink);
+  --popover: var(--v-white);
+  --popover-foreground: var(--v-ink);
+  --primary: var(--v-ink);
+  --primary-foreground: var(--v-paper);
+  --secondary: #e9ebe6;
+  --secondary-foreground: var(--v-ink);
+  --muted: #e9ebe6;
+  --muted-foreground: var(--v-muted);
+  --accent: var(--v-pen);
+  --accent-foreground: #ffffff;
+  --destructive: #c2281d;
+  --border: var(--v-line);
+  --input: #aeb3ab;
+  --ring: var(--v-pen);
+  --success: #1f7a4d;
+  --radius: 0.25rem;
+  scroll-padding-top: calc(var(--v-head) + 1rem);
+}
+
+html[data-agency="veri-properties"] body {
+  font-family: var(--font-veri), system-ui, sans-serif;
+  font-size: 1.0625rem;
+  line-height: 1.55;
+  background: var(--v-paper);
+  color: var(--v-ink);
+}
+
+html[data-agency="veri-properties"] ::selection {
+  background: var(--v-pen);
+  color: #fff;
+}
+
+html[data-agency="veri-properties"] :focus-visible {
+  outline: 2px solid var(--v-pen);
+  outline-offset: 3px;
+}
+
+html[data-agency="veri-properties"] .v-dark :focus-visible {
+  outline-color: var(--v-pen-ink);
+}
+
+/* ---------- layout ---------- */
+
+.v-wrap {
+  width: 100%;
+  max-width: 84rem;
+  margin-inline: auto;
+  padding-inline: var(--v-gutter);
+}
+
+.v-grid {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  column-gap: var(--v-gutter);
+}
+
+.v-section {
+  padding-block: clamp(4rem, 3rem + 5vw, 8rem);
+}
+
+.v-dark {
+  background: var(--v-ink);
+  color: var(--v-paper);
+  --v-muted: #a3a9ae;
+  --v-line: #30363b;
+}
+
+.v-skip {
+  position: absolute;
+  left: 1rem;
+  top: -4rem;
+  z-index: 100;
+  background: var(--v-ink);
+  color: var(--v-paper);
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius);
+  font-weight: 650;
+}
+.v-skip:focus {
+  top: 1rem;
+}
+
+/* ---------- type ---------- */
+
+.v-display {
+  font-stretch: 125%;
+  font-weight: 800;
+  letter-spacing: -0.045em;
+  line-height: 0.88;
+  margin-left: -0.05em;
+  text-wrap: balance;
+}
+
+.v-display--hero {
+  font-size: clamp(3rem, 1.2rem + 12.4vw, 11rem);
+}
+
+.v-display--page {
+  font-size: clamp(2.4rem, 1rem + 6vw, 6.5rem);
+  line-height: 0.9;
+}
+
+.v-h2 {
+  font-stretch: 118%;
+  font-weight: 760;
+  font-size: clamp(1.9rem, 1.1rem + 3vw, 3.6rem);
+  letter-spacing: -0.035em;
+  line-height: 0.98;
+  text-wrap: balance;
+}
+
+.v-h3 {
+  font-stretch: 110%;
+  font-weight: 700;
+  font-size: clamp(1.2rem, 1rem + 0.8vw, 1.55rem);
+  letter-spacing: -0.015em;
+  line-height: 1.15;
+}
+
+.v-lead {
+  font-size: clamp(1.0625rem, 1rem + 0.35vw, 1.3rem);
+  line-height: 1.5;
+  color: var(--v-muted);
+  max-width: 50ch;
+}
+
+.v-prose {
+  max-width: 62ch;
+  color: var(--v-muted);
+}
+.v-prose > * + * {
+  margin-top: 1em;
+}
+
+.v-num {
+  font-family: var(--font-veri-mono), ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+.v-label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--v-muted);
+}
+
+/* ---------- the tick ---------- */
+
+.v-tick {
+  width: 1.15em;
+  height: 1.15em;
+  flex: none;
+  color: var(--v-pen);
+  overflow: visible;
+}
+.v-dark .v-tick {
+  color: var(--v-pen-ink);
+}
+.v-tick path {
+  /* Gap longer than the path, so an undrawn tick leaves no round-cap dot behind. */
+  stroke-dasharray: 1 3;
+  stroke-dashoffset: 0;
+  transition: stroke-dashoffset 0.42s var(--v-ease);
+  transition-delay: calc(var(--i, 0) * 70ms);
+}
+/* With JS, ticks start blank and are drawn as their group scrolls into view. */
+html.v-js [data-tick]:not([data-ticked]) .v-tick:not([data-static]) path,
+html.v-js .v-tick[data-hover] path {
+  stroke-dashoffset: 1.15;
+}
+html.v-js .v-hover:hover .v-tick[data-hover] path,
+html.v-js .v-hover:focus-visible .v-tick[data-hover] path,
+html.v-js .v-hover:focus-within .v-tick[data-hover] path,
+html.v-js .v-tick[data-hover][data-on] path {
+  stroke-dashoffset: 0;
+  transition-delay: 0ms;
+  transition-duration: 0.32s;
+}
+
+/* ---------- wordmark ---------- */
+
+.v-word {
+  display: inline-flex;
+  align-items: baseline;
+  font-stretch: 125%;
+  font-weight: 800;
+  letter-spacing: -0.05em;
+  line-height: 1;
+}
+.v-word .v-tick {
+  width: 0.98em;
+  height: 0.98em;
+  margin-right: -0.06em;
+  transform: translateY(0.12em);
+}
+.v-word .v-tick path {
+  stroke-width: 3.4;
+}
+
+/* ---------- buttons and links ---------- */
+
+.v-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  min-height: 3rem;
+  padding: 0.65rem 1.25rem;
+  border-radius: var(--radius);
+  font-weight: 650;
+  font-stretch: 108%;
+  line-height: 1.1;
+  background: var(--v-ink);
+  color: var(--v-paper);
+  transition:
+    background-color 0.25s var(--v-ease),
+    color 0.25s var(--v-ease),
+    box-shadow 0.25s var(--v-ease);
+}
+.v-btn .v-tick {
+  color: currentColor;
+}
+.v-btn:hover {
+  background: var(--v-pen);
+  color: #fff;
+}
+.v-btn:active {
+  transform: translateY(1px);
+}
+.v-btn--pen {
+  background: var(--v-pen);
+  color: #fff;
+}
+.v-btn--pen:hover {
+  background: var(--v-ink);
+}
+.v-btn--ghost {
+  background: transparent;
+  color: var(--v-ink);
+  box-shadow: inset 0 0 0 1.5px var(--v-ink);
+}
+.v-btn--ghost:hover {
+  background: var(--v-ink);
+  color: var(--v-paper);
+}
+.v-dark .v-btn {
+  background: var(--v-paper);
+  color: var(--v-ink);
+}
+.v-dark .v-btn:hover {
+  background: var(--v-pen-ink);
+  color: var(--v-ink);
+}
+.v-dark .v-btn--ghost {
+  background: transparent;
+  color: var(--v-paper);
+  box-shadow: inset 0 0 0 1.5px var(--v-paper);
+}
+.v-dark .v-btn--ghost:hover {
+  background: var(--v-paper);
+  color: var(--v-ink);
+}
+
+.v-link {
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--v-pen) 55%, transparent);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.2em;
+  transition:
+    text-decoration-color 0.2s,
+    text-decoration-thickness 0.2s,
+    color 0.2s;
+}
+.v-link:hover {
+  color: var(--v-pen);
+  text-decoration-color: var(--v-pen);
+  text-decoration-thickness: 2px;
+}
+.v-dark .v-link {
+  text-decoration-color: color-mix(in srgb, var(--v-pen-ink) 60%, transparent);
+}
+.v-dark .v-link:hover {
+  color: var(--v-pen-ink);
+  text-decoration-color: var(--v-pen-ink);
+}
+
+/* ---------- header ---------- */
+
+.v-head {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: color-mix(in srgb, var(--v-paper) 94%, transparent);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--v-line);
+}
+.v-head__bar {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  height: var(--v-head);
+}
+.v-head__brand {
+  font-size: 1.7rem;
+  padding-block: 0.4rem;
+}
+.v-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-left: auto;
+}
+.v-nav__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.55rem 0.7rem;
+  font-weight: 600;
+  font-size: 0.97rem;
+  border-radius: var(--radius);
+  transition: color 0.2s;
+}
+.v-nav__link .v-tick {
+  width: 0.95em;
+  height: 0.95em;
+  margin-left: -0.15rem;
+}
+.v-nav__link:hover {
+  color: var(--v-pen);
+}
+.v-nav__link[aria-current="page"] {
+  color: var(--v-ink);
+}
+.v-menu-btn {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2.75rem;
+  padding: 0 0.9rem;
+  font-weight: 650;
+  border-radius: var(--radius);
+  box-shadow: inset 0 0 0 1.5px var(--v-ink);
+}
+.v-menu-btn[aria-expanded="true"] {
+  background: var(--v-ink);
+  color: var(--v-paper);
+}
+.v-menu {
+  border-top: 1px solid var(--v-line);
+  background: var(--v-paper);
+  padding-block: 1rem 1.5rem;
+}
+.v-menu a.v-menu__link {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding-block: 0.7rem;
+  font-stretch: 118%;
+  font-weight: 760;
+  font-size: 1.75rem;
+  letter-spacing: -0.03em;
+  border-bottom: 1px solid var(--v-line);
+}
+
+/* ---------- statement (itemised lines) ---------- */
+
+.v-statement {
+  container-type: inline-size;
+}
+.v-statement__title {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-bottom: 0.75rem;
+  font-weight: 700;
+  font-stretch: 110%;
+  border-bottom: 2px solid currentColor;
+}
+.v-line {
+  display: grid;
+  grid-template-columns: 1.6rem minmax(0, auto) minmax(1.5rem, 1fr) auto;
+  align-items: baseline;
+  column-gap: 0.6rem;
+  padding-block: 0.9rem;
+  border-bottom: 1px solid var(--v-line);
+}
+.v-line > .v-tick {
+  transform: translateY(0.18em);
+}
+.v-line__label {
+  font-weight: 600;
+}
+.v-line__dots {
+  align-self: end;
+  margin-bottom: 0.38em;
+  border-bottom: 2px dotted color-mix(in srgb, var(--v-muted) 55%, transparent);
+}
+.v-line__amt {
+  text-align: right;
+  font-weight: 500;
+}
+.v-line__note {
+  grid-column: 2 / -1;
+  margin-top: 0.2rem;
+  font-size: 0.92rem;
+  color: var(--v-muted);
+  max-width: 60ch;
+}
+.v-line--total {
+  border-bottom: 4px double currentColor;
+  padding-block: 1.1rem;
+}
+.v-line--total .v-line__label,
+.v-line--total .v-line__amt {
+  font-weight: 750;
+  font-size: 1.1em;
+}
+.v-line--plain {
+  grid-template-columns: minmax(0, auto) minmax(1rem, 1fr) auto;
+}
+.v-line--plain .v-line__note {
+  grid-column: 1 / -1;
+}
+@container (max-width: 22rem) {
+  .v-line:not(.v-line--plain) {
+    grid-template-columns: 1.6rem minmax(0, 1fr);
+  }
+  .v-line:not(.v-line--plain) .v-line__dots {
+    display: none;
+  }
+  .v-line:not(.v-line--plain) .v-line__amt {
+    grid-column: 2;
+    text-align: left;
+    margin-top: 0.15rem;
+  }
+}
+
+.v-ticklist {
+  display: grid;
+}
+.v-ticklist > li {
+  display: grid;
+  grid-template-columns: 1.6rem minmax(0, 1fr);
+  column-gap: 0.6rem;
+  align-items: baseline;
+  padding-block: 0.8rem;
+  border-bottom: 1px solid var(--v-line);
+}
+.v-ticklist > li > .v-tick {
+  transform: translateY(0.18em);
+}
+
+/* ---------- listing card ---------- */
+
+.v-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+.v-card__photo {
+  position: relative;
+  display: block;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  border-radius: var(--radius);
+  background: #e3e6e0;
+}
+.v-card__photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: scale 0.7s var(--v-ease);
+}
+.v-card:hover .v-card__photo img {
+  scale: 1.035;
+}
+.v-card__avail {
+  position: absolute;
+  left: 0.75rem;
+  top: 0.75rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.6rem;
+  font-size: 0.85rem;
+  font-weight: 650;
+  background: var(--v-paper);
+  color: var(--v-ink);
+  border-radius: var(--radius);
+}
+.v-card__title {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  margin-top: 1rem;
+  font-stretch: 110%;
+  font-weight: 720;
+  font-size: 1.2rem;
+  letter-spacing: -0.015em;
+  line-height: 1.2;
+}
+.v-card__title a::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+.v-card .v-line {
+  padding-block: 0.55rem;
+  font-size: 0.97rem;
+}
+.v-card .v-line:first-child {
+  border-top: 1px solid var(--v-line);
+}
+.v-card .v-line__label {
+  font-weight: 500;
+  color: var(--v-muted);
+}
+
+/* ---------- index rows (two doors) ---------- */
+
+.v-door {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 1.5rem;
+  padding-block: clamp(1.5rem, 1rem + 2vw, 2.75rem);
+  border-bottom: 1px solid var(--v-line);
+}
+.v-door__name {
+  font-stretch: 125%;
+  font-weight: 800;
+  font-size: clamp(2.6rem, 1rem + 7vw, 7.5rem);
+  letter-spacing: -0.05em;
+  line-height: 0.9;
+  transition: color 0.3s var(--v-ease);
+}
+.v-door__sub {
+  margin-top: 0.75rem;
+  color: var(--v-muted);
+  max-width: 46ch;
+}
+.v-door .v-tick {
+  width: clamp(2.5rem, 1.5rem + 4vw, 5.5rem);
+  height: clamp(2.5rem, 1.5rem + 4vw, 5.5rem);
+}
+.v-door:hover .v-door__name {
+  color: var(--v-pen);
+}
+
+/* ---------- forms inside Veri pages ---------- */
+
+html[data-agency="veri-properties"] input:not([type="checkbox"]):not([type="radio"]),
+html[data-agency="veri-properties"] select,
+html[data-agency="veri-properties"] textarea {
+  border-radius: var(--radius);
+  background-color: var(--v-white);
+}
+
+.v-filter {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+.v-filter select,
+.v-filter input[type="number"],
+.v-filter input[type="text"] {
+  height: 3rem;
+  padding-inline: 0.8rem;
+  border: 1.5px solid var(--input);
+  font-weight: 550;
+  font-size: 1rem;
+  width: 100%;
+}
+.v-filter__check {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  height: 3rem;
+  padding-inline: 0.8rem;
+  border: 1.5px solid var(--input);
+  border-radius: var(--radius);
+  background: var(--v-white);
+  font-weight: 600;
+  cursor: pointer;
+}
+.v-filter__check:has(:checked) {
+  border-color: var(--v-pen);
+  color: var(--v-pen);
+}
+@media (min-width: 768px) {
+  .v-filter {
+    grid-template-columns: 9rem 10rem minmax(0, 1fr) 11rem auto auto;
+  }
+}
+
+/* ---------- motion preferences ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .v-tick path,
+  html.v-js .v-tick path {
+    transition: none !important;
+    stroke-dashoffset: 0 !important;
+  }
+  .v-card__photo img {
+    transition: none;
+  }
+  .v-card:hover .v-card__photo img {
+    scale: 1;
+  }
+}
+
+.v-btn--sm {
+  min-height: 2.75rem;
+  padding-block: 0.5rem;
+}
+.v-tick--box rect {
+  opacity: 0.75;
+}
+@media (max-width: 1023.98px) {
+  .v-nav {
+    display: none;
+  }
+}
+@media (min-width: 1024px) {
+  .v-menu-btn,
+  .v-menu {
+    display: none;
+  }
+}
+.v-line--noamt .v-line__label {
+  grid-column: 2 / -1;
+}
+.v-line--noamt.v-line--plain .v-line__label {
+  grid-column: 1 / -1;
+}
+
+/* Shared enquiry and application forms: give their submit buttons the Veri button size. */
+html[data-agency="veri-properties"] main form button[type="submit"]:not(.v-btn) {
+  min-height: 3rem;
+  font-size: 1rem;
+  font-weight: 650;
+}

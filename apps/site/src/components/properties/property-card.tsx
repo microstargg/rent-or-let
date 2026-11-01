@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { Bed, MapPin } from "lucide-react";
 import type { PublicListing } from "@repo/site-core";
 import { cn, formatCurrency } from "@/lib/utils";
 import {
@@ -11,7 +10,6 @@ import {
 } from "@/lib/listing";
 import { CardPhotos } from "@/components/properties/card-photos";
 import { getTenant } from "@/lib/tenant";
-import { isVeriAgency } from "@/lib/veri";
 
 export async function PropertyCard({
   property,
@@ -24,59 +22,8 @@ export async function PropertyCard({
   className?: string;
 }) {
   const { id } = await getTenant();
-  const isVeri = isVeriAgency(id);
   const primaryImage =
     property.images.find((image) => image.isPrimary)?.url ?? property.images[0]?.url;
-
-  if (isVeri) {
-    return (
-      <article className="group flex h-full flex-col">
-        <Link
-          href={`/properties/${property.slug}`}
-          className="relative block overflow-hidden rounded-[1.5rem] bg-muted"
-        >
-          <div className="aspect-[4/3]">
-            {primaryImage ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={primaryImage}
-                alt={property.displayAddress}
-                className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.04]"
-              />
-            ) : (
-              <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-                Photo coming soon
-              </div>
-            )}
-          </div>
-        </Link>
-        <div className="flex flex-1 flex-col px-1 pb-1 pt-5">
-          <p className="font-[family-name:var(--font-veri-sans)] text-xl font-bold tracking-tight md:text-2xl">
-            {formatCurrency(property.pricePcm)}
-            <span className="text-sm font-normal text-muted-foreground"> pcm</span>
-          </p>
-          <h3 className="mt-2 text-base font-medium leading-snug text-foreground/90 md:text-lg">
-            <Link
-              href={`/properties/${property.slug}`}
-              className="transition-colors hover:text-[oklch(0.45_0.06_55)]"
-            >
-              {property.displayAddress}
-            </Link>
-          </h3>
-          <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
-            <span className="flex items-center gap-1.5">
-              <Bed className="h-3.5 w-3.5" />
-              {property.bedrooms} bed
-            </span>
-            <span className="flex items-center gap-1.5">
-              <MapPin className="h-3.5 w-3.5" />
-              {property.town}
-            </span>
-          </div>
-        </div>
-      </article>
-    );
-  }
 
   const availability = availabilityLabel(property);
   const availableNow = isAvailableNow(property);

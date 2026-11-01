@@ -5,7 +5,7 @@ import { PageHero } from "@/components/marketing/page-hero";
 import { FeatureGrid } from "@/components/marketing/feature-grid";
 import { TrustStrip } from "@/components/marketing/trust-strip";
 import { CtaBanner } from "@/components/marketing/cta-banner";
-import { VeriEm, VeriHeading, VeriPanel } from "@/components/marketing/veri-ui";
+import { VeriTenants } from "@/veri/tenants";
 import { Button } from "@/components/ui/button";
 import { getTenant } from "@/lib/tenant";
 import { isVeriAgency } from "@/lib/veri";
@@ -20,11 +20,16 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function TenantsPage() {
-  const { site: siteContent, id } = await getTenant();
+  const tenant = await getTenant();
+  const { site: siteContent, id } = tenant;
   const { tenants } = siteContent;
-  const isVeri = isVeriAgency(id);
-  const accentDot = isVeri ? "bg-[var(--accent)]" : "bg-primary";
-  const accentIcon = isVeri ? "text-[oklch(0.55_0.08_55)]" : "text-primary";
+
+  if (isVeriAgency(id)) {
+    return <VeriTenants tenant={tenant} />;
+  }
+
+  const accentDot = "bg-primary";
+  const accentIcon = "text-primary";
 
   return (
     <>
@@ -43,57 +48,34 @@ export default async function TenantsPage() {
         />
       </section>
 
-      <section className={cn(isVeri ? "bg-[#141414] text-white" : "bg-muted/40", "py-14 md:py-16")}>
+      <section className="bg-muted/40 py-14 md:py-16">
         <div className="container mx-auto max-w-6xl px-4">
           <div className="grid gap-10 lg:grid-cols-2 lg:items-start">
             <div>
-              {isVeri ? (
-                <VeriHeading className="text-white">
-                  We are here for <VeriEm>you</VeriEm>
-                </VeriHeading>
-              ) : (
-                <h2 className="text-2xl font-bold">We are here for you</h2>
-              )}
+              <h2 className="text-2xl font-bold">We are here for you</h2>
               <p
-                className={cn(
-                  "mt-4 leading-relaxed",
-                  isVeri ? "text-white/70" : "text-muted-foreground"
-                )}
+                className="mt-4 leading-relaxed text-muted-foreground"
               >
                 {tenants.intro}
               </p>
               <p
-                className={cn(
-                  "mt-4 leading-relaxed",
-                  isVeri ? "text-white/70" : "text-muted-foreground"
-                )}
+                className="mt-4 leading-relaxed text-muted-foreground"
               >
                 {tenants.benefits}
               </p>
             </div>
             <div
-              className={
-                isVeri
-                  ? "rounded-[1.75rem] border border-white/15 bg-white/5 p-6 md:p-8"
-                  : "rounded-xl border bg-card p-6 shadow-sm"
-              }
+              className="rounded-xl border bg-card p-6 shadow-sm"
             >
-              <h3 className={cn("font-semibold", isVeri && "font-[family-name:var(--font-veri-sans)]")}>
+              <h3 className="font-semibold">
                 Start your search
               </h3>
-              <p className={cn("mt-2 text-sm", isVeri ? "text-white/60" : "text-muted-foreground")}>
-                {isVeri
-                  ? "Browse our available properties or email the team to arrange a viewing."
-                  : "Browse our available properties or call our office to arrange a viewing."}
+              <p className="mt-2 text-sm text-muted-foreground">
+                Browse our available properties or call our office to arrange a viewing.
               </p>
               <div className="mt-6 flex flex-wrap gap-3">
                 <Button
                   asChild
-                  className={
-                    isVeri
-                      ? "rounded-full bg-[var(--accent)] text-[oklch(0.2_0.02_50)] hover:bg-[oklch(0.82_0.09_55)]"
-                      : undefined
-                  }
                 >
                   <Link href="/properties">
                     View properties
@@ -103,11 +85,6 @@ export default async function TenantsPage() {
                 <Button
                   asChild
                   variant="outline"
-                  className={
-                    isVeri
-                      ? "rounded-full border-white/25 bg-transparent text-white hover:bg-white/10"
-                      : undefined
-                  }
                 >
                   <Link href="/apply">Apply to rent</Link>
                 </Button>
@@ -122,7 +99,7 @@ export default async function TenantsPage() {
           <div>
             <div className={cn("mb-4 flex items-center gap-2", accentIcon)}>
               <MapPin className="h-5 w-5" />
-              <h2 className={cn("text-xl font-bold", isVeri && "font-[family-name:var(--font-veri-sans)]")}>
+              <h2 className="text-xl font-bold">
                 {tenants.choosingArea.title}
               </h2>
             </div>
@@ -139,7 +116,7 @@ export default async function TenantsPage() {
           <div>
             <div className={cn("mb-4 flex items-center gap-2", accentIcon)}>
               <Search className="h-5 w-5" />
-              <h2 className={cn("text-xl font-bold", isVeri && "font-[family-name:var(--font-veri-sans)]")}>
+              <h2 className="text-xl font-bold">
                 {tenants.findingProperty.title}
               </h2>
             </div>
@@ -152,15 +129,9 @@ export default async function TenantsPage() {
         </div>
       </section>
 
-      <section className={cn(isVeri ? "bg-muted/50" : "bg-muted/40", "py-14 md:py-16")}>
+      <section className="bg-muted/40 py-14 md:py-16">
         <div className="container mx-auto max-w-6xl px-4">
-          {isVeri ? (
-            <VeriHeading>
-              Securing your new <VeriEm>home</VeriEm>
-            </VeriHeading>
-          ) : (
-            <h2 className="text-2xl font-bold">{tenants.securingProperty.title}</h2>
-          )}
+          <h2 className="text-2xl font-bold">{tenants.securingProperty.title}</h2>
           <p className="mt-2 text-muted-foreground">
             Once you have found a suitable property, the following process applies.
           </p>
@@ -168,19 +139,10 @@ export default async function TenantsPage() {
             {tenants.securingProperty.steps.map((step, index) => (
               <li
                 key={step.title}
-                className={
-                  isVeri
-                    ? "rounded-[1.75rem] border border-foreground/10 bg-background p-6"
-                    : "relative rounded-xl border bg-card p-6 shadow-sm"
-                }
+                className="relative rounded-xl border bg-card p-6 shadow-sm"
               >
                 <span
-                  className={cn(
-                    "mb-4 flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold",
-                    isVeri
-                      ? "bg-[var(--accent)] text-[oklch(0.2_0.02_50)]"
-                      : "bg-primary text-primary-foreground"
-                  )}
+                  className="mb-4 flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold bg-primary text-primary-foreground"
                 >
                   {index + 1}
                 </span>
@@ -193,7 +155,7 @@ export default async function TenantsPage() {
       </section>
 
       <section className="container mx-auto max-w-6xl px-4 py-14 md:py-16">
-        <h2 className={cn("text-2xl font-bold", isVeri && "font-[family-name:var(--font-veri-sans)]")}>
+        <h2 className="text-2xl font-bold">
           Permitted payments
         </h2>
         <p className="mt-2 text-muted-foreground">
@@ -213,7 +175,7 @@ export default async function TenantsPage() {
             href={siteContent.fees.permittedPaymentsUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className={cn(isVeri ? "text-[oklch(0.45_0.06_55)]" : "text-primary", "hover:underline")}
+            className="text-primary hover:underline"
           >
             Read the government How to Rent guide →
           </a>
@@ -227,29 +189,22 @@ export default async function TenantsPage() {
           <div>
             <div className={cn("mb-4 flex items-center gap-2", accentIcon)}>
               <Home className="h-5 w-5" />
-              <h2 className={cn("text-xl font-bold", isVeri && "font-[family-name:var(--font-veri-sans)]")}>
+              <h2 className="text-xl font-bold">
                 {tenants.livingInHome.title}
               </h2>
             </div>
             <p className="text-muted-foreground">{tenants.livingInHome.intro}</p>
             <div className="mt-6 space-y-4">
-              {tenants.livingInHome.points.map((point) =>
-                isVeri ? (
-                  <VeriPanel key={point.title} className="p-5">
-                    <h3 className="font-medium">{point.title}</h3>
-                    <p className="mt-1 text-sm text-muted-foreground">{point.description}</p>
-                  </VeriPanel>
-                ) : (
-                  <div key={point.title} className="rounded-lg border bg-card p-4">
-                    <h3 className="font-medium">{point.title}</h3>
-                    <p className="mt-1 text-sm text-muted-foreground">{point.description}</p>
-                  </div>
-                )
-              )}
+              {tenants.livingInHome.points.map((point) => (
+                <div key={point.title} className="rounded-lg border bg-card p-4">
+                  <h3 className="font-medium">{point.title}</h3>
+                  <p className="mt-1 text-sm text-muted-foreground">{point.description}</p>
+                </div>
+              ))}
             </div>
           </div>
           <div>
-            <h2 className={cn("text-xl font-bold", isVeri && "font-[family-name:var(--font-veri-sans)]")}>
+            <h2 className="text-xl font-bold">
               {tenants.responsibilities.title}
             </h2>
             <p className="mt-3 text-sm text-muted-foreground">{tenants.responsibilities.intro}</p>
@@ -272,9 +227,7 @@ export default async function TenantsPage() {
       <CtaBanner
         title="Ready to find your next home?"
         description={
-          isVeri
-            ? "Browse available homes or apply online — email us anytime with questions."
-            : `Browse our available properties${siteContent.region ? ` across ${siteContent.region}` : ""}, or apply online today.`
+          `Browse our available properties${siteContent.region ? ` across ${siteContent.region}` : ""}, or apply online today.`
         }
         primaryHref="/properties"
         primaryLabel="View properties"

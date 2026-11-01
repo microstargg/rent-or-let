@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
-import { Geist, Geist_Mono, Instrument_Serif, Outfit } from "next/font/google";
+import { Archivo, Geist, Geist_Mono, IBM_Plex_Mono } from "next/font/google";
 import localFont from "next/font/local";
 import { TenantProvider } from "@repo/config";
 import { AGENCY_SLUG_HEADER } from "@repo/config/host";
@@ -8,8 +8,13 @@ import { getAgencyBySlug } from "@repo/config/runtime";
 import { SiteHeader } from "@/components/layout/site-header";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { CookieConsent } from "@/components/compliance/cookie-consent";
+import { VeriHeader } from "@/veri/header";
+import { VeriFooter } from "@/veri/footer";
+import { TickObserver, tickBootScript } from "@/veri/tick-observer";
+import { VERI_AGENCY_ID } from "@/lib/veri";
 import "./globals.css";
 import "./agency-themes.css";
+import "../veri/veri.css";
 
 export const dynamic = "force-dynamic";
 
@@ -23,17 +28,19 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-const veriSans = Outfit({
-  variable: "--font-veri-sans",
+// Veri Properties: one family, using its width axis for hierarchy, plus a mono for money.
+const veriSans = Archivo({
+  variable: "--font-veri",
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800"],
+  axes: ["wdth"],
+  display: "swap",
 });
 
-const veriSerif = Instrument_Serif({
-  variable: "--font-veri-serif",
+const veriMono = IBM_Plex_Mono({
+  variable: "--font-veri-mono",
   subsets: ["latin"],
-  weight: "400",
-  style: ["normal", "italic"],
+  weight: ["400", "500"],
+  display: "swap",
 });
 
 // Default agency layout typeface (self-hosted, SIL Open Font License; see src/fonts/OFL.txt).
@@ -55,7 +62,10 @@ export async function generateMetadata(): Promise<Metadata> {
   const agency = getAgencyBySlug(slug);
   return {
     title: {
-      default: `${agency.config.name} | ${agency.config.productName}`,
+      default:
+        agency.config.name === agency.config.productName
+          ? `${agency.config.name} | ${agency.slug === VERI_AGENCY_ID ? "Lettings, itemised" : "Letting agents"}`
+          : `${agency.config.name} | ${agency.config.productName}`,
       template: `%s | ${agency.config.name}`,
     },
     description: agency.config.site.hero.subtitle,
@@ -86,16 +96,34 @@ export default async function RootLayout({
   }
 
   const agency = getAgencyBySlug(slug);
-  const isVeri = agency.slug === "veri-properties";
-  const fontVars = isVeri
-    ? `${veriSans.variable} ${veriSerif.variable} ${geistMono.variable}`
-    : `${geistSans.variable} ${geistMono.variable} ${agencySans.variable}`;
+
+  if (agency.slug === VERI_AGENCY_ID) {
+    return (
+      <html
+        lang="en-GB"
+        data-agency={agency.slug}
+        data-platform-host={agency.runtime.platformHost}
+        suppressHydrationWarning
+      >
+        <body className={`${veriSans.variable} ${veriMono.variable}`}>
+          <script dangerouslySetInnerHTML={{ __html: tickBootScript }} />
+          <TenantProvider tenant={agency.config}>
+            <VeriHeader />
+            <main id="main" className="min-h-[60vh]">
+              {children}
+            </main>
+            <VeriFooter />
+            <CookieConsent />
+            <TickObserver />
+          </TenantProvider>
+        </body>
+      </html>
+    );
+  }
 
   return (
     <html lang="en-GB" data-agency={agency.slug} data-platform-host={agency.runtime.platformHost}>
-      <body
-        className={`${fontVars} font-sans ${isVeri ? "font-[family-name:var(--font-veri-sans)]" : ""}`}
-      >
+      <body className={`${geistSans.variable} ${geistMono.variable} ${agencySans.variable} font-sans`}>
         <TenantProvider tenant={agency.config}>
           <SiteHeader />
           <main className="min-h-screen">{children}</main>
