@@ -222,11 +222,12 @@ html.v-js .v-tick--ribbon[data-hover][data-on] {
   width: 100%;
   height: 100%;
 }
+/* Centred on the box (rect centre is 39.6% / 56.25% of the 24-unit tick box). */
 .v-tick--box > .v-tick__mark {
-  left: 18%;
-  top: 9%;
-  width: 79%;
-  height: 61%;
+  left: 12.6%;
+  top: 35.5%;
+  width: 54%;
+  height: 41.5%;
 }
 /* Inside buttons the ribbon takes the button's text colour, keeping its two tones and fold
    shadow, so it reads on every button background (blue, ink or paper). */
