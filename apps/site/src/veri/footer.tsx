@@ -90,7 +90,7 @@ export async function VeriFooter() {
 
         <div className="mt-16 flex flex-wrap items-end justify-between gap-6 border-t border-[var(--v-line)] pt-8">
           <span className="text-[3.25rem]">
-            <Wordmark />
+            <Wordmark id="vf" />
           </span>
           <p className="text-sm text-[var(--v-muted)]">
             © {new Date().getFullYear()} {name}. Fully remote lettings across the UK.
