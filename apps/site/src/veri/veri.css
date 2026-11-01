@@ -208,24 +208,37 @@ html.v-js .v-tick--ribbon[data-hover][data-on] {
   transition-duration: 0.36s;
 }
 
-/* The box tick (buttons, doors) is still drawn as a pen stroke. */
-.v-tick path {
-  /* Gap longer than the path, so an undrawn tick leaves no round-cap dot behind. */
-  stroke-dasharray: 1 3;
-  stroke-dashoffset: 0;
-  transition: stroke-dashoffset 0.42s var(--v-ease);
-  transition-delay: calc(var(--i, 0) * 70ms);
+/* The box tick (buttons, doors): a stroked box with the ribbon put into it on hover. */
+.v-tick--box {
+  position: relative;
+  display: inline-block;
 }
-html.v-js .v-tick--box[data-hover] path {
-  stroke-dashoffset: 1.15;
+.v-tick--box > svg {
+  position: absolute;
+  overflow: visible;
 }
-html.v-js .v-hover:hover .v-tick--box[data-hover] path,
-html.v-js .v-hover:focus-visible .v-tick--box[data-hover] path,
-html.v-js .v-hover:focus-within .v-tick--box[data-hover] path,
-html.v-js .v-tick--box[data-hover][data-on] path {
-  stroke-dashoffset: 0;
-  transition-delay: 0ms;
-  transition-duration: 0.32s;
+.v-tick__box {
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.v-tick--box > .v-tick__mark {
+  left: 18%;
+  top: 9%;
+  width: 79%;
+  height: 61%;
+}
+/* Inside buttons the ribbon takes the button's text colour, keeping its two tones and fold
+   shadow, so it reads on every button background (blue, ink or paper). */
+.v-btn .v-tick--ribbon .vt-l {
+  fill: currentColor;
+}
+.v-btn .v-tick--ribbon .vt-r {
+  fill: currentColor;
+  opacity: 0.68;
+}
+.v-btn .v-tick--ribbon .vt-s {
+  fill: url(#vtk-s);
 }
 
 /* ---------- wordmark ---------- */
@@ -677,7 +690,7 @@ html[data-agency="veri-properties"] textarea {
   min-height: 2.75rem;
   padding-block: 0.5rem;
 }
-.v-tick--box rect {
+.v-tick__box rect {
   opacity: 0.75;
 }
 @media (max-width: 1023.98px) {
