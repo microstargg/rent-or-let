@@ -50,7 +50,12 @@ Screenshot:  "Lettings, itemised." over the house photo, with the fee slip besid
 | ink | `#121417` |
 | muted | `#575D63` (6.1:1 on paper) |
 | line | `#D5D8D2` |
-| accent (pen) | `#2541E8` (6.4:1 on paper); `#A9B6FF` on ink |
+| accent (pen) | `#3D24FD` (6.7:1 on paper), matched to the logo; `#A89CFF` on ink |
+
+**Logo.** Ben's redesigned mark (2026-11-01): a folded ribbon tick that is the V, then "eri".
+Source artwork in `tenants/veri-properties/brand/veri-logo.png`; redrawn as SVG in `LogoTick`
+(ui.tsx) and in the favicon/apple icon. The tick runs from the i-dot top to the baseline and
+the "e" tucks under its right arm.
 
 **Type.** Archivo only, using its width axis as the hierarchy: expanded 125% at 800 for display,
 normal width for text and UI. IBM Plex Mono for figures that are money or references (fees,

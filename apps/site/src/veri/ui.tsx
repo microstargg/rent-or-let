@@ -42,12 +42,44 @@ export function Tick({ className, i, drawn, hover, box }: TickProps) {
   );
 }
 
-/** The wordmark: the V of Veri is the tick. */
-export function Wordmark({ className }: { className?: string }) {
+/** The logo tick: a folded ribbon tick that doubles as the V of Veri. */
+export function LogoTick({ id = "v", className }: { id?: string; className?: string }) {
+  return (
+    <svg
+      className={cn("v-logo-tick", className)}
+      viewBox="408 254 398 306"
+      aria-hidden
+      focusable="false"
+    >
+      <defs>
+        <linearGradient id={`${id}-l`} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#3620FE" />
+          <stop offset="1" stopColor="#4126FD" />
+        </linearGradient>
+        <linearGradient id={`${id}-r`} x1="0" y1="1" x2="1" y2="0">
+          <stop offset="0" stopColor="#2C19E4" />
+          <stop offset="0.35" stopColor="#3820F8" />
+          <stop offset="1" stopColor="#4327FD" />
+        </linearGradient>
+      </defs>
+      <path
+        fill={`url(#${id}-l)`}
+        d="M415 358H478C494 358 510 368 520 382L600 494C608 507 607 526 596 540C588 550 577 556 565 556C552 556 540 550 532 539L411 366C409 362 411 358 415 358Z"
+      />
+      <path
+        fill={`url(#${id}-r)`}
+        d="M567 448L690 285C702 268 720 258 740 258H798C803 258 805 263 802 267L594 541C603 527 605 508 600 494Z"
+      />
+    </svg>
+  );
+}
+
+/** The wordmark: the V of Veri is the ribbon tick. */
+export function Wordmark({ className, id }: { className?: string; id?: string }) {
   return (
     <span className={cn("v-word", className)} aria-hidden>
-      <Tick drawn />
-      eri
+      <LogoTick id={id} />
+      <span className="v-word__eri">eri</span>
     </span>
   );
 }

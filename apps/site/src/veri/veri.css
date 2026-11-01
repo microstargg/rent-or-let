@@ -9,8 +9,8 @@ html[data-agency="veri-properties"] {
   --v-ink-2: #1c2024;
   --v-muted: #575d63;
   --v-line: #d5d8d2;
-  --v-pen: #2541e8;
-  --v-pen-ink: #a9b6ff;
+  --v-pen: #3d24fd;
+  --v-pen-ink: #a89cff;
   --v-ease: cubic-bezier(0.2, 0.7, 0.1, 1);
   --v-gutter: clamp(1rem, 3vw, 2.5rem);
   --v-head: 4.5rem;
@@ -209,14 +209,21 @@ html.v-js .v-tick[data-hover][data-on] path {
   letter-spacing: -0.05em;
   line-height: 1;
 }
-.v-word .v-tick {
-  width: 0.98em;
-  height: 0.98em;
-  margin-right: -0.06em;
-  transform: translateY(0.12em);
+.v-logo-tick {
+  display: block;
+  flex: none;
+  width: 1.13em;
+  height: 0.87em;
+  margin-right: -0.2em;
+  overflow: visible;
 }
-.v-word .v-tick path {
-  stroke-width: 3.4;
+.v-word__eri {
+  position: relative;
+  letter-spacing: 0.005em;
+  color: var(--v-ink);
+}
+.v-dark .v-word__eri {
+  color: var(--v-white);
 }
 
 /* ---------- buttons and links ---------- */
