@@ -55,7 +55,11 @@ Screenshot:  "Lettings, itemised." over the house photo, with the fee slip besid
 **Logo.** Ben's redesigned mark (2026-11-01): a folded ribbon tick that is the V, then "eri".
 Source artwork in `tenants/veri-properties/brand/veri-logo.png`; redrawn as SVG in `LogoTick`
 (ui.tsx) and in the favicon/apple icon. The tick runs from the i-dot top to the baseline and
-the "e" tucks under its right arm.
+the "e" tucks under its right arm. Two tones as drawn: the front (left) arm is the lighter
+violet, the back arm is deeper, with a fold shadow where it passes behind. The same ribbon is
+the site's content tick (gradients defined once in `TickDefs`, lighter set on dark bands, put
+down with a left-to-right clip wipe). Ticks inside buttons and doors stay a pen stroke so they
+read at button size and on the blue button.
 
 **Type.** Archivo only, using its width axis as the hierarchy: expanded 125% at 800 for display,
 normal width for text and UI. IBM Plex Mono for figures that are money or references (fees,
