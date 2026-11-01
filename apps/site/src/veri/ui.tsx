@@ -51,6 +51,7 @@ export function TickDefs() {
         {grad("vtd-l", 430, 360, 575, 552, [[0, "#9C8DFF"], [1, "#B3A8FF"]])}
         {grad("vtd-r", 590, 520, 790, 262, [[0, "#5A44E6"], [0.38, "#6D58F2"], [0.7, "#8170FA"], [1, "#8E7EFF"]])}
         {grad("vtd-s", 584, 471, 612, 451, [[0, "#2B1BA8"], [0.45, "#2B1BA8", 0.6], [1, "#2B1BA8", 0]])}
+        {grad("vtk-s", 584, 471, 612, 451, [[0, "#000000", 0.55], [0.45, "#000000", 0.3], [1, "#000000", 0]])}
         <clipPath id="vt-c" clipPathUnits="userSpaceOnUse">
           <path d={RIBBON_RIGHT} />
         </clipPath>
@@ -61,8 +62,7 @@ export function TickDefs() {
 
 /**
  * The tick the whole Veri site is built around: the logo's folded ribbon.
- * The box variant (inside buttons and doors) stays a pen stroke, so it reads at button size
- * and on the blue button.
+ * The box variant (buttons, doors) puts the same ribbon into an empty box on hover.
  */
 export function Tick({ className, i, drawn, hover, box }: TickProps) {
   const common = {
@@ -73,18 +73,23 @@ export function Tick({ className, i, drawn, hover, box }: TickProps) {
     style: i != null ? ({ "--i": i } as CSSProperties) : undefined,
   };
   if (box) {
+    // An empty box with the ribbon tick put into it: the box is a stroke, the tick is the logo's.
     return (
-      <svg className={cn("v-tick v-tick--box", className)} viewBox="0 0 24 24" fill="none" {...common}>
-        <rect x="2.5" y="6.5" width="14" height="14" rx="1.5" stroke="currentColor" strokeWidth={1.6} />
-        <path
-          d="M5.6 13.4c1.5.9 2.8 2.2 3.8 3.8C12.3 11.6 16.3 6.9 22 3"
-          pathLength={1}
-          stroke="currentColor"
-          strokeWidth={2.6}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </svg>
+      <span className={cn("v-tick v-tick--box", className)} aria-hidden style={common.style}>
+        <svg className="v-tick__box" viewBox="0 0 24 24" fill="none" aria-hidden focusable="false">
+          <rect x="2.5" y="6.5" width="14" height="14" rx="1.5" stroke="currentColor" strokeWidth={1.6} />
+        </svg>
+        <svg
+          className="v-tick__mark v-tick--ribbon"
+          viewBox="408 254 398 306"
+          aria-hidden
+          focusable="false"
+          data-static={common["data-static"]}
+          data-hover={common["data-hover"]}
+        >
+          <RibbonPaths />
+        </svg>
+      </span>
     );
   }
   return (
