@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Clock, Mail, MapPin, Phone } from "lucide-react";
 import { ContactForm } from "@/components/forms/contact-form";
 import { PageHero } from "@/components/marketing/page-hero";
-import { VeriEm, VeriHeading, VeriPanel } from "@/components/marketing/veri-ui";
+import { VeriContact } from "@/veri/contact";
 import { getTenant } from "@/lib/tenant";
 import { isVeriAgency } from "@/lib/veri";
 
@@ -22,20 +22,19 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function ContactPage() {
-  const { site: siteContent, id } = await getTenant();
+  const tenant = await getTenant();
+  const { site: siteContent, id } = tenant;
   const { address, phone, fax, email, hours } = siteContent.contact;
-  const isVeri = isVeriAgency(id);
+  if (isVeriAgency(id)) return <VeriContact tenant={tenant} />;
   const remoteOnly = !phone && !address;
 
   return (
     <>
       <PageHero
         eyebrow="Contact"
-        title={isVeri ? "Email the team" : "We would love to hear from you"}
+        title="We would love to hear from you"
         subtitle={
-          isVeri
-            ? "We're fully remote — send a message below or email us directly. No office hours, no phone queue."
-            : "Visit our lettings office on Kings Road, call us during office hours, or send a message using the form below."
+          "Visit our lettings office on Kings Road, call us during office hours, or send a message using the form below."
         }
       />
 
@@ -44,14 +43,9 @@ export default async function ContactPage() {
           <div className="space-y-8">
             {remoteOnly ? (
               <div className="space-y-4">
-                {isVeri ? (
-                  <VeriHeading as="h2">
-                    Reach us <VeriEm>remotely</VeriEm>
-                  </VeriHeading>
-                ) : null}
                 <div>
-                  <Mail className="mb-3 h-5 w-5 text-[oklch(0.55_0.08_55)]" />
-                  <h2 className="font-[family-name:var(--font-veri-sans)] font-semibold">Email</h2>
+                  <Mail className="mb-3 h-5 w-5 text-primary" />
+                  <h2 className="font-semibold">Email</h2>
                   <a
                     href={`mailto:${email}`}
                     className="mt-1 block text-lg text-foreground hover:underline"
@@ -125,20 +119,7 @@ export default async function ContactPage() {
             )}
           </div>
 
-          {isVeri ? (
-            <VeriPanel>
-              <h2 className="font-[family-name:var(--font-veri-sans)] text-lg font-semibold">
-                Send a message
-              </h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Tell us what you need — landlord management, a viewing, or a general enquiry.
-              </p>
-              <div className="mt-6">
-                <ContactForm />
-              </div>
-            </VeriPanel>
-          ) : (
-            <div className="rounded-xl border bg-card p-6 shadow-sm">
+          <div className="rounded-xl border bg-card p-6 shadow-sm">
               <h2 className="text-lg font-semibold">Send a message</h2>
               <p className="mt-1 text-sm text-muted-foreground">
                 We will respond as soon as possible during office hours.
@@ -147,7 +128,6 @@ export default async function ContactPage() {
                 <ContactForm />
               </div>
             </div>
-          )}
         </div>
       </div>
     </>

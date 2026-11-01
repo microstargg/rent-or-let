@@ -1,10 +1,8 @@
 import type { Metadata } from "next";
 import { TenantApplicationForm } from "@/components/forms/tenant-application-form";
 import { PageHero } from "@/components/marketing/page-hero";
-import { VeriPanel } from "@/components/marketing/veri-ui";
 import { fetchListingsOrEmpty } from "@/lib/platform";
 import { getTenant } from "@/lib/tenant";
-import { isVeriAgency } from "@/lib/veri";
 
 export async function generateMetadata(): Promise<Metadata> {
   const { name } = await getTenant();
@@ -23,7 +21,6 @@ export default async function ApplyPage({ searchParams }: ApplyPageProps) {
   const { property } = await searchParams;
   const initialPropertyId = properties.some((p) => p.id === property) ? property : undefined;
   const { id } = await getTenant();
-  const isVeri = isVeriAgency(id);
 
   return (
     <>
@@ -33,20 +30,7 @@ export default async function ApplyPage({ searchParams }: ApplyPageProps) {
         subtitle="Complete this form to apply for a property. Reference checking normally takes five to ten working days."
       />
       <div className="container mx-auto max-w-2xl px-4 py-12 md:py-16">
-        {isVeri ? (
-          <VeriPanel>
-            <p className="text-sm text-muted-foreground">
-              All fields marked required must be completed. You will need ID, proof of residency and
-              a holding deposit of one week&apos;s rent. We&apos;re fully remote — we&apos;ll follow
-              up by email.
-            </p>
-            <TenantApplicationForm
-              properties={properties.map((p) => ({ id: p.id, label: p.displayAddress }))}
-              initialPropertyId={initialPropertyId}
-            />
-          </VeriPanel>
-        ) : (
-          <div className="rounded-xl border bg-card p-6 shadow-sm">
+        <div className="rounded-xl border bg-card p-6 shadow-sm">
             <p className="text-sm text-muted-foreground">
               All fields marked required must be completed. You will need ID, proof of residency and
               a holding deposit of one week&apos;s rent.
@@ -56,7 +40,6 @@ export default async function ApplyPage({ searchParams }: ApplyPageProps) {
               initialPropertyId={initialPropertyId}
             />
           </div>
-        )}
       </div>
     </>
   );

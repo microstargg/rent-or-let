@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { getTenant } from "@/lib/tenant";
-import { isVeriAgency } from "@/lib/veri";
 import Link from "next/link";
 import { LegalPage } from "@/components/legal/legal-page";
 
@@ -11,10 +10,9 @@ export const metadata: Metadata = {
 export default async function TermsPage() {
   const { name, domain, id } = await getTenant();
   const siteHost = domain.replace(/^https?:\/\//, "");
-  const isVeri = isVeriAgency(id);
 
   return (
-    <LegalPage className={isVeri ? "pt-28 md:pt-32" : undefined}>
+    <LegalPage>
       <h1>Terms and Conditions</h1>
       <p>
         These terms govern your use of the {name} website operated at {siteHost}.

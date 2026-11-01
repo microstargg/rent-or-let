@@ -4,16 +4,17 @@ import { Button } from "@/components/ui/button";
 import { PropertyCard } from "@/components/properties/property-card";
 import { HeroSearch } from "@/components/properties/hero-search";
 import { OfficeHours } from "@/components/marketing/office-hours";
-import { VeriHome } from "@/components/marketing/veri-home";
+import { VeriHome } from "@/veri/home";
 import { tryFetchListings } from "@/lib/platform";
 import { getTenant } from "@/lib/tenant";
 import { cn } from "@/lib/utils";
+import { isVeriAgency } from "@/lib/veri";
 
 export default async function HomePage() {
   const tenant = await getTenant();
   const { site: siteContent, name, id } = tenant;
 
-  if (id === "veri-properties") {
+  if (isVeriAgency(id)) {
     return <VeriHome tenant={tenant} />;
   }
 

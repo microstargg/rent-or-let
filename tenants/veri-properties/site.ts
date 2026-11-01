@@ -5,16 +5,16 @@ export const siteContent = {
   },
   about: {
     summary:
-      "Veri Properties is a remote UK letting agency built for clarity — transparent fees, well-presented homes, and attentive management delivered digitally. We support landlords who want their investments looked after properly, and tenants who want a straightforward path from enquiry to move-in.",
+      "Veri Properties is a remote UK letting agency built for clarity: transparent fees, well-presented homes, and attentive management delivered digitally. We support landlords who want their investments looked after properly, and tenants who want a straightforward path from enquiry to move-in.",
     paragraphs: [
-      "Letting a property or finding a home is a significant decision. We run structured processes for marketing, referencing, compliance, rent collection, and maintenance coordination — so nothing important falls through the cracks, wherever you are in the UK.",
+      "Letting a property or finding a home is a significant decision. We run structured processes for marketing, referencing, compliance, rent collection, and maintenance coordination, so nothing important falls through the cracks, wherever you are in the UK.",
       "We work with trusted contractors and keep both landlords and tenants informed throughout the tenancy. From first viewing to check-out, you deal with a dedicated team that responds promptly by email and explains what happens next.",
-      "Veri is fully remote: no shop-front hours, no phone queue — just professional letting support when you need it. Whether you are placing a single property or building a small portfolio, we aim to make management simple, transparent, and reliable.",
+      "Veri is fully remote: no shop-front hours, no phone queue, just professional letting support when you need it. Whether you are placing a single property or building a small portfolio, we aim to make management simple, transparent, and reliable.",
     ],
     highlights: [
       {
         title: "Transparent fees",
-        description: "Clear pricing for management, marketing, and tenancy services — no surprises.",
+        description: "Clear pricing for management, marketing, and tenancy services. No surprises.",
       },
       {
         title: "Compliance led",
@@ -58,12 +58,12 @@ export const siteContent = {
       eyebrow: "For landlords",
       title: "Full management with fees you can follow",
       subtitle:
-        "From marketing and referencing to rent collection, repairs, and compliance — we manage your rental so you can stay focused on everything else.",
+        "From marketing and referencing to rent collection, repairs, and compliance, we manage your rental so you can stay focused on everything else.",
     },
     intro: [
       "Our lettings team takes care of collecting rent, arranging works, coordinating safety checks, and keeping records up to date. We stay current with the latest rules so both your property and your tenants are looked after throughout the tenancy.",
-      "Every member of the team is experienced in residential lettings and can give accurate advice from first enquiry through to end of tenancy — all remotely, with email as the primary channel.",
-      "You can use our management service even if another agent found the tenant or you already have a tenancy in place. If you no longer have the time to manage the property yourself — or you are unhappy with your current agent — we are happy to discuss how we can help.",
+      "Every member of the team is experienced in residential lettings and can give accurate advice from first enquiry through to end of tenancy, all remotely, with email as the primary channel.",
+      "You can use our management service even if another agent found the tenant or you already have a tenancy in place. If you no longer have the time to manage the property yourself, or you are unhappy with your current agent, we are happy to discuss how we can help.",
       "As standard, we market your property, find a suitable tenant, obtain references, collect the initial rent and deposit on move-in, continue rent collection throughout the tenancy, and manage the day-to-day letting of your property.",
     ],
     services: [
@@ -77,7 +77,7 @@ export const siteContent = {
       "Check-in, inventories, check-out and deposit negotiation",
     ],
     contractors:
-      "Our lettings team works with vetted contractors at every level — from small independent trades for routine jobs through to larger firms for more complex maintenance and repairs. We coordinate emergency call-outs for tenants out of hours and keep landlords informed before approving significant expenditure.",
+      "Our lettings team works with vetted contractors at every level, from small independent trades for routine jobs through to larger firms for more complex maintenance and repairs. We coordinate emergency call-outs for tenants out of hours and keep landlords informed before approving significant expenditure.",
     fees: {
       summary:
         "The service we offer is full management. The charge for our services is 10% + VAT of rents collected.",
@@ -93,7 +93,7 @@ export const siteContent = {
             {
               label: "Registration / set-up fee",
               amount: "£180.00 + VAT per property",
-              note: "Payable from the first week's or month's rent. Covers viewing, referencing and administration. One-off charge — not charged for every tenancy.",
+              note: "Payable from the first week's or month's rent. Covers viewing, referencing and administration. One-off charge, not charged for every tenancy.",
             },
             {
               label: "Advertising / marketing",
@@ -145,7 +145,7 @@ export const siteContent = {
       eyebrow: "For tenants",
       title: "Homes with support that stays with you",
       subtitle:
-        "Browse carefully selected rentals and get clear guidance from viewing through to moving in — plus email-first support for the life of your tenancy.",
+        "Browse carefully selected rentals and get clear guidance from viewing through to moving in, plus email-first support for the life of your tenancy.",
     },
     trustPoints: [
       { title: "Good quality properties", description: "A curated selection of well-presented homes across the areas we serve." },
@@ -153,19 +153,19 @@ export const siteContent = {
       { title: "Protected deposits", description: "Tenancy deposits held in a designated client account and protected in an approved scheme." },
     ],
     intro:
-      "The Veri Properties team works to make the journey from enquiry to move-in as clear as possible. We understand that many applicants need guidance when securing a tenancy — that is why we offer a structured support path for every customer, delivered remotely.",
+      "The Veri Properties team works to make the journey from enquiry to move-in as clear as possible. We understand that many applicants need guidance when securing a tenancy. That is why we offer a structured support path for every customer, delivered remotely.",
     benefits:
       "Renting today is a positive lifestyle choice. Many people prefer not to have the long-term obligations that come with property ownership. Renting provides flexibility and frees tenants of the responsibility of major property repairs and maintenance.",
     choosingArea: {
       title: "Choosing the area you want to live in",
-      intro: "When choosing a location, take the time to consider where you want to live — maybe visit and walk around the area. Consider:",
+      intro: "When choosing a location, take the time to consider where you want to live. Maybe visit and walk around the area. Consider:",
       points: [
-        "Your budget — some areas are more expensive than others",
+        "Your budget: some areas are more expensive than others",
         "Your commute to work and whether transport links are good",
         "How near friends and family are",
         "Any special interests that need to be catered for in your chosen area",
         "What shopping facilities are nearby",
-        "Services important to you — schools, hospitals and similar",
+        "Services important to you: schools, hospitals and similar",
       ],
     },
     findingProperty: {

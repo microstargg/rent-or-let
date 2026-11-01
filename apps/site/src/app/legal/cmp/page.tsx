@@ -1,8 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getTenant } from "@/lib/tenant";
-import { isVeriAgency } from "@/lib/veri";
-import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = {
   title: "Client Money Protection",
@@ -10,20 +8,13 @@ export const metadata: Metadata = {
 
 export default async function CmpPage() {
   const { site: siteContent, name, id } = await getTenant();
-  const isVeri = isVeriAgency(id);
 
   return (
     <div
-      className={cn(
-        "container mx-auto max-w-3xl px-4 py-12",
-        isVeri && "pt-28 md:pt-32"
-      )}
+      className="container mx-auto max-w-3xl px-4 py-12"
     >
       <h1
-        className={cn(
-          "text-4xl font-bold",
-          isVeri && "font-[family-name:var(--font-veri-sans)] tracking-tight"
-        )}
+        className="text-4xl font-bold"
       >
         Client Money Protection
       </h1>
@@ -32,11 +23,7 @@ export default async function CmpPage() {
         and tenants is protected in accordance with the scheme rules.
       </p>
       <div
-        className={
-          isVeri
-            ? "mt-8 rounded-[1.75rem] border border-foreground/10 bg-card/50 p-6"
-            : "mt-8 rounded-xl border bg-card p-6"
-        }
+        className="mt-8 rounded-xl border bg-card p-6"
       >
         <h2 className="text-lg font-semibold">Certificate</h2>
         <p className="mt-2 text-sm text-muted-foreground">

@@ -1,7 +1,13 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { getTenant } from "@/lib/tenant";
+import { isVeriAgency } from "@/lib/veri";
+import { VeriNotFound } from "@/veri/not-found";
 
-export default function NotFound() {
+export default async function NotFound() {
+  const { id } = await getTenant();
+  if (isVeriAgency(id)) return <VeriNotFound />;
+
   return (
     <div className="container mx-auto max-w-xl px-4 py-24 text-center md:py-32">
       <p className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">404</p>

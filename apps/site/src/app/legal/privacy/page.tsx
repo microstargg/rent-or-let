@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getTenant } from "@/lib/tenant";
-import { isVeriAgency } from "@/lib/veri";
 import { LegalPage } from "@/components/legal/legal-page";
 
 export const metadata: Metadata = {
@@ -13,7 +12,6 @@ const LAST_UPDATED = "30 October 2026";
 export default async function PrivacyPage() {
   const { site: siteContent, name, id } = await getTenant();
   const { contact, legal } = siteContent;
-  const isVeri = isVeriAgency(id);
   const privacyEmail = legal?.privacyEmail ?? contact.email;
   const legalName = legal?.companyName ?? name;
   const address = contact.address
@@ -23,7 +21,7 @@ export default async function PrivacyPage() {
     : null;
 
   return (
-    <LegalPage className={isVeri ? "pt-28 md:pt-32" : undefined}>
+    <LegalPage>
       <h1>Privacy Notice</h1>
       <p>Last updated {LAST_UPDATED}.</p>
       <p>
@@ -173,10 +171,10 @@ export default async function PrivacyPage() {
       </p>
       <p>
         If you are unhappy with how we have handled your data, please tell us first. You can also
-        complain to the Information Commissioner&apos;s Office at{" "}
+        complain to the Information Commissioner&apos;s Office at 
         <a href="https://ico.org.uk/make-a-complaint/" rel="noopener noreferrer" target="_blank">
           ico.org.uk
-        </a>{" "}
+        </a> 
         or on 0303 123 1113.
       </p>
 

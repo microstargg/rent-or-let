@@ -3,7 +3,6 @@ import { headers } from "next/headers";
 import { hostnameOf, isSharedPreviewHost } from "@repo/config/host";
 import { getSiteAgency } from "@/lib/agency";
 import { portalLoginUrl } from "@/lib/platform";
-import { SiteLogo } from "@/components/brand/site-logo";
 
 export async function SiteFooter() {
   const agency = await getSiteAgency();
@@ -14,7 +13,6 @@ export async function SiteFooter() {
   const host = hostnameOf(h.get("x-forwarded-host") ?? h.get("host"));
   const showSiteSwitcher = isSharedPreviewHost(host);
   const { address, phone, hours, email } = siteContent.contact;
-  const isVeri = id === "veri-properties";
 
   const legalLinks = (
     <>
@@ -37,76 +35,6 @@ export async function SiteFooter() {
       )}
     </>
   );
-
-  if (isVeri) {
-    return (
-      <footer className="relative overflow-hidden bg-[#141414] text-white">
-        <div className="container relative z-10 mx-auto max-w-6xl px-4 pb-8 pt-16">
-          <div className="grid gap-10 md:grid-cols-3">
-            <div>
-              <p className="text-sm font-semibold tracking-tight">Veri Properties</p>
-              <p className="mt-3 text-sm text-white/55">Fully remote UK lettings.</p>
-              <a
-                href={`mailto:${email}`}
-                className="mt-4 inline-block text-sm text-[var(--accent)] transition-colors hover:text-white"
-              >
-                {email}
-              </a>
-            </div>
-            <div>
-              <h3 className="mb-4 text-xs font-semibold uppercase tracking-[0.2em] text-white/40">
-                Navigation
-              </h3>
-              <nav className="flex flex-col gap-2 text-sm text-white/70">
-                <Link href="/" className="hover:text-white">
-                  Home
-                </Link>
-                <Link href="/properties" className="hover:text-white">
-                  Properties
-                </Link>
-                <Link href="/landlords" className="hover:text-white">
-                  Landlords
-                </Link>
-                <Link href="/tenants" className="hover:text-white">
-                  Tenants
-                </Link>
-                <Link href="/about" className="hover:text-white">
-                  About
-                </Link>
-                <Link href="/contact" className="hover:text-white">
-                  Contact
-                </Link>
-                <a href={tenantPortalUrl} className="hover:text-white">
-                  Tenant login
-                </a>
-                <a href={landlordPortalUrl} className="hover:text-white">
-                  Landlord login
-                </a>
-              </nav>
-            </div>
-            <div>
-              <h3 className="mb-4 text-xs font-semibold uppercase tracking-[0.2em] text-white/40">
-                Legal
-              </h3>
-              <nav className="flex flex-col gap-2 text-sm text-white/70 [&_a]:text-white/70 [&_a:hover]:text-white">
-                {legalLinks}
-              </nav>
-            </div>
-          </div>
-          <p className="mt-12 text-xs text-white/35">
-            © {new Date().getFullYear()} {name}. All rights reserved.
-          </p>
-        </div>
-        <div
-          aria-hidden
-          className="pointer-events-none select-none overflow-hidden pb-0 pt-4 text-center font-[family-name:var(--font-veri-sans)] text-[clamp(4.5rem,18vw,14rem)] font-bold leading-none tracking-tight text-transparent"
-          style={{ WebkitTextStroke: "1px rgba(255,255,255,0.18)" }}
-        >
-          VERI
-        </div>
-      </footer>
-    );
-  }
 
   const tel = phone ? `tel:${phone.replace(/\s/g, "")}` : null;
   const linkClass = "block py-1 text-white/75 transition-colors hover:text-white";
