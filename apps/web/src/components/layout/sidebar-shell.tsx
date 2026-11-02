@@ -131,7 +131,8 @@ export function SidebarShell({
         </header>
 
         <main className="flex-1 overflow-auto">
-          <div className="mx-auto max-w-6xl p-4 sm:p-6 md:p-8 print:p-0">{children}</div>
+          {/* Extra bottom space on phones so the floating "Cookie settings" pill never sits over the last buttons. */}
+          <div className="mx-auto max-w-6xl p-4 pb-20 sm:p-6 sm:pb-20 md:p-8 print:p-0">{children}</div>
         </main>
       </div>
     </div>

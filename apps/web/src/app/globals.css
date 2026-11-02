@@ -52,6 +52,19 @@
   }
 }
 
+/*
+ * iOS Safari zooms the whole page when a focused field's text is under 16px, and
+ * doesn't zoom back out. Keep form fields at 16px on phone-sized screens.
+ * Unlayered, so it wins over the text-sm / text-xs utilities on individual fields.
+ */
+@media (max-width: 767px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="hidden"]),
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
 @media print {
   @page {
     margin: 16mm;
