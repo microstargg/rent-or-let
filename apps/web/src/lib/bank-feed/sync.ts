@@ -9,7 +9,7 @@ import { recordPaymentAndAllocate, getPaymentByExternalRef } from "@/lib/db/quer
 import { matchBankTransaction } from "@/lib/bank-feed/match";
 
 function paymentExternalRef(providerTxnId: string): string {
-  if (/^(csv|pdf|tl)_/.test(providerTxnId)) return providerTxnId;
+  if (/^(csv|pdf|tl|eb)_/.test(providerTxnId)) return providerTxnId;
   return `csv_${providerTxnId}`;
 }
 
