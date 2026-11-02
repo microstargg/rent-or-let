@@ -1,3 +1,4 @@
+import { Children, cloneElement, isValidElement } from "react";
 import { cn } from "@/lib/utils";
 
 export function AdminPageHeader({
@@ -163,6 +164,19 @@ export function StatPill({
   );
 }
 
+/** Adds each column's header as `data-label` on its cells, so phones can show the row as a labelled card. */
+function labelCells(row: React.ReactNode, headers: string[]): React.ReactNode {
+  if (!isValidElement<{ children?: React.ReactNode }>(row) || row.type !== "tr") return row;
+  let column = 0;
+  const cells = Children.map(row.props.children, (cell) => {
+    if (!isValidElement<{ colSpan?: number }>(cell) || cell.type !== "td") return cell;
+    const label = cell.props.colSpan ? undefined : headers[column];
+    column += cell.props.colSpan ?? 1;
+    return label ? cloneElement(cell, { "data-label": label } as Record<string, string>) : cell;
+  });
+  return cloneElement(row, undefined, cells);
+}
+
 export function AdminTable({
   headers,
   children,
@@ -172,7 +186,8 @@ export function AdminTable({
 }) {
   return (
     <div className="overflow-x-auto rounded-xl border bg-card">
-      <table className="w-full text-left text-sm">
+      {/* `stack-table` (globals.css) turns each row into a card on phones instead of a sideways-scrolling table. */}
+      <table className="stack-table w-full text-left text-sm">
         <thead className="border-b bg-muted/40">
           <tr>
             {headers.map((h) => (
@@ -182,7 +197,7 @@ export function AdminTable({
             ))}
           </tr>
         </thead>
-        <tbody className="divide-y">{children}</tbody>
+        <tbody className="divide-y">{Children.map(children, (row) => labelCells(row, headers))}</tbody>
       </table>
     </div>
   );

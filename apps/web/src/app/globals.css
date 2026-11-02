@@ -52,6 +52,77 @@
   }
 }
 
+/*
+ * iOS Safari zooms the whole page when a focused field's text is under 16px, and
+ * doesn't zoom back out. Keep form fields at 16px on phone-sized screens.
+ * Unlayered, so it wins over the text-sm / text-xs utilities on individual fields.
+ */
+@media (max-width: 767px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="hidden"]),
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
+/*
+ * Tables built with AdminTable (class `stack-table`) become one card per row on
+ * phones: the first cell is the title and every other cell shows its column
+ * header (data-label) above the value, so nothing needs a sideways swipe.
+ */
+@media (max-width: 767px) {
+  .stack-table thead {
+    display: none;
+  }
+  .stack-table tbody {
+    display: block;
+  }
+  .stack-table tr {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 1rem;
+    padding: 0.875rem 1rem;
+  }
+  .stack-table td {
+    display: block;
+    min-width: 0;
+    padding: 0.3rem 0;
+    text-align: left;
+    overflow-wrap: anywhere;
+  }
+  .stack-table td:first-child,
+  .stack-table td:not([data-label]),
+  .stack-table td[data-label="Actions"],
+  .stack-table td[data-label="Email"] {
+    grid-column: 1 / -1;
+  }
+  .stack-table td:empty {
+    display: none;
+  }
+  .stack-table td::before {
+    content: attr(data-label);
+    display: block;
+    margin-bottom: 0.125rem;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--muted-foreground);
+  }
+  .stack-table td:not([data-label])::before,
+  .stack-table td:first-child::before {
+    content: none;
+  }
+  .stack-table td:first-child {
+    padding-top: 0;
+    font-weight: 600;
+  }
+  .stack-table td[colspan] {
+    padding: 1.5rem 0;
+    text-align: center;
+  }
+}
+
 @media print {
   @page {
     margin: 16mm;

@@ -1,9 +1,11 @@
-/** £1,234.56 — portals show exact pounds and pence, unlike the rounded staff `formatCurrency`. */
+/** £1,234.56 (or -£110.00) — portals show exact pounds and pence, unlike the rounded staff `formatCurrency`. */
 export function formatMoney(amount: number | string | null | undefined): string {
-  return `£${Number(amount ?? 0).toLocaleString("en-GB", {
+  const value = Number(amount ?? 0);
+  const text = Math.abs(value).toLocaleString("en-GB", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
-  })}`;
+  });
+  return `${value < 0 && text !== "0.00" ? "-" : ""}£${text}`;
 }
 
 export function humanize(value: string): string {

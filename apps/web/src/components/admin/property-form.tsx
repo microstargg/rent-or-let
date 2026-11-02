@@ -208,6 +208,10 @@ export function PropertyForm({ property, imageCount = 0, onSuccess }: PropertyFo
             className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
           >
             <option value="">None</option>
+            {/* Keep the linked landlord selected while the list loads (or if it fails), so saving can't unlink them. */}
+            {property?.landlord_id && !landlords.some((l) => l.id === property.landlord_id) && (
+              <option value={property.landlord_id}>Current landlord</option>
+            )}
             {landlords.map((l) => (
               <option key={l.id} value={l.id}>
                 {l.firstName} {l.lastName}

@@ -2,6 +2,7 @@ import { listPortalSyncLogs, getDefaultBranch } from "@/lib/db/queries";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PortalSettings } from "@/components/admin/portal-settings";
 import { PortalConnectionTest } from "@/components/admin/portal-connection-test";
+import { AdminTable } from "@/components/admin/admin-page";
 
 export default async function AdminPortalsPage() {
   const [logs, branch] = await Promise.all([
@@ -81,50 +82,39 @@ export default async function AdminPortalsPage() {
 
       <PortalConnectionTest />
 
-      <div className="mt-8 overflow-x-auto rounded-xl border">
-        <table className="w-full text-sm">
-          <thead className="border-b bg-muted/50">
-            <tr>
-              <th className="px-4 py-3 text-left">Property</th>
-              <th className="px-4 py-3 text-left">Portal</th>
-              <th className="px-4 py-3 text-left">Action</th>
-              <th className="px-4 py-3 text-left">Status</th>
-              <th className="px-4 py-3 text-left">Time</th>
+      <div className="mt-8">
+        <AdminTable headers={["Property", "Portal", "Action", "Status", "Time"]}>
+          {logs.map(({ log, displayAddress }) => (
+            <tr key={log.id}>
+              <td className="px-4 py-3">{displayAddress ?? log.propertyId}</td>
+              <td className="px-4 py-3 capitalize">{log.portal}</td>
+              <td className="px-4 py-3">{log.action}</td>
+              <td className="px-4 py-3">
+                <span
+                  className={
+                    log.status === "success"
+                      ? "text-green-600"
+                      : log.status === "failed"
+                        ? "text-red-600"
+                        : ""
+                  }
+                >
+                  {log.status}
+                </span>
+              </td>
+              <td className="px-4 py-3 text-muted-foreground">
+                {new Date(log.createdAt).toLocaleString("en-GB")}
+              </td>
             </tr>
-          </thead>
-          <tbody>
-            {logs.map(({ log, displayAddress }) => (
-              <tr key={log.id} className="border-b last:border-0">
-                <td className="px-4 py-3">{displayAddress ?? log.propertyId}</td>
-                <td className="px-4 py-3 capitalize">{log.portal}</td>
-                <td className="px-4 py-3">{log.action}</td>
-                <td className="px-4 py-3">
-                  <span
-                    className={
-                      log.status === "success"
-                        ? "text-green-600"
-                        : log.status === "failed"
-                          ? "text-red-600"
-                          : ""
-                    }
-                  >
-                    {log.status}
-                  </span>
-                </td>
-                <td className="px-4 py-3 text-muted-foreground">
-                  {new Date(log.createdAt).toLocaleString("en-GB")}
-                </td>
-              </tr>
-            ))}
-            {!logs.length && (
-              <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">
-                  No sync logs yet
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+          ))}
+          {!logs.length && (
+            <tr>
+              <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">
+                No sync logs yet
+              </td>
+            </tr>
+          )}
+        </AdminTable>
       </div>
 
       <p className="mt-4 text-sm text-muted-foreground">
