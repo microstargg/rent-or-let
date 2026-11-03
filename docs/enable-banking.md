@@ -62,6 +62,24 @@ same Vercel env serves every agency.
 - Sandbox transactions are made up by the mock bank, so they won't carry demo tenants' payment
   references: money in lands in **Exceptions** for manual matching rather than auto-matching.
 
+## Agencies using their own Enable Banking app (live)
+
+Each agency registers its **own** Enable Banking production app and links its own client account
+in Enable Banking's control panel ("Activate by linking accounts"), which puts the app in free
+restricted mode. LetFlow never sees bank logins and can't link an account the agency hasn't
+approved. The guided steps are in the app at **Settings → Bank feed** (`/settings/bank-feed`),
+which shows the exact redirect URL to whitelist and takes the app ID + `.pem` upload.
+
+- The key is stored AES-256-GCM encrypted on a `bank_connections` row with
+  `provider = 'enable_banking_app'` (`account_id` = app id, `access_token_enc` = encrypted PEM).
+- Requires `BANK_FEED_ENCRYPTION_KEY` (any long random string) in the platform Vercel env. Without
+  it the upload is refused. Changing it makes saved keys unreadable, so agencies would need to upload again.
+- An agency's own app wins over the platform env app; the env app (`ENABLE_BANKING_*`) is now only
+  the demo/test fallback.
+- Removing the app marks that agency's Enable Banking bank links as revoked.
+- Enable Banking describes restricted mode as for evaluation and individual non-commercial use; check
+  their Terms of Service "Restriction of Use" before relying on it commercially.
+
 ## Going live (later)
 
 Restricted production mode is free but only reads accounts linked in the Enable Banking control

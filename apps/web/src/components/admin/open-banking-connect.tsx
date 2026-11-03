@@ -149,6 +149,39 @@ export function OpenBankingConnect({
             Connect the client account once and pull transactions straight from the bank, instead of
             downloading a statement. Read-only: LetFlow can see transactions but cannot move money.
           </p>
+          <details className="mt-2 max-w-2xl text-sm" open={connections.length === 0}>
+            <summary className="cursor-pointer font-medium text-primary">How linking your bank works</summary>
+            <ol className="mt-2 list-decimal space-y-1 pl-5 text-muted-foreground">
+              <li>
+                Use a login that can see the <strong>client account</strong> (usually the account owner or
+                a director on business online banking).
+              </li>
+              <li>
+                Click <strong>Connect bank</strong>, choose your bank, then <strong>Continue to bank</strong>.
+              </li>
+              <li>
+                You&apos;re sent to Enable Banking, our regulated open banking provider, then to your
+                bank&apos;s own login page or app. Sign in and approve read access there.
+              </li>
+              <li>Pick the client account if the bank asks which accounts to share.</li>
+              <li>
+                You come straight back here and the last 90 days of transactions are pulled in and
+                matched. Use <strong>Sync now</strong> any time after that.
+              </li>
+            </ol>
+            <ul className="mt-2 list-disc space-y-1 pl-5 text-muted-foreground">
+              <li>
+                Your bank login is only ever typed into your bank. LetFlow never sees or stores it.
+              </li>
+              <li>
+                Access is read-only (balances and transactions). Nobody can make payments through this.
+              </li>
+              <li>
+                The bank asks you to reconfirm every 90 days. You can also stop it here with{" "}
+                <strong>Disconnect</strong>, or in your bank&apos;s app, at any time.
+              </li>
+            </ul>
+          </details>
         </div>
         {active.length > 0 && (
           <Button type="button" size="sm" className="min-h-10" disabled={busy !== null} onClick={() => void sync()}>

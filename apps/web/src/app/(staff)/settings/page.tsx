@@ -1,6 +1,7 @@
 import { getDefaultBranch, getBranchWithSettings, listStaffInvites, listStaffProfiles } from "@/lib/db/queries";
 import { AgencySettingsClient } from "@/components/admin/agency-settings-client";
 import { StaffTeamClient } from "@/components/admin/staff-team-client";
+import Link from "next/link";
 
 export default async function AdminSettingsPage() {
   const branch = await getDefaultBranch();
@@ -17,6 +18,15 @@ export default async function AdminSettingsPage() {
 
       <div className="mt-8 max-w-xl space-y-6">
         <StaffTeamClient staff={staff} invites={invites} />
+        <div className="rounded-xl border bg-card p-4 shadow-sm">
+          <h2 className="font-semibold">Bank feed</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Pull client account transactions into Month end through open banking, instead of uploading statements.
+          </p>
+          <Link href="/settings/bank-feed" className="mt-2 inline-block text-sm text-primary underline">
+            Set up bank feed
+          </Link>
+        </div>
         <AgencySettingsClient
           maintenanceInbox={
             full?.settings.maintenance_inbox_token && inboundDomain

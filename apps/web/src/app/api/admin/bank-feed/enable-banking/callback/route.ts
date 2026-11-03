@@ -6,8 +6,8 @@ import { ensureAgency } from "@/lib/db/agency-scope";
 import {
   EB_STATE_COOKIE,
   createSession,
-  getEnableBankingConfig,
 } from "@/lib/bank-feed/enable-banking";
+import { resolveEnableBankingConfig } from "@/lib/bank-feed/enable-banking-credentials";
 import {
   saveEnableBankingSession,
   syncEnableBankingForBranch,
@@ -27,7 +27,10 @@ export async function GET(request: Request) {
   const session = await requireStaffSession();
   if (!session) return NextResponse.redirect(new URL("/login", url.origin));
 
-  const config = getEnableBankingConfig(await ensureAgency());
+  const slug = await ensureAgency();
+  const branch = await getDefaultBranch();
+  if (!branch) return back({ bank_error: "No branch" });
+  const config = await resolveEnableBankingConfig(slug, branch.id);
   if (!config) return back({ bank_error: "Open banking is not set up" });
 
   const jar = await cookies();
@@ -45,9 +48,6 @@ export async function GET(request: Request) {
   if (!expectedState || state !== expectedState) {
     return back({ bank_error: "That link has expired. Start connecting the bank again." });
   }
-
-  const branch = await getDefaultBranch();
-  if (!branch) return back({ bank_error: "No branch" });
 
   try {
     const ebSession = await createSession(config, code);
