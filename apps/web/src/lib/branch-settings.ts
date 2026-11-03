@@ -13,6 +13,8 @@ export interface BranchSettings {
   stripe_onboarding_complete?: boolean;
   maintenance_inbox_token?: string;
   alert_email?: string;
+  /** Who gets certificate / inspection / pet request alerts: "admins" (default) or "everyone". */
+  compliance_alerts?: "admins" | "everyone";
   management_fee_percent?: number;
   late_fee_rules?: LateFeeRules;
   work_order_approval_threshold?: number;

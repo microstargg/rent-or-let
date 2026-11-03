@@ -13,6 +13,7 @@ import {
 } from "../schema";
 import { parseBranchSettings } from "@/lib/branch-settings";
 import { postCompletedWorkOrderCost } from "@/lib/operations/maintenance/work-order-invoice";
+import { notifyJobAssigned, notifyStaff } from "./notifications";
 
 export const TICKET_LIST_PAGE_SIZE = 50;
 
@@ -195,6 +196,24 @@ export async function createTicket(data: {
       status: "new",
     })
     .returning();
+  if (row?.isEmergency) {
+    const [property] = await db
+      .select({ address: properties.displayAddress })
+      .from(properties)
+      .where(eq(properties.id, row.propertyId))
+      .limit(1);
+    await notifyStaff(
+      "everyone",
+      {
+        type: "emergency_ticket",
+        title: `Emergency repair reported: ${row.summary}`,
+        body: property?.address ?? null,
+        href: `/tickets/${row.id}`,
+        dedupeKey: `emergency-ticket:${row.id}`,
+      },
+      { instantEmail: true }
+    );
+  }
   return row;
 }
 
@@ -284,11 +303,12 @@ export async function createWorkOrder(data: {
   branchId: string;
   ticketId: string;
   contractorId?: string | null;
+  assigneeStaffId?: string | null;
   scheduledFor?: Date | null;
   status?: string;
   costEstimate?: number | null;
   clientCharge?: number | null;
-}) {
+}, actorStaffId?: string | null) {
   await ensureAgency();
   const [row] = await db
     .insert(workOrders)
@@ -297,12 +317,16 @@ export async function createWorkOrder(data: {
       branchId: data.branchId,
       ticketId: data.ticketId,
       contractorId: data.contractorId,
+      assigneeStaffId: data.assigneeStaffId ?? null,
       scheduledFor: data.scheduledFor,
       status: data.status ?? "draft",
       costEstimate: data.costEstimate != null ? String(data.costEstimate) : null,
       clientCharge: data.clientCharge != null ? String(data.clientCharge) : null,
     })
     .returning();
+  if (row?.assigneeStaffId) {
+    await notifyJobAssigned(row.id, row.assigneeStaffId, actorStaffId);
+  }
   return row;
 }
 

@@ -1,19 +1,17 @@
 import { NextResponse } from "next/server";
 import { verifyCronAuth } from "@/lib/api-auth";
-import {
-  getDefaultBranch,
-  refreshComplianceStatuses,
-  listOverdueInspections,
-  listOverduePetRequests,
-  getBranchWithSettings,
-} from "@/lib/db/queries";
-import { sendPlainEmail } from "@/lib/email/send";
+import { getDefaultBranch, refreshComplianceStatuses } from "@/lib/db/queries";
+import { runDailyNotifications } from "@/lib/notifications/digest";
 import {
   getAgencyBySlug,
   listAgencySlugs,
   runWithAgencyAsync,
 } from "@repo/config/server";
 
+/**
+ * Daily at 07:00 UTC: refresh certificate statuses, then in-app notifications
+ * and each staff member's morning email (see lib/notifications/digest.ts).
+ */
 export async function GET(request: Request) {
   if (!verifyCronAuth(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -23,43 +21,23 @@ export async function GET(request: Request) {
   for (const slug of listAgencySlugs()) {
     const agency = getAgencyBySlug(slug);
     if (!agency.runtime.databaseUrl) continue;
-    const result = await runWithAgencyAsync(agency, async () => {
-      const branch = await getDefaultBranch();
-      if (!branch) return { error: "No branch" as const };
-      const refreshed = await refreshComplianceStatuses(branch.id);
-      const overdueInspections = await listOverdueInspections(branch.id);
-      const overduePets = await listOverduePetRequests(branch.id);
-
-      const full = await getBranchWithSettings(branch.id);
-      const alert = full?.settings.alert_email;
-      if (alert && (overdueInspections.length || overduePets.length)) {
-        await sendPlainEmail({
-          to: alert,
-          subject: `Compliance follow-ups: ${overduePets.length} pet request(s), ${overdueInspections.length} inspection(s)`,
-          text: [
-            overduePets.length
-              ? `Overdue pet requests:\n${overduePets
-                  .map((p) => `- ${p.propertyAddress} due ${p.request.dueAt.toISOString().slice(0, 10)}`)
-                  .join("\n")}`
-              : "",
-            overdueInspections.length
-              ? `Overdue inspections:\n${overdueInspections
-                  .map((i) => `- ${i.propertyAddress} (${i.inspection.type})`)
-                  .join("\n")}`
-              : "",
-          ]
-            .filter(Boolean)
-            .join("\n\n"),
-        });
-      }
-
-      return {
-        ...refreshed,
-        overdueInspections: overdueInspections.length,
-        overduePets: overduePets.length,
-      };
-    });
-    agencies.push({ slug, ...result });
+    try {
+      const result = await runWithAgencyAsync(agency, async () => {
+        const branch = await getDefaultBranch();
+        if (!branch) return { error: "No branch" as const };
+        const refreshed = await refreshComplianceStatuses(branch.id);
+        const notifications = await runDailyNotifications(branch.id, refreshed.changed);
+        return {
+          updated: refreshed.updated,
+          tasksCreated: refreshed.tasksCreated,
+          ...notifications,
+        };
+      });
+      agencies.push({ slug, ...result });
+    } catch (err) {
+      console.error(`[cron/compliance] ${slug} failed`, err);
+      agencies.push({ slug, error: err instanceof Error ? err.message : String(err) });
+    }
   }
 
   return NextResponse.json({ ok: true, agencies });

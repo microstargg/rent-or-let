@@ -274,8 +274,25 @@ export async function refreshComplianceStatuses(branchId: string) {
 
   let updated = 0;
   let tasksCreated = 0;
+  /** Items that just became expiring or expired, for notifications. */
+  const changed: {
+    id: string;
+    propertyId: string;
+    type: string;
+    status: "expiring" | "expired";
+    expiresAt: string | null;
+  }[] = [];
   for (const item of items) {
     const next = computeComplianceStatus(item.expiresAt, Boolean(item.documentId));
+    if (next !== item.status && (next === "expiring" || next === "expired")) {
+      changed.push({
+        id: item.id,
+        propertyId: item.propertyId,
+        type: item.type,
+        status: next,
+        expiresAt: item.expiresAt,
+      });
+    }
     if (next !== item.status) {
       await db
         .update(complianceItems)
@@ -311,7 +328,7 @@ export async function refreshComplianceStatuses(branchId: string) {
       }
     }
   }
-  return { updated, tasksCreated };
+  return { updated, tasksCreated, changed };
 }
 
 export async function markComplianceServed(

@@ -11,6 +11,7 @@ import {
 import { TicketStatusSelect } from "@/components/admin/ticket-status-select";
 import { TicketMessageForm } from "@/components/admin/ticket-message-form";
 import { WorkOrderPanel } from "@/components/admin/work-order-panel";
+import { listAssignableStaff } from "@/lib/db/queries/notifications";
 import { StatusBadge } from "@/components/admin/admin-page";
 import { Button } from "@/components/ui/button";
 
@@ -24,11 +25,12 @@ export default async function AdminTicketDetailPage({
   const ticketRow = await getTicketById(id);
   if (!ticketRow) notFound();
 
-  const [messages, workOrders, contractors, photos] = await Promise.all([
+  const [messages, workOrders, contractors, photos, staff] = await Promise.all([
     listTicketMessages(id),
     listWorkOrders({ ticketId: id }),
     branch ? listContractors(branch.id) : [],
     listDocumentsForEntity("ticket", id),
+    listAssignableStaff(),
   ]);
 
   const { ticket, propertyAddress } = ticketRow;
@@ -113,6 +115,7 @@ export default async function AdminTicketDetailPage({
           ticketId={ticket.id}
           workOrders={workOrders}
           contractors={contractors.map((c) => ({ id: c.id, name: c.name }))}
+          staff={staff}
         />
       </div>
     </div>

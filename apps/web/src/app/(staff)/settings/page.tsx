@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { getDefaultBranch, getBranchWithSettings, listStaffInvites, listStaffProfiles } from "@/lib/db/queries";
 import { AgencySettingsClient } from "@/components/admin/agency-settings-client";
 import { StaffTeamClient } from "@/components/admin/staff-team-client";
@@ -16,6 +17,15 @@ export default async function AdminSettingsPage() {
       </p>
 
       <div className="mt-8 max-w-xl space-y-6">
+        <Link
+          href="/settings/notifications"
+          className="block rounded-xl border p-4 transition-colors hover:bg-muted/40"
+        >
+          <p className="font-medium">Notifications and emails</p>
+          <p className="mt-0.5 text-sm text-muted-foreground">
+            Your morning email, instant emails, and who gets certificate alerts.
+          </p>
+        </Link>
         <StaffTeamClient staff={staff} invites={invites} />
         <AgencySettingsClient
           maintenanceInbox={
