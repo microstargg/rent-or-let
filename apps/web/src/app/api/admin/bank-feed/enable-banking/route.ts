@@ -10,6 +10,7 @@ import {
   enableBankingRedirectUrl,
   getEnableBankingConfig,
   listAspsps,
+  listBanksForPicker,
   startAuthorisation,
 } from "@/lib/bank-feed/enable-banking";
 import {
@@ -33,7 +34,7 @@ export async function GET() {
   const config = getEnableBankingConfig(await ensureAgency());
   if (!config) return NextResponse.json({ error: "Open banking is not set up" }, { status: 404 });
   try {
-    const banks = await listAspsps(config);
+    const banks = await listBanksForPicker(config);
     return NextResponse.json({
       country: config.country,
       banks: banks
@@ -71,7 +72,7 @@ export async function POST(request: Request) {
       if (!bank) return NextResponse.json({ error: "Pick a bank" }, { status: 400 });
       const country = (body.country?.trim() || config.country).toUpperCase();
       // Respect the bank's own consent limit and account types, or /auth is refused.
-      const aspsp = (await listAspsps({ ...config, country })).find((b) => b.name === bank);
+      const aspsp = (await listAspsps(config, country)).find((b) => b.name === bank);
       if (!aspsp) return NextResponse.json({ error: `${bank} is not available` }, { status: 400 });
       const psuTypes = aspsp.psu_types ?? [];
       const psuType =

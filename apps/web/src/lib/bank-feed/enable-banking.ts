@@ -137,12 +137,31 @@ export interface EbAspsp {
   maximum_consent_validity?: number;
 }
 
-export async function listAspsps(config: EnableBankingConfig): Promise<EbAspsp[]> {
-  const data = await ebFetch<{ aspsps: EbAspsp[] }>(
-    config,
-    `/aspsps?country=${encodeURIComponent(config.country)}&service=AIS`
-  );
+/** Banks for one country, or every bank Enable Banking offers when `country` is null. */
+export async function listAspsps(
+  config: EnableBankingConfig,
+  country: string | null = config.country
+): Promise<EbAspsp[]> {
+  const qs = country ? `?country=${encodeURIComponent(country)}` : "";
+  const data = await ebFetch<{ aspsps?: EbAspsp[] }>(config, `/aspsps${qs}`);
   return data.aspsps ?? [];
+}
+
+/**
+ * Banks to offer in the picker. Sandbox apps often have no banks for GB, only the
+ * Mock ASPSP and a few EU sandboxes, so fall back to the full list rather than show nothing.
+ */
+export async function listBanksForPicker(config: EnableBankingConfig): Promise<EbAspsp[]> {
+  const local = await listAspsps(config);
+  if (local.length) return local;
+  const all = await listAspsps(config, null);
+  // One entry per bank name, preferring the configured country, then the first listed.
+  const byName = new Map<string, EbAspsp>();
+  for (const b of all) {
+    const seen = byName.get(b.name);
+    if (!seen || (b.country === config.country && seen.country !== config.country)) byName.set(b.name, b);
+  }
+  return [...byName.values()];
 }
 
 export async function startAuthorisation(

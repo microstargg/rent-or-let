@@ -67,6 +67,9 @@ export function OpenBankingConnect({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Could not load banks");
       setBanks(data.banks);
+      if (!data.banks.length) {
+        setError("Enable Banking returned no banks for this app. Check the app is active in the Enable Banking control panel.");
+      }
       const mock = (data.banks as Bank[]).find((b) => /mock/i.test(b.name));
       if (mock) setBank(mock.name);
     } catch (err) {
@@ -213,7 +216,8 @@ export function OpenBankingConnect({
               {banks?.map((b) => (
                 <option key={`${b.country}:${b.name}`} value={b.name}>
                   {b.name}
-                  {b.beta ? " (beta)" : ""}
+                  {b.country ? ` (${b.country})` : ""}
+                  {b.beta ? " · beta" : ""}
                 </option>
               ))}
             </select>
