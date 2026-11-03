@@ -37,6 +37,7 @@ export async function GET() {
 const patchSchema = z.object({
   maintenance_inbox_token: z.string().optional(),
   alert_email: z.string().email().optional().nullable(),
+  compliance_alerts: z.enum(["admins", "everyone"]).optional(),
   stripe_onboarding_complete: z.boolean().optional(),
   client_account_name: z.string().max(120).optional().nullable(),
   client_account_sort_code: z.string().max(20).optional().nullable(),
@@ -62,6 +63,7 @@ export async function PATCH(request: Request) {
       maintenance_inbox_token: body.maintenance_inbox_token || undefined,
     }),
     ...(body.alert_email !== undefined && { alert_email: body.alert_email ?? undefined }),
+    ...(body.compliance_alerts !== undefined && { compliance_alerts: body.compliance_alerts }),
     ...(body.stripe_onboarding_complete !== undefined && {
       stripe_onboarding_complete: body.stripe_onboarding_complete,
     }),

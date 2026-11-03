@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useTenant } from "@repo/config";
 import { AdminNav } from "@/components/admin/admin-nav";
 import { AdminSignOut } from "@/components/admin/admin-sign-out";
+import { NotificationBell } from "@/components/admin/notification-bell";
 import { SidebarShell } from "@/components/layout/sidebar-shell";
 import { Button } from "@/components/ui/button";
 
@@ -22,6 +23,8 @@ export function AdminShell({
       subtitle={productName}
       homeHref="/"
       mobileSubtitle="Operations & portfolio"
+      headerAction={<NotificationBell />}
+      mobileHeaderAction={<NotificationBell align="right" />}
       mobileAction={
         <Button asChild variant="secondary" size="sm" className="h-11 shrink-0 px-3">
           <Link href="/jobs/board">Jobs</Link>

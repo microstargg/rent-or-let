@@ -190,6 +190,9 @@ export function AgencySettingsClient({
             onChange={(e) => setAlertEmail(e.target.value)}
             className="mt-1"
           />
+          <p className="mt-1 text-xs text-muted-foreground">
+            Only used when no staff are set up. Staff get their own morning email instead.
+          </p>
         </div>
         <Button type="button" className="mt-3" size="sm" onClick={saveSettings} disabled={loading}>
           Save alert email

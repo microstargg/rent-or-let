@@ -3,6 +3,7 @@ import { getAgencyBySlug } from "@repo/config/server";
 import { DEMO_ACCOUNTS, DEMO_AGENCY_SLUG, DEMO_BRANCH_ID, DEMO_LANDLORD_ID, DEMO_RENTER_ID } from "./constants";
 import { buildDemoDataset, DEMO_TABLE_ORDER } from "./dataset";
 import { demoInsertStatements } from "./sql";
+import { ensureNotificationsSchemaForUrl } from "@/lib/db/ensure-schema";
 
 /** Every app table, including ones the seed leaves empty (visitors may have written to them). */
 const WIPE_TABLES = [
@@ -18,6 +19,7 @@ const WIPE_TABLES = [
   "portal_sync_logs",
   "portal_sync_jobs",
   "cookie_consents",
+  "notifications",
 ];
 
 /**
@@ -44,7 +46,9 @@ function hostOf(url: string): string {
 }
 
 export async function resetDemoData(now = new Date()) {
-  const sql = neon(demoDatabaseUrl());
+  const url = demoDatabaseUrl();
+  await ensureNotificationsSchemaForUrl(url);
+  const sql = neon(url);
 
   const [foreign] = (await sql(
     `SELECT
@@ -61,12 +65,15 @@ export async function resetDemoData(now = new Date()) {
   const authUsers = await demoAuthUsers(sql);
   const inserts = demoInsertStatements(buildDemoDataset(now));
   const profiles = demoProfileStatements(authUsers);
+  const staffUser = authUsers.find((u) => u.email === DEMO_ACCOUNTS.staff.email);
+  const assignments = staffUser ? demoAssignmentStatements(staffUser.id) : [];
 
   const started = Date.now();
   await sql.transaction([
     sql(`TRUNCATE ${[...new Set(WIPE_TABLES)].join(", ")} CASCADE`),
     ...inserts.map((s) => sql(s)),
     ...profiles.map(([text, params]) => sql(text, params)),
+    ...assignments.map(([text, params]) => sql(text, params)),
   ]);
   return { statements: inserts.length, linkedAccounts: authUsers.length, ms: Date.now() - started };
 }
@@ -83,6 +90,54 @@ async function demoAuthUsers(sql: ReturnType<typeof neon<false, false>>): Promis
   } catch {
     return [];
   }
+}
+
+/**
+ * Give the demo agent ("Alex") the open jobs and office tasks, plus a few unread
+ * notifications, so My jobs, the bell and the morning email preview have something to show.
+ */
+export function demoAssignmentStatements(staffId: string): Array<[string, unknown[]]> {
+  const A = DEMO_AGENCY_SLUG;
+  return [
+    [
+      `UPDATE work_orders SET assignee_staff_id = $1
+       WHERE agency_id = $2 AND status NOT IN ('completed', 'cancelled')`,
+      [staffId, A],
+    ],
+    [
+      `UPDATE tasks SET assignee_staff_id = $1 WHERE agency_id = $2 AND status = 'open'`,
+      [staffId, A],
+    ],
+    [
+      `INSERT INTO notifications (agency_id, staff_id, type, title, body, href, dedupe_key, created_at)
+       SELECT $2, $1, 'job_assigned', 'Job assigned to you: ' || t.summary, p.display_address,
+              '/jobs/board?view=mine', 'demo-job:' || w.id, now() - interval '2 hours'
+       FROM work_orders w
+       JOIN tickets t ON t.id = w.ticket_id
+       JOIN properties p ON p.id = t.property_id
+       WHERE w.agency_id = $2 AND w.status NOT IN ('completed', 'cancelled')
+       ORDER BY w.scheduled_for NULLS LAST
+       LIMIT 2
+       ON CONFLICT DO NOTHING`,
+      [staffId, A],
+    ],
+    [
+      `INSERT INTO notifications (agency_id, staff_id, type, title, body, href, dedupe_key, created_at)
+       SELECT $2, $1,
+              CASE WHEN c.status = 'expired' THEN 'compliance_expired' ELSE 'compliance_expiring' END,
+              CASE WHEN c.status = 'expired' THEN 'Certificate expired: ' ELSE 'Certificate expiring: ' END
+                || replace(c.type, '_', ' '),
+              p.display_address, '/properties/' || p.id, 'demo-compliance:' || c.id,
+              now() - interval '5 hours'
+       FROM compliance_items c
+       JOIN properties p ON p.id = c.property_id
+       WHERE c.agency_id = $2 AND c.status IN ('expired', 'expiring')
+       ORDER BY c.expires_at NULLS LAST
+       LIMIT 3
+       ON CONFLICT DO NOTHING`,
+      [staffId, A],
+    ],
+  ];
 }
 
 export function demoProfileStatements(users: AuthUser[]): Array<[string, unknown[]]> {

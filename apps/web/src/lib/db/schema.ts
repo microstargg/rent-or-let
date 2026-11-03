@@ -52,6 +52,8 @@ export const staffProfiles = pgTable(
     email: text("email").notNull(),
     fullName: text("full_name").notNull(),
     role: text("role").notNull().default("staff"),
+    /** Email and in-app notification choices, see lib/notifications/preferences.ts */
+    notificationPrefs: jsonb("notification_prefs").notNull().default({}),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
@@ -464,6 +466,8 @@ export const workOrders = pgTable(
       .notNull()
       .references(() => tickets.id, { onDelete: "cascade" }),
     contractorId: uuid("contractor_id").references(() => contractors.id, { onDelete: "set null" }),
+    /** Staff member responsible for the job (staff_profiles.id). */
+    assigneeStaffId: text("assignee_staff_id"),
     scheduledFor: timestamp("scheduled_for", { withTimezone: true }),
     status: text("status").notNull().default("draft"),
     costEstimate: numeric("cost_estimate", { precision: 12, scale: 2 }),
@@ -474,7 +478,10 @@ export const workOrders = pgTable(
     meta: jsonb("meta").notNull().default({}),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [index("idx_work_orders_ticket").on(table.ticketId)]
+  (table) => [
+    index("idx_work_orders_ticket").on(table.ticketId),
+    index("idx_work_orders_assignee").on(table.assigneeStaffId),
+  ]
 );
 
 export const renterProfiles = pgTable(
@@ -608,10 +615,38 @@ export const tasks = pgTable(
     relatedType: text("related_type"),
     relatedId: uuid("related_id"),
     assigneeStaffId: text("assignee_staff_id"),
+    notes: text("notes"),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
     meta: jsonb("meta").notNull().default({}),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [index("idx_tasks_branch_status").on(table.branchId, table.status)]
+  (table) => [
+    index("idx_tasks_branch_status").on(table.branchId, table.status),
+    index("idx_tasks_assignee").on(table.assigneeStaffId),
+  ]
+);
+
+/** In-app notifications for staff (the bell), also the source of instant emails. */
+export const notifications = pgTable(
+  "notifications",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    agencyId: text("agency_id").notNull().references(() => agencies.slug),
+    staffId: text("staff_id").notNull(),
+    type: text("type").notNull(),
+    title: text("title").notNull(),
+    body: text("body"),
+    href: text("href"),
+    /** Stops the same event notifying the same person twice. */
+    dedupeKey: text("dedupe_key"),
+    readAt: timestamp("read_at", { withTimezone: true }),
+    emailedAt: timestamp("emailed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("idx_notifications_staff").on(table.agencyId, table.staffId, table.createdAt),
+    uniqueIndex("notifications_dedupe").on(table.agencyId, table.staffId, table.dedupeKey),
+  ]
 );
 
 export const documents = pgTable(

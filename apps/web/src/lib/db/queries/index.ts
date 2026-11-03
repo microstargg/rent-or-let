@@ -9,3 +9,4 @@ export * from "./lifecycle";
 export * from "./pets";
 export * from "./bank-feed";
 export { createAgency, type CreateAgencyInput } from "../create-agency";
+export * from "./notifications";

@@ -12,12 +12,13 @@ import {
   approveWorkOrder,
   completeWorkOrder,
 } from "@/lib/db/queries";
+import { assignWorkOrder } from "@/lib/db/queries/notifications";
 
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { error } = await requireAdminApi();
+  const { session, error } = await requireAdminApi();
   if (error) return error;
 
   const { id } = await params;
@@ -78,6 +79,7 @@ export async function PATCH(
       action?: string;
       id?: string;
       contractor_id?: string | null;
+      assignee_staff_id?: string | null;
       status?: string;
       scheduled_for?: string | null;
       cost_estimate?: number | null;
@@ -90,10 +92,17 @@ export async function PATCH(
         branchId: branch.id,
         ticketId: id,
         contractorId: wo.contractor_id,
+        assigneeStaffId: wo.assignee_staff_id || null,
         scheduledFor: wo.scheduled_for ? new Date(wo.scheduled_for) : null,
         costEstimate: wo.cost_estimate,
         clientCharge: wo.client_charge,
-      });
+      }, session?.user.id);
+      return NextResponse.json(row);
+    }
+
+    if (wo.action === "assign" && wo.id) {
+      const row = await assignWorkOrder(wo.id, wo.assignee_staff_id || null, session?.user.id);
+      if (!row) return NextResponse.json({ error: "Job not found" }, { status: 404 });
       return NextResponse.json(row);
     }
 
