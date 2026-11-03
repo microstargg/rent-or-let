@@ -5,6 +5,10 @@ import { getClientAccountCheck } from "@/lib/db/queries/client-account";
 import { ClientAccountCheckForm } from "@/components/admin/client-account-check-form";
 import { FinanceSubnav } from "@/components/admin/finance-subnav";
 import { StatementCsvImport } from "@/components/admin/statement-csv-import";
+import { OpenBankingConnect } from "@/components/admin/open-banking-connect";
+import { ensureAgency } from "@/lib/db/agency-scope";
+import { getEnableBankingConfig } from "@/lib/bank-feed/enable-banking";
+import { listEnableBankingConnections } from "@/lib/bank-feed/enable-banking-sync";
 import { LandlordPayoutButton } from "@/components/admin/landlord-payout-button";
 import {
   OutgoingLineActions,
@@ -70,7 +74,13 @@ function monthLabel(month: string) {
 export default async function MonthEndPage({
   searchParams,
 }: {
-  searchParams: Promise<{ month?: string }>;
+  searchParams: Promise<{
+    month?: string;
+    bank?: string;
+    accounts?: string;
+    imported?: string;
+    bank_error?: string;
+  }>;
 }) {
   const params = await searchParams;
   const period = monthPeriod(params.month);
@@ -80,6 +90,24 @@ export default async function MonthEndPage({
   }
   const data = await getMonthEndOverview(branch.id, period);
   const account = await getClientAccountCheck(branch.id, period);
+  const openBankingEnabled = getEnableBankingConfig(await ensureAgency()) != null;
+  const bankConnections = openBankingEnabled
+    ? (await listEnableBankingConnections(branch.id))
+        .filter((c) => c.status !== "revoked")
+        .map((c) => ({
+          id: c.id,
+          bank: ((c.meta as { bank?: string } | null)?.bank as string | undefined) ?? null,
+          accountName: c.accountName,
+          accountNumberMask: c.accountNumberMask,
+          status: c.status,
+          lastSyncedAt: c.lastSyncedAt?.toISOString() ?? null,
+          consentExpiresAt: c.consentExpiresAt?.toISOString() ?? null,
+        }))
+    : [];
+  const bankNotice =
+    params.bank === "connected"
+      ? `Bank connected: ${params.accounts ?? "1"} account(s), ${params.imported ?? "0"} transaction(s) pulled and matched.`
+      : null;
   // Re-work the difference from the saved bank balance so later fixes to the records show up.
   const difference =
     account.saved != null ? Math.round((account.saved.bank_balance - account.expected) * 100) / 100 : null;
@@ -155,7 +183,18 @@ export default async function MonthEndPage({
             ? `Bank lines imported up to ${formatDate(lastBookedIso)}${imported ? "." : ` — import up to ${formatDate(coverTo)} to cover this month.`}`
             : "No bank statement imported yet."}
         </p>
-        <StatementCsvImport title="Upload bank statement" />
+        {openBankingEnabled && (
+          <div className="mb-3">
+            <OpenBankingConnect
+              connections={bankConnections}
+              notice={bankNotice}
+              noticeError={params.bank_error ?? null}
+            />
+          </div>
+        )}
+        <StatementCsvImport
+          title={openBankingEnabled ? "Or upload a bank statement" : "Upload bank statement"}
+        />
         {unpaidRent.length > 0 && (
           <div className="mt-4">
             <AdminTable headers={["Property", "Renter", "Due", "Amount", "Outstanding"]}>
