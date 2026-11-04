@@ -1,4 +1,4 @@
-import { buildStyledPdf, type PdfBlock, type PdfImage } from "./simple-pdf";
+import { buildStyledPdf, paragraphBlocks, type PdfBlock, type PdfImage } from "./simple-pdf";
 import { getTenant } from "@repo/config/server";
 import { parseInspectionReport } from "@/lib/inspections/report";
 import { contentDispositionAttachment } from "./landlord-statement";
@@ -129,7 +129,11 @@ export function renderNoticePdf(input: {
     { kind: "row", label: "Served", value: formatWhen(input.servedAt) },
   ];
   if (input.effectiveAt) {
-    blocks.push({ kind: "row", label: "Effective", value: input.effectiveAt });
+    blocks.push({
+      kind: "row",
+      label: input.type === "section_8" ? "Proceedings from" : "Effective",
+      value: input.effectiveAt,
+    });
   }
   if (input.currentRent != null) {
     blocks.push({ kind: "row", label: "Current rent", value: money(input.currentRent) });
@@ -138,14 +142,17 @@ export function renderNoticePdf(input: {
     blocks.push({ kind: "row", label: "Proposed rent", value: money(input.proposedRent) });
   }
   if (input.grounds) {
-    blocks.push({ kind: "heading", text: "Details" });
-    blocks.push({ kind: "text", text: input.grounds });
+    blocks.push({ kind: "heading", text: input.type === "section_8" ? "Grounds" : "Details" });
+    for (const para of input.grounds.split(/\n{2,}|\n/)) {
+      if (para.trim()) blocks.push(...paragraphBlocks(para.trim()));
+    }
   }
   blocks.push({ kind: "spacer" });
-  blocks.push({
-    kind: "text",
-    text: "This record is evidence that the notice was generated and served via the agency platform. It is not a substitute for prescribed statutory form wording where a specific form is required.",
-  });
+  blocks.push(
+    ...paragraphBlocks(
+      "This record is evidence that the notice was generated and served via the agency platform. It is not a substitute for prescribed statutory form wording where a specific form is required."
+    )
+  );
   return buildStyledPdf(blocks);
 }
 
@@ -202,6 +209,7 @@ export function renderEvidencePackPdf(input: {
 
 function noticeTitle(type: string): string {
   if (type === "section_13") return "Rent increase notice (Section 13)";
+  if (type === "section_8") return "Notice seeking possession (Section 8)";
   if (type === "rra_info_sheet") return "Renters’ Rights Act information";
   return typeLabel(type);
 }

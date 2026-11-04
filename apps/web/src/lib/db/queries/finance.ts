@@ -1,5 +1,6 @@
 import { eq, and, desc, gte, lte, sql, count, inArray } from "drizzle-orm";
 import { db } from "../index";
+import { renterOnTenancy } from "../renter-tenancy";
 import { agencyEq, currentAgencyId, ensureAgency } from "../agency-scope";
 import {
   invoices,
@@ -78,7 +79,7 @@ export async function getInvoiceForRenter(invoiceId: string, branchId: string, r
       and(
         eq(invoices.id, invoiceId),
         eq(invoices.branchId, branchId),
-        eq(tenancies.primaryRenterId, renterId),
+        renterOnTenancy(renterId),
         inArray(invoices.type, ["rent", "late_fee"]),
         agencyEq(invoices.agencyId)
       )
@@ -96,7 +97,7 @@ export async function listInvoicesForRenter(branchId: string, renterId: string) 
     .where(
       and(
         eq(invoices.branchId, branchId),
-        eq(tenancies.primaryRenterId, renterId),
+        renterOnTenancy(renterId),
         inArray(invoices.type, ["rent", "late_fee"]),
         agencyEq(invoices.agencyId)
       )

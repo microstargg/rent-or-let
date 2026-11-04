@@ -15,6 +15,8 @@ export function ComplianceCreateForm({
   const [propertyId, setPropertyId] = useState(properties[0]?.id ?? "");
   const [type, setType] = useState("gas_safety");
   const [expiresAt, setExpiresAt] = useState("");
+  const [reference, setReference] = useState("");
+  const isLicence = type.endsWith("_licence");
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -32,6 +34,7 @@ export function ComplianceCreateForm({
       form.set("property_id", propertyId);
       form.set("type", type);
       if (expiresAt) form.set("expires_at", expiresAt);
+      if (reference) form.set("reference", reference);
       if (file) form.set("file", file);
       const res = await fetch("/api/admin/compliance", { method: "POST", body: form });
       if (!res.ok) {
@@ -39,6 +42,7 @@ export function ComplianceCreateForm({
         return;
       }
       setExpiresAt("");
+      setReference("");
       setFile(null);
       router.refresh();
     } finally {
@@ -80,6 +84,9 @@ export function ComplianceCreateForm({
           <option value="right_to_rent">Right to Rent</option>
           <option value="deposit_pi">Deposit PI</option>
           <option value="rra_info_sheet">RRA info sheet</option>
+          <option value="hmo_licence">HMO licence</option>
+          <option value="selective_licence">Selective licence</option>
+          <option value="additional_licence">Additional HMO licence</option>
           <option value="other">Other</option>
         </select>
       </div>
@@ -93,6 +100,18 @@ export function ComplianceCreateForm({
           onChange={(e) => setExpiresAt(e.target.value)}
         />
       </div>
+      {isLicence && (
+        <div className="sm:col-span-2">
+          <Label htmlFor="reference">Licence number and conditions</Label>
+          <Input
+            id="reference"
+            className="mt-1.5"
+            value={reference}
+            onChange={(e) => setReference(e.target.value)}
+            placeholder="e.g. HMO/2026/0142, max 5 people in 4 households"
+          />
+        </div>
+      )}
       <div className="sm:col-span-2">
         <Label htmlFor="file">Document (optional)</Label>
         <Input

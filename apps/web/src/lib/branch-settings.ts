@@ -23,6 +23,11 @@ export interface BranchSettings {
   client_account_name?: string;
   client_account_sort_code?: string;
   client_account_number?: string;
+  /** Redress scheme membership (TPO or PRS), shown on agreements and checked before advertising. */
+  redress_scheme?: "tpo" | "prs" | string;
+  redress_member_number?: string;
+  /** Block portal sync when the landlord has no PRS Database registration number. */
+  require_prs_number?: boolean;
   /** Month-end client account checks, keyed by "YYYY-MM". */
   client_account_checks?: Record<string, ClientAccountCheck>;
 }

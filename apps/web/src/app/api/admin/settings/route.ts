@@ -42,6 +42,9 @@ const patchSchema = z.object({
   client_account_name: z.string().max(120).optional().nullable(),
   client_account_sort_code: z.string().max(20).optional().nullable(),
   client_account_number: z.string().max(20).optional().nullable(),
+  redress_scheme: z.enum(["tpo", "prs"]).optional().nullable(),
+  redress_member_number: z.string().max(40).optional().nullable(),
+  require_prs_number: z.boolean().optional(),
 });
 
 export async function PATCH(request: Request) {
@@ -76,6 +79,11 @@ export async function PATCH(request: Request) {
     ...(body.client_account_number !== undefined && {
       client_account_number: body.client_account_number || undefined,
     }),
+    ...(body.redress_scheme !== undefined && { redress_scheme: body.redress_scheme || undefined }),
+    ...(body.redress_member_number !== undefined && {
+      redress_member_number: body.redress_member_number || undefined,
+    }),
+    ...(body.require_prs_number !== undefined && { require_prs_number: body.require_prs_number }),
   };
 
   if (!settings.maintenance_inbox_token) {

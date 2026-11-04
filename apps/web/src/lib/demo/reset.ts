@@ -4,6 +4,7 @@ import { DEMO_ACCOUNTS, DEMO_AGENCY_SLUG, DEMO_BRANCH_ID, DEMO_LANDLORD_ID, DEMO
 import { buildDemoDataset, DEMO_TABLE_ORDER } from "./dataset";
 import { demoInsertStatements } from "./sql";
 import { ensureNotificationsSchemaForUrl } from "@/lib/db/ensure-schema";
+import { ensureFeatureSchemaForUrl } from "@/lib/db/feature-migrations";
 
 /** Every app table, including ones the seed leaves empty (visitors may have written to them). */
 const WIPE_TABLES = [
@@ -48,6 +49,7 @@ function hostOf(url: string): string {
 export async function resetDemoData(now = new Date()) {
   const url = demoDatabaseUrl();
   await ensureNotificationsSchemaForUrl(url);
+  await ensureFeatureSchemaForUrl(url);
   const sql = neon(url);
 
   const [foreign] = (await sql(

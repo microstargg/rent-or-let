@@ -63,11 +63,25 @@ export async function listViewings(branchId: string) {
     .orderBy(desc(viewings.scheduledAt));
 }
 
-export async function updateApplicationReferencing(id: string, referencingStatus: string) {
+export async function updateApplicationReferencing(
+  id: string,
+  referencingStatus: string,
+  details?: { provider?: string | null; reference?: string | null; note?: string | null }
+) {
   await ensureAgency();
+  const current = details ? await getApplicationById(id) : null;
+  const referenceData = current
+    ? {
+        ...((current.referenceData ?? {}) as Record<string, unknown>),
+        ...(details?.provider !== undefined && { provider: details.provider }),
+        ...(details?.reference !== undefined && { reference: details.reference }),
+        ...(details?.note !== undefined && { note: details.note }),
+        updatedAt: new Date().toISOString(),
+      }
+    : undefined;
   const [row] = await db
     .update(tenantApplications)
-    .set({ referencingStatus })
+    .set({ referencingStatus, ...(referenceData && { referenceData }) })
     .where(and(eq(tenantApplications.id, id), agencyEq(tenantApplications.agencyId)))
     .returning();
   return row ?? null;
@@ -85,11 +99,19 @@ export async function getApplicationById(id: string) {
 
 export async function convertApplicationToTenancy(
   applicationId: string,
-  opts: { branchId: string; rentAmount: number; startDate: string; depositAmount?: number }
+  opts: { branchId: string; rentAmount?: number; startDate: string; depositAmount?: number }
 ) {
   await ensureAgency();
   const app = await getApplicationById(applicationId);
   if (!app || !app.propertyId) throw new Error("Application missing property");
+  const [property] = await db
+    .select({ pricePcm: properties.pricePcm, deposit: properties.deposit })
+    .from(properties)
+    .where(and(eq(properties.id, app.propertyId), agencyEq(properties.agencyId)))
+    .limit(1);
+  const rentAmount = opts.rentAmount ?? Number(property?.pricePcm ?? 0);
+  if (!rentAmount) throw new Error("Set the rent on the property first");
+  const depositAmount = opts.depositAmount ?? (property?.deposit ? Number(property.deposit) : undefined);
 
   const renter = await createRenter({
     branchId: opts.branchId,
@@ -103,14 +125,22 @@ export async function convertApplicationToTenancy(
     branchId: opts.branchId,
     propertyId: app.propertyId,
     primaryRenterId: renter.id,
-    rentAmount: opts.rentAmount,
-    depositAmount: opts.depositAmount,
+    rentAmount,
+    depositAmount,
     startDate: opts.startDate,
   });
 
+  const holdingApplied =
+    app.holdingDepositPaidAt && !app.holdingDepositOutcome
+      ? {
+          holdingDepositOutcome: "applied",
+          holdingDepositOutcomeAt: new Date().toISOString().slice(0, 10),
+          holdingDepositNote: "Put towards the first payment when the tenancy was created.",
+        }
+      : {};
   await db
     .update(tenantApplications)
-    .set({ status: "approved", referencingStatus: "complete" })
+    .set({ status: "approved", referencingStatus: "complete", ...holdingApplied })
     .where(and(eq(tenantApplications.id, applicationId), agencyEq(tenantApplications.agencyId)));
 
   return { renter, tenancy };
@@ -235,4 +265,30 @@ export async function listPropertiesForLandlord(landlordId: string) {
     .select()
     .from(properties)
     .where(and(eq(properties.landlordId, landlordId), agencyEq(properties.agencyId)));
+}
+
+export async function updateHoldingDeposit(
+  id: string,
+  data: {
+    amount?: number | null;
+    paidAt?: string | null;
+    outcome?: string | null;
+    note?: string | null;
+  }
+) {
+  await ensureAgency();
+  const [row] = await db
+    .update(tenantApplications)
+    .set({
+      ...(data.amount !== undefined && { holdingDepositAmount: data.amount == null ? null : String(data.amount) }),
+      ...(data.paidAt !== undefined && { holdingDepositPaidAt: data.paidAt }),
+      ...(data.outcome !== undefined && {
+        holdingDepositOutcome: data.outcome,
+        holdingDepositOutcomeAt: data.outcome ? new Date().toISOString().slice(0, 10) : null,
+      }),
+      ...(data.note !== undefined && { holdingDepositNote: data.note }),
+    })
+    .where(and(eq(tenantApplications.id, id), agencyEq(tenantApplications.agencyId)))
+    .returning();
+  return row ?? null;
 }

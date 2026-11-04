@@ -14,6 +14,7 @@ export interface PersonFormValues {
   email?: string | null;
   phone?: string | null;
   notes?: string | null;
+  prsRegistrationNumber?: string | null;
 }
 
 interface LandlordFormProps {
@@ -40,6 +41,7 @@ export function LandlordForm({ initial, onSuccess, compact }: LandlordFormProps)
       email: fd.get("email") || null,
       phone: fd.get("phone") || null,
       notes: fd.get("notes") || null,
+      prs_registration_number: fd.get("prs_registration_number") || null,
     };
     const res = await fetch(
       isEdit ? `/api/admin/landlords/${initial!.id}` : "/api/admin/landlords",
@@ -102,6 +104,15 @@ export function LandlordForm({ initial, onSuccess, compact }: LandlordFormProps)
       <div>
         <Label htmlFor="phone">Phone</Label>
         <Input id="phone" name="phone" defaultValue={initial?.phone ?? ""} />
+      </div>
+      <div className="sm:col-span-2">
+        <Label htmlFor="prs_registration_number">PRS Database registration number</Label>
+        <Input
+          id="prs_registration_number"
+          name="prs_registration_number"
+          defaultValue={initial?.prsRegistrationNumber ?? ""}
+          placeholder="Needed before the property can be advertised once the database is live"
+        />
       </div>
       <div className="sm:col-span-2">
         <Label htmlFor="notes">Notes</Label>

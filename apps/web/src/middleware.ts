@@ -15,6 +15,7 @@ const PUBLIC_PREFIXES = [
   "/sign-up",
   "/accept-invite",
   "/accept-landlord-invite",
+  "/sign/",
   "/api/",
   "/_next",
   "/agencies/",

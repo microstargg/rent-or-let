@@ -9,6 +9,8 @@ import {
   issueLandlordPortalInvite,
   getLandlordById,
 } from "@/lib/db/queries";
+import { updateHoldingDeposit } from "@/lib/db/queries/lettings";
+import { holdingDepositIssues, type HoldingDepositOutcome } from "@/lib/tenancy/deposits";
 
 export async function POST(request: Request) {
   const { error } = await requireAdminApi();
@@ -28,6 +30,13 @@ export async function POST(request: Request) {
     start_date?: string;
     deposit_amount?: number;
     referencing_status?: string;
+    referencing_provider?: string | null;
+    referencing_ref?: string | null;
+    referencing_note?: string | null;
+    holding_amount?: number | null;
+    holding_paid_at?: string | null;
+    holding_outcome?: HoldingDepositOutcome | null;
+    holding_note?: string | null;
     landlord_id?: string;
   };
 
@@ -48,11 +57,48 @@ export async function POST(request: Request) {
   }
 
   if (body.action === "set_referencing" && body.application_id && body.referencing_status) {
-    const row = await updateApplicationReferencing(body.application_id, body.referencing_status);
+    const hasDetails =
+      body.referencing_provider !== undefined ||
+      body.referencing_ref !== undefined ||
+      body.referencing_note !== undefined;
+    const row = await updateApplicationReferencing(
+      body.application_id,
+      body.referencing_status,
+      hasDetails
+        ? { provider: body.referencing_provider, reference: body.referencing_ref, note: body.referencing_note }
+        : undefined
+    );
     return NextResponse.json(row);
   }
 
-  if (body.action === "convert_application" && body.application_id && body.rent_amount && body.start_date) {
+  if (body.action === "holding_deposit" && body.application_id) {
+    const { getApplicationById } = await import("@/lib/db/queries");
+    const app = await getApplicationById(body.application_id);
+    if (!app) return NextResponse.json({ error: "Application not found" }, { status: 404 });
+    let monthlyRent: number | null = null;
+    if (app.propertyId) {
+      const { getPropertyById } = await import("@/lib/db/queries");
+      const property = await getPropertyById(app.propertyId);
+      monthlyRent = property ? Number(property.price_pcm) : null;
+    }
+    const amount = body.holding_amount ?? (app.holdingDepositAmount ? Number(app.holdingDepositAmount) : 0);
+    const issues = holdingDepositIssues({
+      amount,
+      monthlyRent,
+      outcome: body.holding_outcome ?? null,
+      note: body.holding_note ?? app.holdingDepositNote,
+    });
+    if (issues.length) return NextResponse.json({ error: issues.join(" ") }, { status: 422 });
+    const row = await updateHoldingDeposit(body.application_id, {
+      amount: body.holding_amount,
+      paidAt: body.holding_paid_at,
+      outcome: body.holding_outcome,
+      note: body.holding_note,
+    });
+    return NextResponse.json(row);
+  }
+
+  if (body.action === "convert_application" && body.application_id && body.start_date) {
     const result = await convertApplicationToTenancy(body.application_id, {
       branchId: branch.id,
       rentAmount: body.rent_amount,

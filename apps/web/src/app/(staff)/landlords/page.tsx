@@ -125,6 +125,7 @@ export default async function AdminLandlordsPage({
                             email: landlord.email,
                             phone: landlord.phone,
                             notes: landlord.notes,
+                            prsRegistrationNumber: landlord.prsRegistrationNumber,
                           }}
                         />
                       </AdminEntityDialog>
