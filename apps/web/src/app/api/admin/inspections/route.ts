@@ -6,6 +6,8 @@ import {
   listInspections,
 } from "@/lib/db/queries";
 import { INSPECTION_TYPES } from "@/lib/inspections/report";
+import { actorOf, logActivity } from "@/lib/db/queries/activity";
+import { sendAccessNotice } from "@/lib/tenancy/access-notice";
 
 export async function GET() {
   const { error } = await requireAdminApi();
@@ -17,7 +19,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const { error } = await requireAdminApi();
+  const { session, error } = await requireAdminApi();
   if (error) return error;
   const branch = await getDefaultBranch();
   if (!branch) return NextResponse.json({ error: "No branch" }, { status: 400 });
@@ -26,6 +28,7 @@ export async function POST(request: Request) {
     tenancy_id?: string;
     type?: string;
     scheduled_at?: string;
+    notify_tenants?: boolean;
   };
   if (!body.property_id || !body.type) {
     return NextResponse.json({ error: "property_id and type required" }, { status: 400 });
@@ -40,5 +43,19 @@ export async function POST(request: Request) {
     type: body.type,
     scheduledAt: body.scheduled_at ? new Date(body.scheduled_at) : null,
   });
-  return NextResponse.json(row, { status: 201 });
+  const label = body.type === "move_in" ? "check-in" : body.type === "move_out" ? "check-out" : "inspection";
+  await logActivity(actorOf(session), {
+    entityType: "inspection",
+    entityId: row.id,
+    propertyId: body.property_id,
+    tenancyId: body.tenancy_id ?? null,
+    branchId: branch.id,
+    action: "inspection_booked",
+    summary: `${label.charAt(0).toUpperCase() + label.slice(1)} booked${row.scheduledAt ? ` for ${row.scheduledAt.toLocaleDateString("en-GB")}` : ""}`,
+  });
+  const notice =
+    body.notify_tenants && body.tenancy_id && row.scheduledAt
+      ? await sendAccessNotice(body.tenancy_id, row.scheduledAt, `a ${label === "inspection" ? "property inspection" : label}`)
+      : null;
+  return NextResponse.json({ ...row, notice }, { status: 201 });
 }

@@ -15,6 +15,7 @@ import {
   tenancyAgreements,
   tenancyParties,
   documents,
+  inspections,
 } from "../schema";
 import { createComplianceItem, createDocument } from "./compliance";
 import { createTask } from "./finance";
@@ -28,6 +29,7 @@ import {
   type AgreementTerms,
 } from "@/lib/tenancy/agreement";
 import { parsePaymentPlan } from "@/lib/finance/arrears";
+import { parseInspectionReport } from "@/lib/inspections/report";
 import { parseDepositReturn, splitDeposit, type DepositDeduction, type DepositReturn } from "@/lib/tenancy/deposits";
 
 /** Rent and late fees that have fallen due and are unpaid (future charges ignored). */
@@ -536,7 +538,7 @@ export async function listTenancyContacts(tenancyId: string) {
 
 export async function setTenancyJson(
   tenancyId: string,
-  field: "paymentPlan" | "arrearsReminders",
+  field: "paymentPlan" | "arrearsReminders" | "utilityNotices",
   value: Record<string, unknown> | null
 ) {
   await ensureAgency();
@@ -546,4 +548,23 @@ export async function setTenancyJson(
     .where(and(eq(tenancies.id, tenancyId), agencyEq(tenancies.agencyId)))
     .returning();
   return row ?? null;
+}
+
+/** Meter readings from the tenancy's latest check-in or check-out (completed ones first). */
+export async function getInspectionMeters(tenancyId: string, type: "move_in" | "move_out") {
+  await ensureAgency();
+  const rows = await db
+    .select()
+    .from(inspections)
+    .where(and(eq(inspections.tenancyId, tenancyId), eq(inspections.type, type), agencyEq(inspections.agencyId)))
+    .orderBy(desc(inspections.createdAt))
+    .limit(5);
+  const row = rows.find((r) => r.completedAt) ?? rows[0];
+  if (!row) return null;
+  const report = parseInspectionReport(row.meta);
+  return {
+    inspectionId: row.id,
+    date: (row.completedAt ?? row.scheduledAt)?.toISOString().slice(0, 10) ?? null,
+    meters: report.meters.map((m) => ({ type: m.type, reading: m.reading ?? "" })),
+  };
 }

@@ -21,6 +21,7 @@ const WIPE_TABLES = [
   "portal_sync_jobs",
   "cookie_consents",
   "notifications",
+  "activity_log",
 ];
 
 /**

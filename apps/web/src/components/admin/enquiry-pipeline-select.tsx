@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { BookViewingForm } from "@/components/admin/viewings-panel";
 
 const STAGES = [
   "new",
@@ -32,23 +33,6 @@ export function EnquiryPipelineSelect({
     router.refresh();
   }
 
-  async function bookViewing() {
-    if (!propertyId) return;
-    const when = new Date();
-    when.setDate(when.getDate() + 2);
-    await fetch("/api/admin/lettings", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        action: "book_viewing",
-        enquiry_id: id,
-        property_id: propertyId,
-        scheduled_at: when.toISOString(),
-      }),
-    });
-    router.refresh();
-  }
-
   return (
     <div className="flex flex-col gap-1">
       <select
@@ -62,11 +46,7 @@ export function EnquiryPipelineSelect({
           </option>
         ))}
       </select>
-      {propertyId && (
-        <button type="button" onClick={bookViewing} className="text-xs text-primary underline">
-          Book viewing
-        </button>
-      )}
+      {propertyId && <BookViewingForm propertyId={propertyId} enquiryId={id} compact />}
     </div>
   );
 }

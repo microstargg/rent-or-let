@@ -38,6 +38,7 @@ export const DEMO_TABLE_ORDER = [
   "branches",
   "landlords",
   "properties",
+  "property_keys",
   "renters",
   "tenancies",
   "contractors",
@@ -118,6 +119,7 @@ const TABLE_PREFIX: Record<string, number> = {
   tenant_applications: 0x1b,
   complaints: 0x1c,
   tasks: 0x1d,
+  property_keys: 0x1e,
 };
 
 export function demoUuid(table: string, n: number): string {
@@ -1279,7 +1281,9 @@ export function buildDemoDataset(today: Date = new Date()): DemoDataset {
         enquiry_id: enquiryIds[ei as number],
         scheduled_at: at,
         outcome: outcome ? "attended" : null,
-        notes: outcome,
+        notes: null,
+        feedback: outcome,
+        confirmed_at: addDays(now, -(enquirers[ei as number]![4])),
         created_at: addDays(now, -(enquirers[ei as number]![4])),
       });
     }
@@ -1368,6 +1372,28 @@ export function buildDemoDataset(today: Date = new Date()): DemoDataset {
       assignee_staff_id: null,
       meta: {},
       created_at: addDays(now, Math.min(dueInDays, 0) - 5),
+    });
+  });
+
+  // Keys register: a spare set in the office for each let property; two sets out with contractors.
+  propertyIds.slice(0, LET_COUNT).forEach((propertyId, i) => {
+    const out =
+      i === 1
+        ? { holder_type: "contractor", holder_name: "Tees Valley Plumbing", out_since: isoDate(addDays(now, -6)), due_back: isoDate(addDays(now, -1)) }
+        : i === 4
+          ? { holder_type: "contractor", holder_name: "DryHome Damp Specialists", out_since: isoDate(addDays(now, -2)), due_back: isoDate(addDays(now, 5)) }
+          : { holder_type: "office", holder_name: null, out_since: null, due_back: null };
+    data.property_keys.push({
+      id: nextId("property_keys"),
+      agency_id: A,
+      branch_id: B,
+      property_id: propertyId,
+      label: "Front door set",
+      key_count: 2,
+      ...out,
+      notes: null,
+      updated_at: addDays(now, -2),
+      created_at: addMonths(now, -6),
     });
   });
 
