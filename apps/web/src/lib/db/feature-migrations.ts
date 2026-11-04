@@ -81,6 +81,20 @@ export const FEATURE_MIGRATIONS: FeatureMigration[] = [
       `CREATE INDEX IF NOT EXISTS idx_agreement_signatures_agreement ON agreement_signatures(agreement_id)`,
     ],
   },
+  {
+    // drizzle/0017_money_tools.sql
+    name: "money_tools",
+    probe: `SELECT (${col("landlords", "nrl_status")} AND ${col("tenancies", "arrears_reminders")}) AS ok`,
+    statements: [
+      `ALTER TABLE landlords ADD COLUMN IF NOT EXISTS service_level text`,
+      `ALTER TABLE landlords ADD COLUMN IF NOT EXISTS fee_percent numeric(5, 2)`,
+      `ALTER TABLE landlords ADD COLUMN IF NOT EXISTS letting_fee numeric(10, 2)`,
+      `ALTER TABLE landlords ADD COLUMN IF NOT EXISTS nrl_status text`,
+      `ALTER TABLE landlords ADD COLUMN IF NOT EXISTS nrl_approval_ref text`,
+      `ALTER TABLE tenancies ADD COLUMN IF NOT EXISTS payment_plan jsonb`,
+      `ALTER TABLE tenancies ADD COLUMN IF NOT EXISTS arrears_reminders jsonb`,
+    ],
+  },
 ];
 
 const pendingByUrl = new Map<string, Promise<void>>();

@@ -127,6 +127,11 @@ export async function createLandlord(data: {
   phone?: string | null;
   notes?: string | null;
   prsRegistrationNumber?: string | null;
+  serviceLevel?: string | null;
+  feePercent?: string | null;
+  lettingFee?: string | null;
+  nrlStatus?: string | null;
+  nrlApprovalRef?: string | null;
   bankDetails?: Record<string, unknown> | null;
 }) {
   await ensureAgency();
@@ -141,6 +146,11 @@ export async function createLandlord(data: {
       phone: data.phone,
       notes: data.notes,
       prsRegistrationNumber: data.prsRegistrationNumber ?? null,
+      serviceLevel: data.serviceLevel ?? null,
+      feePercent: data.feePercent ?? null,
+      lettingFee: data.lettingFee ?? null,
+      nrlStatus: data.nrlStatus ?? null,
+      nrlApprovalRef: data.nrlApprovalRef ?? null,
       bankDetails: data.bankDetails ?? null,
     })
     .returning();
@@ -156,6 +166,11 @@ export async function updateLandlord(
     phone: string | null;
     notes: string | null;
     prsRegistrationNumber: string | null;
+    serviceLevel: string | null;
+    feePercent: string | null;
+    lettingFee: string | null;
+    nrlStatus: string | null;
+    nrlApprovalRef: string | null;
     bankDetails: Record<string, unknown> | null;
   }>
 ) {
@@ -478,6 +493,21 @@ export async function createTenancy(data: {
 
   const { scheduleInterimInspections } = await import("./lifecycle");
   await scheduleInterimInspections(row.id);
+
+  const [property] = await db
+    .select({ landlordId: properties.landlordId })
+    .from(properties)
+    .where(and(eq(properties.id, data.propertyId), agencyEq(properties.agencyId)))
+    .limit(1);
+  if (property?.landlordId) {
+    const { chargeLettingFee } = await import("./landlord-finance");
+    await chargeLettingFee({
+      branchId: data.branchId,
+      landlordId: property.landlordId,
+      propertyId: data.propertyId,
+      tenancyId: row.id,
+    });
+  }
 
   return row;
 }

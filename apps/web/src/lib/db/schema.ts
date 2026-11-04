@@ -92,6 +92,15 @@ export const landlords = pgTable(
     notes: text("notes"),
     /** Private Rented Sector Database registration number (Renters' Rights Act). */
     prsRegistrationNumber: text("prs_registration_number"),
+    /** let_only | rent_collection | fully_managed (null = fully managed) */
+    serviceLevel: text("service_level"),
+    /** Management fee % for this landlord; null uses the agency default. */
+    feePercent: numeric("fee_percent", { precision: 5, scale: 2 }),
+    /** One-off fee charged to the landlord when a new tenancy starts. */
+    lettingFee: numeric("letting_fee", { precision: 10, scale: 2 }),
+    /** Non-resident landlord scheme: null/"uk", "approved" (HMRC lets gross rent go), "withhold". */
+    nrlStatus: text("nrl_status"),
+    nrlApprovalRef: text("nrl_approval_ref"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [index("idx_landlords_branch").on(table.branchId)]
@@ -335,6 +344,10 @@ export const tenancies = pgTable(
     rentReviewDate: date("rent_review_date"),
     /** End of tenancy deposit split, deductions and any dispute. See lib/tenancy/deposit-return.ts */
     depositReturn: jsonb("deposit_return"),
+    /** Agreed arrears repayment plan. See lib/finance/arrears.ts */
+    paymentPlan: jsonb("payment_plan"),
+    /** Which automatic arrears reminders have gone out for the current arrears. */
+    arrearsReminders: jsonb("arrears_reminders"),
     metadata: jsonb("metadata").notNull().default({}),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },

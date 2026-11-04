@@ -5,6 +5,7 @@ import { getTenancyDetail } from "@/lib/db/queries/tenancy";
 import { AdminPageHeader, AdminSection, StatPill, StatusBadge } from "@/components/admin/admin-page";
 import { TenancyEndButton } from "@/components/admin/tenancy-end-button";
 import {
+  TenancyArrearsPanel,
   TenancyAgreementPanel,
   TenancyDepositPanel,
   TenancyNoticesPanel,
@@ -13,6 +14,7 @@ import {
 import { displayPersonName } from "@/lib/person-name";
 import { formatCurrency } from "@/lib/utils";
 import { SECTION_8_GROUNDS } from "@/lib/tenancy/section8";
+import { planProgress } from "@/lib/finance/arrears";
 
 export default async function TenancyDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -88,6 +90,16 @@ export default async function TenancyDetailPage({ params }: { params: Promise<{ 
           renterOptions={renters
             .filter((r) => !onTenancy.has(r.id))
             .map((r) => ({ id: r.id, label: displayPersonName(r.firstName, r.lastName) }))}
+        />
+      </AdminSection>
+
+      <AdminSection title="Rent arrears" description="Agree a repayment plan. Automatic reminders are switched on in Settings.">
+        <TenancyArrearsPanel
+          tenancyId={tenancy.id}
+          overdue={detail.overdue}
+          plan={detail.paymentPlan}
+          progress={detail.paymentPlan ? planProgress(detail.paymentPlan, detail.overdue, new Date()) : null}
+          reminders={(tenancy.arrearsReminders as { sent: number[]; lastSentAt?: string } | null) ?? null}
         />
       </AdminSection>
 

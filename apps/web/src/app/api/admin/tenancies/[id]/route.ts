@@ -11,7 +11,9 @@ import {
   recordRightToRent,
   removeTenancyParty,
   saveDepositReturn,
+  setTenancyJson,
 } from "@/lib/db/queries/tenancy";
+import type { PaymentPlan } from "@/lib/finance/arrears";
 import { parseJsonBody } from "@/lib/api-validation";
 import { checkSection8, getGround } from "@/lib/tenancy/section8";
 import { getAppUrl } from "@/lib/app-url";
@@ -60,6 +62,13 @@ const actionSchema = z.discriminatedUnion("action", [
     grounds: z.array(z.string()).min(1).max(10),
     details: z.string().max(4000).optional().nullable(),
     acknowledge_warnings: z.boolean().optional(),
+  }),
+  z.object({
+    action: z.literal("payment_plan"),
+    instalment: z.number().positive().max(100000).optional(),
+    start_date: isoDate.optional(),
+    notes: z.string().max(1000).optional().nullable(),
+    cancel: z.boolean().optional(),
   }),
   z.object({
     action: z.literal("send_agreement"),
@@ -172,6 +181,33 @@ export async function PATCH(
         meta: { grounds: body.grounds, arrearsAtService: detail.overdue, warnings: check.warnings },
       });
       return NextResponse.json({ notice, check }, { status: 201 });
+    }
+
+    case "payment_plan": {
+      if (body.cancel) {
+        const detail = await getTenancyDetail(id);
+        const plan = detail?.paymentPlan;
+        await setTenancyJson(id, "paymentPlan", plan ? { ...plan, status: "cancelled" } : null);
+        return NextResponse.json({ ok: true });
+      }
+      if (!body.instalment || !body.start_date) {
+        return NextResponse.json({ error: "Instalment and start date are needed" }, { status: 400 });
+      }
+      const detail = await getTenancyDetail(id);
+      if (!detail) return NextResponse.json({ error: "Tenancy not found" }, { status: 404 });
+      if (detail.overdue <= 0) {
+        return NextResponse.json({ error: "There are no arrears to repay." }, { status: 400 });
+      }
+      const plan: PaymentPlan = {
+        arrearsAtStart: Math.round(detail.overdue * 100) / 100,
+        instalment: body.instalment,
+        startDate: body.start_date,
+        status: "active",
+        agreedAt: new Date().toISOString().slice(0, 10),
+        notes: body.notes ?? undefined,
+      };
+      await setTenancyJson(id, "paymentPlan", { ...plan });
+      return NextResponse.json(plan, { status: 201 });
     }
 
     case "send_agreement": {

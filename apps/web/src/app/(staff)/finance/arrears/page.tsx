@@ -46,10 +46,14 @@ export default async function AdminArrearsPage() {
         description="Balance is rent and fees due to date minus payments received. Rent raised for a future due date is not counted until that date."
       >
         {rows.length ? (
-          <AdminTable headers={["Property", "Renter", "Balance", "Days overdue", "Oldest due"]}>
+          <AdminTable headers={["Property", "Renter", "Balance", "Days overdue", "Oldest due", "Plan"]}>
             {rows.map((r) => (
               <tr key={r.tenancyId}>
-                <td className="px-4 py-3 font-medium">{r.propertyAddress}</td>
+                <td className="px-4 py-3 font-medium">
+                  <Link href={`/tenancies/${r.tenancyId}`} className="text-primary hover:underline">
+                    {r.propertyAddress}
+                  </Link>
+                </td>
                 <td className="px-4 py-3">{r.renterName}</td>
                 <td className="px-4 py-3 font-semibold text-red-700">
                   £{r.balance.toFixed(2)}
@@ -68,6 +72,15 @@ export default async function AdminArrearsPage() {
                   </span>
                 </td>
                 <td className="px-4 py-3 text-muted-foreground">{r.oldestDue ?? "—"}</td>
+                <td className="px-4 py-3 text-sm">
+                  {r.plan ? (
+                    <span className={r.plan.onTrack ? "text-emerald-700" : "text-red-700"}>
+                      £{r.plan.instalment.toFixed(0)}/month, {r.plan.onTrack ? "on track" : "behind"}
+                    </span>
+                  ) : (
+                    <span className="text-muted-foreground">—</span>
+                  )}
+                </td>
               </tr>
             ))}
           </AdminTable>
