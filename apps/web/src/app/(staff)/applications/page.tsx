@@ -48,7 +48,7 @@ export default async function AdminApplicationsPage() {
                   {refLabel}
                   {refData.provider && <span className="block text-xs text-muted-foreground">{refData.provider}</span>}
                 </td>
-                <td className={`px-4 py-3 text-sm ${holding.overdue ? "text-destructive" : ""}`}>{holding.text}</td>
+                <td className={`px-4 py-3 text-sm ${holding.overdue ? "text-red-600" : ""}`}>{holding.text}</td>
                 <td className="px-4 py-3">
                   <ApplicationStatusSelect id={application.id} status={application.status} />
                 </td>

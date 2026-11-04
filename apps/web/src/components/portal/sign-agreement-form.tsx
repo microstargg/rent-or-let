@@ -51,7 +51,7 @@ export function SignAgreementForm({ token, fullName, role }: { token: string; fu
         <input type="checkbox" className="mt-1" checked={agree} onChange={(e) => setAgree(e.target.checked)} />
         <span>I have read this agreement and agree to be bound by it. I understand typing my name is my signature.</span>
       </label>
-      {error && <p className="text-sm text-destructive">{error}</p>}
+      {error && <p className="text-sm text-red-600">{error}</p>}
       <Button type="submit" disabled={busy || !agree || name.trim().length < 2}>
         {busy ? "Signing…" : "Sign agreement"}
       </Button>

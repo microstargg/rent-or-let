@@ -13,6 +13,8 @@ import {
 } from "@/lib/db/queries/notifications";
 import { getBranchWithSettings, listOverdueInspections, listOverduePetRequests } from "@/lib/db/queries";
 import { getAppUrl } from "@/lib/app-url";
+import { listOpenHazardTickets } from "@/lib/db/queries/tickets";
+import { hazardForTicket, nextHazardStep } from "@/lib/tickets/hazard";
 import { isOutboundEmailConfigured, sendEmail } from "@/lib/email/send";
 import { renderNotificationEmail, type EmailSection } from "./email-template";
 import { digestDueToday, londonDateKey, type ComplianceAlertAudience } from "./preferences";
@@ -37,7 +39,7 @@ function prettyType(t: string): string {
 /** Everything the morning email needs for one branch, loaded once for all staff. */
 export async function loadDigestContext(branchId: string) {
   await ensureAgency();
-  const [staff, tasks, jobs, certificates, overdueInspections, overduePets, branch] = await Promise.all([
+  const [staff, tasks, jobs, certificates, overdueInspections, overduePets, branch, hazardRows] = await Promise.all([
     listStaffRecipients(),
     listBoardTasks(branchId),
     db
@@ -82,7 +84,19 @@ export async function loadDigestContext(branchId: string) {
     listOverdueInspections(branchId),
     listOverduePetRequests(branchId),
     getBranchWithSettings(branchId),
+    listOpenHazardTickets(branchId),
   ]);
+  const now = new Date();
+  const hazards = hazardRows
+    .map(({ ticket, propertyAddress }) => {
+      const h = hazardForTicket(ticket);
+      const step = h ? nextHazardStep(h, now) : null;
+      return step && (step.state === "overdue" || step.state === "due_soon")
+        ? { id: ticket.id, summary: ticket.summary, address: propertyAddress, step }
+        : null;
+    })
+    .filter((x): x is NonNullable<typeof x> => x !== null)
+    .sort((a, b) => (a.step.dueAt?.getTime() ?? 0) - (b.step.dueAt?.getTime() ?? 0));
   const audience: ComplianceAlertAudience =
     branch?.settings.compliance_alerts === "everyone" ? "everyone" : "admins";
   return {
@@ -92,6 +106,7 @@ export async function loadDigestContext(branchId: string) {
     certificates,
     overdueInspections,
     overduePets,
+    hazards,
     audience,
     alertEmail: branch?.settings.alert_email ?? null,
   };
@@ -204,6 +219,22 @@ export function buildDigest(ctx: DigestContext, person: StaffRecipient | null, n
       counts.push(expired ? `${expired} expired certificate${expired === 1 ? "" : "s"}` : `${ctx.certificates.length} certificate${ctx.certificates.length === 1 ? "" : "s"} expiring`);
     }
 
+    if (ctx.hazards.length) {
+      sections.push({
+        title: "Hazard deadlines (damp and mould)",
+        items: ctx.hazards.slice(0, MAX_OTHER).map((h) => ({
+          label: `${h.summary}: ${h.address}`,
+          detail: `${h.step.label} · ${h.step.state === "overdue" ? "overdue since" : "due"} ${shortDate(h.step.dueAt!)}`,
+          href: `${appUrl}/tickets/${h.id}`,
+        })),
+        ...(ctx.hazards.length > MAX_OTHER
+          ? { moreHref: `${appUrl}/tickets`, moreLabel: `See all ${ctx.hazards.length}` }
+          : {}),
+      });
+      const overdue = ctx.hazards.filter((h) => h.step.state === "overdue").length;
+      counts.push(overdue ? `${overdue} hazard deadline${overdue === 1 ? "" : "s"} missed` : `${ctx.hazards.length} hazard deadline${ctx.hazards.length === 1 ? "" : "s"} due`);
+    }
+
     if (ctx.overdueInspections.length) {
       sections.push({
         title: "Overdue inspections",
@@ -293,6 +324,18 @@ export async function runDailyNotifications(
         .join(" · "),
       href: `/properties/${c.propertyId}`,
       dedupeKey: `compliance:${c.id}:${c.status}`,
+    });
+  }
+
+  // Hazard steps that have just gone overdue.
+  for (const h of ctx.hazards) {
+    if (h.step.state !== "overdue") continue;
+    inApp += await notify(complianceRecipients, {
+      type: "hazard_overdue",
+      title: `Hazard deadline missed: ${h.step.label}`,
+      body: `${h.summary} · ${h.address}`,
+      href: `/tickets/${h.id}`,
+      dedupeKey: `hazard:${h.id}:${h.step.key}`,
     });
   }
 

@@ -14,6 +14,8 @@ import { WorkOrderPanel } from "@/components/admin/work-order-panel";
 import { listAssignableStaff } from "@/lib/db/queries/notifications";
 import { StatusBadge } from "@/components/admin/admin-page";
 import { Button } from "@/components/ui/button";
+import { HazardClock } from "@/components/admin/hazard-clock";
+import { hazardForTicket, hazardSchedule, parseHazard } from "@/lib/tickets/hazard";
 
 export default async function AdminTicketDetailPage({
   params,
@@ -34,6 +36,8 @@ export default async function AdminTicketDetailPage({
   ]);
 
   const { ticket, propertyAddress } = ticketRow;
+  const hazard = hazardForTicket(ticket);
+  const closed = ticket.status === "completed" || ticket.status === "cancelled";
   const imageDocs = photos.filter(
     (d) => d.kind === "photo" || /\.(jpe?g|png|gif|webp)$/i.test(d.filename ?? d.url)
   );
@@ -63,6 +67,22 @@ export default async function AdminTicketDetailPage({
 
       {ticket.description && (
         <p className="mt-4 rounded-xl border bg-muted/20 p-4 text-sm">{ticket.description}</p>
+      )}
+
+      {(hazard || !closed) && (
+        <div className="mt-4">
+          <HazardClock
+            ticketId={ticket.id}
+            level={hazard?.level ?? null}
+            awareAt={hazard?.awareAt ?? null}
+            saved={Boolean(parseHazard(ticket.hazard))}
+            steps={
+              hazard
+                ? hazardSchedule(hazard).map((s) => ({ ...s, dueAt: s.dueAt?.toISOString() ?? null }))
+                : []
+            }
+          />
+        </div>
       )}
 
       <div className="mt-8 grid gap-8 lg:grid-cols-2">

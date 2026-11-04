@@ -39,6 +39,8 @@ export function NewInspectionDialog({
   const [tenancyId, setTenancyId] = useState(defaultTenancyId ?? tenancies[0]?.id ?? "");
   const [type, setType] = useState<(typeof TYPES)[number]["value"]>("move_in");
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [time, setTime] = useState("10:00");
+  const [notify, setNotify] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -56,11 +58,28 @@ export function NewInspectionDialog({
           property_id: selected.propertyId,
           tenancy_id: selected.id,
           type,
-          scheduled_at: date ? new Date(`${date}T09:00:00`).toISOString() : null,
+          scheduled_at: date ? new Date(`${date}T${time || "10:00"}:00`).toISOString() : null,
+          notify_tenants: notify && Boolean(date),
         }),
       });
       const row = await res.json().catch(() => ({}));
       if (!res.ok || !row.id) throw new Error(row.error ?? "Could not create inspection");
+      const notice = row.notice as
+        | { emailed: number; texted: number; warning: string | null; errors: string[] }
+        | null
+        | undefined;
+      if (notice && (notice.warning || (!notice.emailed && !notice.texted))) {
+        window.alert(
+          [
+            notice.emailed || notice.texted
+              ? `Notice sent (${notice.emailed} email, ${notice.texted} text).`
+              : `Notice not sent${notice.errors[0] ? `: ${notice.errors[0]}` : "."}`,
+            notice.warning,
+          ]
+            .filter(Boolean)
+            .join("\n\n")
+        );
+      }
       setOpen(false);
       router.push(`/inspections/${row.id}`);
     } catch (err) {
@@ -117,16 +136,35 @@ export function NewInspectionDialog({
               ))}
             </select>
           </div>
-          <div>
-            <Label htmlFor="new-insp-date">Date</Label>
-            <Input
-              id="new-insp-date"
-              type="date"
-              className="mt-1.5 min-h-11"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-            />
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label htmlFor="new-insp-date">Date</Label>
+              <Input
+                id="new-insp-date"
+                type="date"
+                className="mt-1.5 min-h-11"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+              />
+            </div>
+            <div>
+              <Label htmlFor="new-insp-time">Time</Label>
+              <Input
+                id="new-insp-time"
+                type="time"
+                className="mt-1.5 min-h-11"
+                value={time}
+                onChange={(e) => setTime(e.target.value)}
+              />
+            </div>
           </div>
+          <label className="flex items-start gap-2 text-sm">
+            <input type="checkbox" className="mt-1" checked={notify} onChange={(e) => setNotify(e.target.checked)} />
+            <span>
+              Send the tenants written notice of the visit by email (and text, if set up). Tenants need at least
+              24 hours&apos; notice.
+            </span>
+          </label>
           {error && <p className="text-sm text-red-600">{error}</p>}
         </div>
         <DialogFooter>

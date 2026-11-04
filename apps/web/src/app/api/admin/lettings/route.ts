@@ -10,10 +10,13 @@ import {
   getLandlordById,
 } from "@/lib/db/queries";
 import { updateHoldingDeposit } from "@/lib/db/queries/lettings";
+import { actorOf, logActivity } from "@/lib/db/queries/activity";
+import { sendViewingConfirmation } from "@/lib/lettings/viewing-messages";
+import { viewingWhen } from "@/lib/lettings/viewings";
 import { holdingDepositIssues, type HoldingDepositOutcome } from "@/lib/tenancy/deposits";
 
 export async function POST(request: Request) {
-  const { error } = await requireAdminApi();
+  const { session, error } = await requireAdminApi();
   if (error) return error;
   const branch = await getDefaultBranch();
   if (!branch) return NextResponse.json({ error: "No branch" }, { status: 400 });
@@ -25,6 +28,10 @@ export async function POST(request: Request) {
     property_id?: string;
     scheduled_at?: string;
     notes?: string;
+    attendee_name?: string | null;
+    attendee_email?: string | null;
+    attendee_phone?: string | null;
+    send_confirmation?: boolean;
     application_id?: string;
     rent_amount?: number;
     start_date?: string;
@@ -46,14 +53,31 @@ export async function POST(request: Request) {
   }
 
   if (body.action === "book_viewing" && body.property_id && body.scheduled_at) {
+    const scheduledAt = new Date(body.scheduled_at);
+    if (Number.isNaN(scheduledAt.getTime())) {
+      return NextResponse.json({ error: "Pick a date and time" }, { status: 400 });
+    }
+    const clean = (v: string | null | undefined) => (v?.trim() ? v.trim().slice(0, 200) : null);
     const row = await createViewing({
       branchId: branch.id,
       propertyId: body.property_id,
       enquiryId: body.enquiry_id,
-      scheduledAt: new Date(body.scheduled_at),
+      scheduledAt,
       notes: body.notes,
+      attendeeName: clean(body.attendee_name),
+      attendeeEmail: clean(body.attendee_email),
+      attendeePhone: clean(body.attendee_phone),
     });
-    return NextResponse.json(row, { status: 201 });
+    await logActivity(actorOf(session), {
+      entityType: "viewing",
+      entityId: row.id,
+      propertyId: body.property_id,
+      branchId: branch.id,
+      action: "viewing_booked",
+      summary: `Viewing booked for ${viewingWhen(scheduledAt)}`,
+    });
+    const confirmation = body.send_confirmation ? await sendViewingConfirmation(row.id) : null;
+    return NextResponse.json({ ...row, confirmation }, { status: 201 });
   }
 
   if (body.action === "set_referencing" && body.application_id && body.referencing_status) {
