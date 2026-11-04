@@ -27,6 +27,7 @@ import {
   newSigningToken,
   type AgreementTerms,
 } from "@/lib/tenancy/agreement";
+import { parsePaymentPlan } from "@/lib/finance/arrears";
 import { parseDepositReturn, splitDeposit, type DepositDeduction, type DepositReturn } from "@/lib/tenancy/deposits";
 
 /** Rent and late fees that have fallen due and are unpaid (future charges ignored). */
@@ -104,6 +105,7 @@ export async function getTenancyDetail(id: string) {
     notices: noticeRows,
     overdue,
     depositReturn: parseDepositReturn(row.tenancy.depositReturn),
+    paymentPlan: parsePaymentPlan(row.tenancy.paymentPlan),
   };
 }
 
@@ -499,4 +501,49 @@ export async function getAgreementWithSignatures(agreementId: string) {
     .where(and(eq(agreementSignatures.agreementId, agreementId), agencyEq(agreementSignatures.agencyId)))
     .orderBy(asc(agreementSignatures.createdAt));
   return { agreement, signatures };
+}
+
+/** Lead and joint tenants on a tenancy, for reminders and notices. */
+export async function listTenancyContacts(tenancyId: string) {
+  await ensureAgency();
+  const [lead] = await db
+    .select({ renter: renters, tenancy: tenancies })
+    .from(tenancies)
+    .innerJoin(renters, eq(tenancies.primaryRenterId, renters.id))
+    .where(and(eq(tenancies.id, tenancyId), agencyEq(tenancies.agencyId)))
+    .limit(1);
+  if (!lead) return { tenancy: null, contacts: [] };
+  const joint = await db
+    .select({ renter: renters })
+    .from(tenancyParties)
+    .innerJoin(renters, eq(tenancyParties.renterId, renters.id))
+    .where(
+      and(
+        eq(tenancyParties.tenancyId, tenancyId),
+        eq(tenancyParties.role, "tenant"),
+        agencyEq(tenancyParties.agencyId)
+      )
+    );
+  const contacts = [lead.renter, ...joint.map((j) => j.renter)].map((r) => ({
+    renterId: r.id,
+    name: r.firstName,
+    fullName: displayPersonName(r.firstName, r.lastName),
+    email: r.email,
+    phone: r.phone,
+  }));
+  return { tenancy: lead.tenancy, contacts };
+}
+
+export async function setTenancyJson(
+  tenancyId: string,
+  field: "paymentPlan" | "arrearsReminders",
+  value: Record<string, unknown> | null
+) {
+  await ensureAgency();
+  const [row] = await db
+    .update(tenancies)
+    .set({ [field]: value })
+    .where(and(eq(tenancies.id, tenancyId), agencyEq(tenancies.agencyId)))
+    .returning();
+  return row ?? null;
 }

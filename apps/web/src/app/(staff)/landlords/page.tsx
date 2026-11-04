@@ -126,6 +126,11 @@ export default async function AdminLandlordsPage({
                             phone: landlord.phone,
                             notes: landlord.notes,
                             prsRegistrationNumber: landlord.prsRegistrationNumber,
+                            serviceLevel: landlord.serviceLevel,
+                            feePercent: landlord.feePercent,
+                            lettingFee: landlord.lettingFee,
+                            nrlStatus: landlord.nrlStatus,
+                            nrlApprovalRef: landlord.nrlApprovalRef,
                           }}
                         />
                       </AdminEntityDialog>

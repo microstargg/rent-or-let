@@ -1,10 +1,16 @@
+/**
+ * Late rent interest (Tenant Fees Act 2019). Older settings may still carry
+ * grace_days / fixed_amount / percent; those are ignored because a fixed late fee
+ * isn't a permitted payment.
+ */
 export interface LateFeeRules {
   enabled?: boolean;
-  /** Days after due date before late fee applies */
+  /** Bank of England base rate, % a year. Interest isn't charged until this is set. */
+  base_rate?: number | null;
+  /** Margin over base, % a year, capped at 3. */
+  margin?: number | null;
   grace_days?: number;
-  /** Fixed fee in GBP, or null to use percent */
   fixed_amount?: number | null;
-  /** Percent of invoice amount (e.g. 5 = 5%) */
   percent?: number | null;
 }
 
@@ -15,7 +21,13 @@ export interface BranchSettings {
   alert_email?: string;
   /** Who gets certificate / inspection / pet request alerts: "admins" (default) or "everyone". */
   compliance_alerts?: "admins" | "everyone";
+  /** Default management fee; landlords can have their own rate. */
   management_fee_percent?: number;
+  /** Agency is VAT registered: VAT is added to fees charged to landlords. */
+  vat_registered?: boolean;
+  vat_rate?: number;
+  /** Automatic arrears emails (and texts when SMS is set up) to tenants. */
+  arrears_reminders?: { enabled?: boolean; sms?: boolean };
   late_fee_rules?: LateFeeRules;
   work_order_approval_threshold?: number;
   default_maintenance_sla_hours?: number;
@@ -64,7 +76,18 @@ export function getManagementFeePercent(settings: BranchSettings): number {
 }
 
 export function getLateFeeRules(settings: BranchSettings): LateFeeRules {
-  return settings.late_fee_rules ?? { enabled: true, grace_days: 7, fixed_amount: 25, percent: null };
+  const r = settings.late_fee_rules ?? {};
+  return {
+    enabled: r.enabled !== false,
+    base_rate: typeof r.base_rate === "number" ? r.base_rate : null,
+    margin: typeof r.margin === "number" ? Math.min(Math.max(r.margin, 0), 3) : 3,
+  };
+}
+
+/** VAT rate to add to agency fees, or 0 when the agency isn't VAT registered. */
+export function getVatRate(settings: BranchSettings): number {
+  if (!settings.vat_registered) return 0;
+  return typeof settings.vat_rate === "number" && settings.vat_rate >= 0 ? settings.vat_rate : 20;
 }
 
 export function getWorkOrderApprovalThreshold(settings: BranchSettings): number {

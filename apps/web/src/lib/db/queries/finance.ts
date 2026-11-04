@@ -1,4 +1,4 @@
-import { eq, and, desc, gte, lte, sql, count, inArray } from "drizzle-orm";
+import { eq, and, desc, gte, lt, lte, sql, count, inArray } from "drizzle-orm";
 import { db } from "../index";
 import { renterOnTenancy } from "../renter-tenancy";
 import { agencyEq, currentAgencyId, ensureAgency } from "../agency-scope";
@@ -16,6 +16,8 @@ import {
   branches,
 } from "../schema";
 import { getLateFeeRules, parseBranchSettings } from "@/lib/branch-settings";
+import { lateInterest, LATE_RENT_MIN_DAYS } from "@/lib/finance/late-interest";
+import { parsePaymentPlan, planProgress } from "@/lib/finance/arrears";
 import { isTenantPayableInvoiceType } from "@/lib/operations/maintenance/constants";
 import { ensureJobInvoiceSchema, isMissingInvoiceColumnError } from "@/lib/db/ensure-schema";
 
@@ -543,6 +545,7 @@ export async function listArrears(branchId: string) {
     .select({
       tenancyId: tenancies.id,
       rentAmount: tenancies.rentAmount,
+      paymentPlan: tenancies.paymentPlan,
       propertyAddress: properties.displayAddress,
       renterFirstName: renters.firstName,
       renterLastName: renters.lastName,
@@ -599,6 +602,11 @@ export async function listArrears(branchId: string) {
         balance,
         daysOverdue,
         oldestDue,
+        plan: (() => {
+          const plan = parsePaymentPlan(r.paymentPlan);
+          if (!plan || plan.status !== "active") return null;
+          return { instalment: plan.instalment, onTrack: planProgress(plan, balance, now).onTrack };
+        })(),
       };
     })
     .filter((r) => r.balance > 0.001)
@@ -629,7 +637,13 @@ export async function createTask(data: {
   return row;
 }
 
-export async function applyLateFeesForBranch(branchId: string) {
+/**
+ * Charge interest on rent more than 14 days late (Tenant Fees Act 2019), at the
+ * agency's chosen margin (max 3%) over the Bank of England base rate. Each run
+ * tops up the interest charged so far on each late rent invoice, so it can run
+ * daily without double charging. Top-ups under £1 wait for a later run.
+ */
+export async function applyLateFeesForBranch(branchId: string, now = new Date()) {
   await ensureAgency();
   const [b] = await db
     .select()
@@ -640,12 +654,11 @@ export async function applyLateFeesForBranch(branchId: string) {
 
   const rules = getLateFeeRules(parseBranchSettings(b.settings));
   if (rules.enabled === false) return { applied: 0 };
+  if (rules.base_rate == null) {
+    return { applied: 0, reason: "Set the Bank of England base rate in Settings to charge late rent interest." };
+  }
 
-  const graceDays = rules.grace_days ?? 7;
-  const cutoff = new Date();
-  cutoff.setDate(cutoff.getDate() - graceDays);
-  const cutoffDate = cutoff.toISOString().slice(0, 10);
-
+  const cutoff = new Date(now.getTime() - LATE_RENT_MIN_DAYS * 86400000).toISOString().slice(0, 10);
   const overdue = await db
     .select()
     .from(invoices)
@@ -654,16 +667,26 @@ export async function applyLateFeesForBranch(branchId: string) {
         eq(invoices.branchId, branchId),
         agencyEq(invoices.agencyId),
         inArray(invoices.status, ["due", "partial"]),
-        lte(invoices.dueDate, cutoffDate),
+        lt(invoices.dueDate, cutoff),
         eq(invoices.type, "rent")
       )
     );
 
   let applied = 0;
+  let total = 0;
   for (const inv of overdue) {
     if (!inv.tenancyId) continue;
-    const existingFee = await db
-      .select({ id: invoices.id })
+    const allocated = await getAllocatedTotalForInvoice(inv.id);
+    const outstanding = Math.max(0, Number(inv.amount) - allocated);
+    const { interest, rate, days } = lateInterest({
+      outstanding,
+      dueDate: inv.dueDate,
+      now,
+      baseRate: rules.base_rate,
+      margin: rules.margin ?? 3,
+    });
+    const [charged] = await db
+      .select({ total: sql<string>`coalesce(sum(${invoices.amount}), 0)` })
       .from(invoices)
       .where(
         and(
@@ -672,14 +695,9 @@ export async function applyLateFeesForBranch(branchId: string) {
           agencyEq(invoices.agencyId),
           sql`${invoices.meta}->>'source_invoice_id' = ${inv.id}`
         )
-      )
-      .limit(1);
-    if (existingFee.length) continue;
-
-    let feeAmount = rules.fixed_amount ?? 25;
-    if (rules.percent != null && rules.percent > 0) {
-      feeAmount = Math.round(Number(inv.amount) * (rules.percent / 100) * 100) / 100;
-    }
+      );
+    const topUp = Math.round((interest - Number(charged?.total ?? 0)) * 100) / 100;
+    if (topUp < 1) continue;
 
     const [feeInv] = await db
       .insert(invoices)
@@ -688,10 +706,10 @@ export async function applyLateFeesForBranch(branchId: string) {
         branchId,
         tenancyId: inv.tenancyId,
         type: "late_fee",
-        dueDate: new Date().toISOString().slice(0, 10),
-        amount: String(feeAmount),
+        dueDate: now.toISOString().slice(0, 10),
+        amount: String(topUp),
         status: "due",
-        meta: { source_invoice_id: inv.id },
+        meta: { source_invoice_id: inv.id, kind: "interest", rate, days, outstanding },
       })
       .returning();
 
@@ -702,24 +720,17 @@ export async function applyLateFeesForBranch(branchId: string) {
       propertyId: ctx?.propertyId,
       landlordId: ctx?.landlordId,
       entryType: "late_fee",
-      amount: feeAmount,
+      amount: topUp,
       invoiceId: feeInv.id,
-      memo: `Late fee for invoice ${inv.id}`,
+      memo: `Interest at ${rate}% on £${outstanding.toFixed(2)} rent due ${inv.dueDate} (${days} days late)`,
       meta: { source_invoice_id: inv.id },
     });
 
-    await createTask({
-      branchId,
-      title: `Late fee applied — chase arrears`,
-      relatedType: "tenancy",
-      relatedId: inv.tenancyId,
-      meta: { invoice_id: feeInv.id, source_invoice_id: inv.id },
-    });
-
     applied += 1;
+    total += topUp;
   }
 
-  return { applied };
+  return { applied, total: Math.round(total * 100) / 100 };
 }
 
 export async function getPaymentByExternalRef(branchId: string, externalRef: string) {

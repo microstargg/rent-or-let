@@ -348,7 +348,7 @@ export function buildDemoDataset(today: Date = new Date()): DemoDataset {
     otm_sync_enabled: false,
     settings: {
       management_fee_percent: MANAGEMENT_FEE_PERCENT,
-      late_fee_rules: { enabled: true, grace_days: 7, fixed_amount: 25, percent: null },
+      late_fee_rules: { enabled: true, base_rate: 4, margin: 3 },
       work_order_approval_threshold: 250,
       default_maintenance_sla_hours: 72,
       client_account_name: "LetFlow Demo Lettings Client Account",
@@ -974,10 +974,12 @@ export function buildDemoDataset(today: Date = new Date()): DemoDataset {
         }
       });
 
-      // Late fee for rent left unpaid past the 7-day grace period.
-      if (!isFuture && status !== "paid" && now.getTime() - due.getTime() > 8 * 86400000 && t.profile === "arrears") {
+      // Interest on rent more than 14 days late (7% a year: demo base rate 4% + 3%).
+      if (!isFuture && status !== "paid" && now.getTime() - due.getTime() > 15 * 86400000 && t.profile === "arrears") {
         const feeId = nextId("invoices");
-        const feeDue = addDays(due, 8);
+        const feeDue = addDays(due, 15);
+        const lateDays = Math.floor((now.getTime() - due.getTime()) / 86400000);
+        const interest = Math.max(1, Math.floor(t.rent * 0.07 * (lateDays / 365) * 100) / 100);
         data.invoices.push({
           id: feeId,
           agency_id: A,
@@ -988,18 +990,18 @@ export function buildDemoDataset(today: Date = new Date()): DemoDataset {
           work_order_id: null,
           type: "late_fee",
           due_date: isoDate(feeDue),
-          amount: 25,
+          amount: interest,
           status: "due",
-          meta: { source_invoice_id: invoiceId },
+          meta: { source_invoice_id: invoiceId, kind: "interest", rate: 7, days: lateDays },
           created_at: feeDue,
         });
         ledger({
           entry_type: "charge",
-          amount: 25,
+          amount: interest,
           occurred_at: feeDue,
           invoice_id: feeId,
           payment_id: null,
-          memo: `late_fee charge due ${isoDate(feeDue)}`,
+          memo: `Late rent interest at 7% (${lateDays} days)`,
           created_at: feeDue,
         });
       }
