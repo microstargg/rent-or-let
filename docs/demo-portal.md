@@ -57,3 +57,7 @@ rent and compliance crons only visit the agencies listed there; the demo does no
 
 New migrations in `packages/database/drizzle/` must also be applied to the `letflow-demo`
 database: `AGENCY_SLUG=demo AGENCY_DEMO_DATABASE_URL=... npm run db:setup`.
+
+## Vercel previews
+
+Preview deployments (`*.vercel.app`, `VERCEL_ENV=preview`) can't tell the agency from the host, so they use the demo agency and its database, never a real agency's. Set `PREVIEW_AGENCY_SLUG` to pick another agency. Previews need the `AGENCY_DEMO_*` variables and `DEMO_LOGIN_PASSWORD` enabled for the Preview environment, and each preview origin must be a trusted domain in the `letflow-demo` Neon Auth.
