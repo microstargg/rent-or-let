@@ -1,5 +1,6 @@
 import { eq, and, desc, asc, ilike, or, sql, count, type SQL } from "drizzle-orm";
 import { db } from "../index";
+import { renterOnTenancy } from "../renter-tenancy";
 import { agencyEq, currentAgencyId, ensureAgency } from "../agency-scope";
 import { landlords, renters, tenancies, properties, branches } from "../schema";
 import { parseBranchSettings, type BranchSettings } from "@/lib/branch-settings";
@@ -125,6 +126,7 @@ export async function createLandlord(data: {
   email?: string | null;
   phone?: string | null;
   notes?: string | null;
+  prsRegistrationNumber?: string | null;
   bankDetails?: Record<string, unknown> | null;
 }) {
   await ensureAgency();
@@ -138,6 +140,7 @@ export async function createLandlord(data: {
       email: data.email,
       phone: data.phone,
       notes: data.notes,
+      prsRegistrationNumber: data.prsRegistrationNumber ?? null,
       bankDetails: data.bankDetails ?? null,
     })
     .returning();
@@ -152,6 +155,7 @@ export async function updateLandlord(
     email: string | null;
     phone: string | null;
     notes: string | null;
+    prsRegistrationNumber: string | null;
     bankDetails: Record<string, unknown> | null;
   }>
 ) {
@@ -401,7 +405,7 @@ export async function getActiveTenancyForRenter(renterId: string, branchId: stri
     .from(tenancies)
     .where(
       and(
-        eq(tenancies.primaryRenterId, renterId),
+        renterOnTenancy(renterId),
         eq(tenancies.branchId, branchId),
         eq(tenancies.status, "active"),
         agencyEq(tenancies.agencyId)

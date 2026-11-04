@@ -10,6 +10,7 @@ const schema = z.object({
   email: z.string().email().or(z.literal("")).nullable().optional(),
   phone: z.string().nullable().optional(),
   notes: z.string().nullable().optional(),
+  prs_registration_number: z.string().max(40).nullable().optional(),
 });
 
 export async function GET() {
@@ -39,6 +40,7 @@ export async function POST(request: Request) {
     email: body.email || null,
     phone: body.phone || null,
     notes: body.notes || null,
+    prsRegistrationNumber: body.prs_registration_number?.trim() || null,
   });
   return NextResponse.json(row, { status: 201 });
 }

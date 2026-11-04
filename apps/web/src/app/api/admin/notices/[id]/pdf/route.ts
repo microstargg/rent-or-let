@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
+import { agencyEq, ensureAgency } from "@/lib/db/agency-scope";
 import { requireAdminApi } from "@/lib/api-auth";
 import { db } from "@/lib/db";
 import { notices, tenancies, properties, renters } from "@/lib/db/schema";
@@ -12,6 +13,7 @@ export async function GET(
   const { error } = await requireAdminApi();
   if (error) return error;
   const { id } = await params;
+  await ensureAgency();
   const [row] = await db
     .select({
       notice: notices,
@@ -24,7 +26,7 @@ export async function GET(
     .innerJoin(tenancies, eq(notices.tenancyId, tenancies.id))
     .innerJoin(properties, eq(tenancies.propertyId, properties.id))
     .innerJoin(renters, eq(tenancies.primaryRenterId, renters.id))
-    .where(eq(notices.id, id))
+    .where(and(eq(notices.id, id), agencyEq(notices.agencyId)))
     .limit(1);
   if (!row) notFound();
   const meta = (row.notice.meta ?? {}) as { proposedRent?: string | number };

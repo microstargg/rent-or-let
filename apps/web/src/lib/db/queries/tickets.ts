@@ -1,5 +1,6 @@
 import { eq, and, desc, count, notInArray, or, ilike, type SQL } from "drizzle-orm";
 import { db } from "../index";
+import { renterOnTenancy } from "../renter-tenancy";
 import { agencyEq, currentAgencyId, ensureAgency } from "../agency-scope";
 import {
   tickets,
@@ -137,7 +138,7 @@ export async function listTicketsForRenter(branchId: string, renterId: string) {
     .where(
       and(
         eq(tickets.branchId, branchId),
-        eq(tenancies.primaryRenterId, renterId),
+        renterOnTenancy(renterId),
         agencyEq(tickets.agencyId)
       )
     )
@@ -154,7 +155,7 @@ export async function getTicketForRenter(ticketId: string, branchId: string, ren
       and(
         eq(tickets.id, ticketId),
         eq(tickets.branchId, branchId),
-        eq(tenancies.primaryRenterId, renterId),
+        renterOnTenancy(renterId),
         agencyEq(tickets.agencyId)
       )
     )

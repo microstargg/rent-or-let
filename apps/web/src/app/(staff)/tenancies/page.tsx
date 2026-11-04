@@ -124,7 +124,7 @@ export default async function AdminTenanciesPage({
                   <tr key={tenancy.id}>
                     <td className="px-4 py-3">
                       <Link
-                        href={`/properties/${propertyId}`}
+                        href={`/tenancies/${tenancy.id}`}
                         className="font-medium text-primary hover:underline"
                       >
                         {propertyAddress}

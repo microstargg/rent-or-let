@@ -20,6 +20,9 @@ const COMPLIANCE_LABELS: Record<string, string> = {
   deposit_pi: "Deposit prescribed information",
   rra_info_sheet: "Renters' Rights Act information sheet",
   right_to_rent: "Right to rent check",
+  hmo_licence: "HMO licence",
+  selective_licence: "Selective licence",
+  additional_licence: "Additional HMO licence",
 };
 
 export function complianceLabel(type: string): string {

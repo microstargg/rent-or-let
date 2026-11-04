@@ -10,6 +10,7 @@ const schema = z.object({
   email: z.string().email().optional().nullable(),
   phone: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
+  prs_registration_number: z.string().max(40).optional().nullable(),
 });
 
 export async function PATCH(
@@ -29,6 +30,9 @@ export async function PATCH(
     ...(body.email !== undefined && { email: body.email }),
     ...(body.phone !== undefined && { phone: body.phone }),
     ...(body.notes !== undefined && { notes: body.notes }),
+    ...(body.prs_registration_number !== undefined && {
+      prsRegistrationNumber: body.prs_registration_number?.trim() || null,
+    }),
   });
   return NextResponse.json(row);
 }
