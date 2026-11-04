@@ -56,7 +56,9 @@ export default async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // The demo is invite-only: everything sits behind a shared access code.
+  // Vercel previews skip it; they are already behind Vercel's own login.
   if (
+    process.env.VERCEL_ENV !== "preview" &&
     isDemoAgencySlug(slug) &&
     !isDemoAccessExempt(pathname) &&
     !(await hasDemoAccess(request.cookies.get(DEMO_ACCESS_COOKIE)?.value))
