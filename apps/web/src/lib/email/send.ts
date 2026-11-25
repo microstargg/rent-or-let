@@ -16,6 +16,7 @@ export async function sendEmail(opts: {
   html?: string;
   replyTo?: string;
   headers?: Record<string, string>;
+  attachments?: { filename: string; content: Uint8Array }[];
 }): Promise<SendResult> {
   if (inDemoAgency()) return { ok: false, error: "Emails are switched off in the demo." };
   const apiKey = process.env.RESEND_API_KEY?.trim();
@@ -34,6 +35,9 @@ export async function sendEmail(opts: {
     ...(opts.html ? { html: opts.html } : {}),
     ...(opts.replyTo ? { replyTo: opts.replyTo } : {}),
     ...(opts.headers ? { headers: opts.headers } : {}),
+    ...(opts.attachments?.length
+      ? { attachments: opts.attachments.map((a) => ({ filename: a.filename, content: Buffer.from(a.content) })) }
+      : {}),
   });
   if (error) return { ok: false, error: error.message };
   return { ok: true };

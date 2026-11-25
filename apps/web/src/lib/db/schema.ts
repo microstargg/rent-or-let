@@ -1129,6 +1129,9 @@ export const tenancyAgreements = pgTable(
     termsHash: text("terms_hash").notNull(),
     documentId: uuid("document_id").references(() => documents.id, { onDelete: "set null" }),
     completedAt: timestamp("completed_at", { withTimezone: true }),
+    /** The completed PDF (with audit trail), frozen in private storage when the last person signs. */
+    signedPdfKey: text("signed_pdf_key"),
+    signedPdfSha256: text("signed_pdf_sha256"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [index("idx_tenancy_agreements_tenancy").on(table.tenancyId)]
@@ -1151,6 +1154,13 @@ export const agreementSignatures = pgTable(
     signedAt: timestamp("signed_at", { withTimezone: true }),
     signedIp: text("signed_ip"),
     signedUserAgent: text("signed_user_agent"),
+    /** One-time code emailed to the signer before they can sign. Only the hash is kept. */
+    otpHash: text("otp_hash"),
+    otpExpiresAt: timestamp("otp_expires_at", { withTimezone: true }),
+    otpAttempts: integer("otp_attempts").notNull().default(0),
+    otpSentAt: timestamp("otp_sent_at", { withTimezone: true }),
+    /** email_code (signer proved they control the email) | link_only (no email on file) */
+    verifiedBy: text("verified_by"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
@@ -1198,4 +1208,24 @@ export const renterDocuments = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [index("idx_renter_documents_renter").on(table.renterId)]
+);
+
+/** Everything that happened to an agreement, for the audit trail on the signed PDF. */
+export const agreementEvents = pgTable(
+  "agreement_events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    agencyId: text("agency_id").notNull().references(() => agencies.slug),
+    agreementId: uuid("agreement_id")
+      .notNull()
+      .references(() => tenancyAgreements.id, { onDelete: "cascade" }),
+    signatureId: uuid("signature_id").references(() => agreementSignatures.id, { onDelete: "set null" }),
+    /** created | sent | viewed | code_sent | code_failed | signed | completed | copy_emailed | cancelled */
+    event: text("event").notNull(),
+    ip: text("ip"),
+    userAgent: text("user_agent"),
+    detail: jsonb("detail").notNull().default({}),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("idx_agreement_events_agreement").on(table.agreementId, table.createdAt)]
 );

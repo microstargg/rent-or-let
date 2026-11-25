@@ -19,6 +19,7 @@ import { checkSection8, getGround } from "@/lib/tenancy/section8";
 import { getAppUrl } from "@/lib/app-url";
 import { sendEmail } from "@/lib/email/send";
 import { actorOf, logActivity } from "@/lib/db/queries/activity";
+import { logAgreementEvent } from "@/lib/db/queries/agreement-events";
 import { getDefaultBranch, getTenancyById, updateBranchSettings } from "@/lib/db/queries";
 import { listTenancyContacts } from "@/lib/db/queries/tenancy";
 import { parseUtilityNotices, utilityNotice } from "@/lib/tenancy/utility-notices";
@@ -315,11 +316,16 @@ export async function PATCH(
           const sent = await sendEmail({
             to: l.email,
             subject: `Please sign your tenancy agreement`,
-            text: `Hi ${l.fullName},\n\nYour tenancy agreement from ${getTenant().name} is ready to read and sign online:\n\n${l.url}\n\nThe link is personal to you, so please don't forward it.\n\n${getTenant().name}`,
+            text: `Hi ${l.fullName},\n\nYour tenancy agreement from ${getTenant().name} is ready to read and sign online:\n\n${l.url}\n\nThe link is personal to you, so please don't forward it. Before you sign we'll email you a 6-digit code to confirm it's you, and once everyone has signed you'll get a copy of the signed agreement.\n\n${getTenant().name}`,
           });
           if (sent.ok) emailed.push(l.email);
         }
       }
+      await logAgreementEvent({
+        agreementId: result.agreementId,
+        event: "sent",
+        detail: { who: session?.user?.name || session?.user?.email || null, emailed: emailed.length },
+      });
       await log(
         "agreement_sent",
         `Tenancy agreement sent for signing${emailed.length ? ` (emailed to ${emailed.length})` : ""}`,

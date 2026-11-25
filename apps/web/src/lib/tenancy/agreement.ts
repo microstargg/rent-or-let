@@ -1,4 +1,4 @@
-import { createHash, randomBytes } from "crypto";
+import { createHash, randomBytes, randomInt, timingSafeEqual } from "crypto";
 import { buildStyledPdf, paragraphBlocks, rowBlocks, type PdfBlock } from "@/lib/pdf/simple-pdf";
 
 /**
@@ -65,6 +65,55 @@ export function hashSigningToken(token: string): string {
   return createHash("sha256").update(token).digest("hex");
 }
 
+/** Signing codes: 6 digits, valid 15 minutes, 5 wrong tries, a new one at most once a minute. */
+export const SIGNING_CODE = { ttlMinutes: 15, maxAttempts: 5, resendSeconds: 60, maxSends: 5 } as const;
+
+export function newSigningCode(): string {
+  return String(randomInt(0, 1_000_000)).padStart(6, "0");
+}
+
+/** Salted with the signature id, so the same code on two signatures hashes differently. */
+export function hashSigningCode(code: string, signatureId: string): string {
+  return createHash("sha256").update(`${signatureId}:${code.replace(/\D/g, "")}`).digest("hex");
+}
+
+export function signingCodeMatches(code: string, signatureId: string, storedHash: string): boolean {
+  const a = Buffer.from(hashSigningCode(code, signatureId), "hex");
+  const b = Buffer.from(storedHash, "hex");
+  return a.length === b.length && timingSafeEqual(a, b);
+}
+
+/** b***@gmail.com */
+export function maskEmail(email: string): string {
+  const [user, domain] = email.split("@");
+  if (!domain) return email;
+  return `${user.slice(0, 1)}${"*".repeat(Math.max(2, Math.min(user.length - 1, 6)))}@${domain}`;
+}
+
+export const AGREEMENT_EVENT_LABELS: Record<string, string> = {
+  created: "Agreement prepared",
+  sent: "Signing links sent",
+  viewed: "Opened the agreement",
+  code_sent: "Email code sent",
+  code_failed: "Wrong email code entered",
+  signed: "Signed",
+  completed: "Signed by everyone",
+  copy_emailed: "Signed copy emailed",
+  cancelled: "Replaced by a new version",
+};
+
+export interface AgreementEventLine {
+  event: string;
+  who: string | null;
+  ip: string | null;
+  at: Date | string;
+  detail?: Record<string, unknown> | null;
+}
+
+function londonTime(at: Date | string) {
+  return new Date(at).toLocaleString("en-GB", { timeZone: "Europe/London" });
+}
+
 function money(n: number) {
   return `£${n.toFixed(2)}`;
 }
@@ -86,11 +135,13 @@ export interface AgreementSignatureLine {
   signedName: string | null;
   signedAt: Date | string | null;
   signedIp: string | null;
+  verifiedBy?: string | null;
+  email?: string | null;
 }
 
 export function renderAgreementPdf(
   terms: AgreementTerms,
-  opts: { hash: string; signatures?: AgreementSignatureLine[] } = { hash: "" }
+  opts: { hash: string; signatures?: AgreementSignatureLine[]; events?: AgreementEventLine[] } = { hash: "" }
 ): Uint8Array {
   const blocks: PdfBlock[] = [
     { kind: "title", text: "Tenancy agreement" },
@@ -151,15 +202,35 @@ export function renderAgreementPdf(
       ...rowBlocks(
         `${s.role[0]!.toUpperCase()}${s.role.slice(1)}`,
         s.signedAt
-          ? `${s.fullName}: signed as "${s.signedName}" on ${new Date(s.signedAt).toLocaleString("en-GB", { timeZone: "Europe/London" })}${s.signedIp ? ` from ${s.signedIp}` : ""}`
+          ? `${s.fullName}: signed as "${s.signedName}" on ${londonTime(s.signedAt)}${s.signedIp ? ` from ${s.signedIp}` : ""}${
+              s.verifiedBy === "email_code" && s.email
+                ? `, after confirming a code sent to ${maskEmail(s.email)}`
+                : s.verifiedBy === "link_only"
+                  ? ", using their personal link (no email on file)"
+                  : ""
+            }`
           : `${s.fullName}: awaiting signature`
       )
     );
   }
+  if (opts.events?.length) {
+    blocks.push({ kind: "heading", text: "Audit trail" });
+    blocks.push(
+      ...paragraphBlocks("Times are UK time. Each person signed from a personal link sent only to them.")
+    );
+    for (const e of opts.events) {
+      blocks.push(
+        ...rowBlocks(
+          londonTime(e.at),
+          [AGREEMENT_EVENT_LABELS[e.event] ?? e.event, e.who, e.ip ? `IP ${e.ip}` : null].filter(Boolean).join(", ")
+        )
+      );
+    }
+  }
   blocks.push(
     { kind: "spacer" },
     ...paragraphBlocks(
-      `Signed electronically. Document fingerprint (SHA-256): ${opts.hash}. Generated ${ukDate(terms.createdAt)}.`
+      `Signed electronically. Terms fingerprint (SHA-256): ${opts.hash}. Every signer saw these exact terms. Generated ${ukDate(terms.createdAt)}.`
     )
   );
   return buildStyledPdf(blocks);
