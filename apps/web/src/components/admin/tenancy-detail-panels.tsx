@@ -76,7 +76,7 @@ export function TenancyPeoplePanel({
   const { run, busy, message } = useTenancyAction(tenancyId);
   const [renterId, setRenterId] = useState("");
   const [rtrFor, setRtrFor] = useState<string | null>(null);
-  const [rtr, setRtr] = useState({ checked_at: today(), method: "share_code", expires_at: "" });
+  const [rtr, setRtr] = useState({ checked_at: today(), method: "share_code", share_code: "", expires_at: "" });
   const [showGuarantor, setShowGuarantor] = useState(false);
   const [g, setG] = useState({ full_name: "", email: "", phone: "", address: "", guarantees_renter_id: "" });
 
@@ -91,7 +91,9 @@ export function TenancyPeoplePanel({
               <li key={t.renterId} className="py-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="font-medium">
-                    {t.name}
+                    <a href={`/renters/${t.renterId}`} className="hover:underline">
+                      {t.name}
+                    </a>
                     {!t.partyId && <span className="ml-2 text-xs text-muted-foreground">lead tenant</span>}
                   </span>
                   {t.partyId && (
@@ -130,11 +132,25 @@ export function TenancyPeoplePanel({
                         ))}
                       </select>
                     </div>
+                    {rtr.method === "share_code" && (
+                      <div>
+                        <Label className="text-xs">Share code</Label>
+                        <Input
+                          className="font-mono uppercase"
+                          maxLength={20}
+                          value={rtr.share_code}
+                          onChange={(e) => setRtr({ ...rtr, share_code: e.target.value.toUpperCase() })}
+                        />
+                      </div>
+                    )}
                     <div>
                       <Label className="text-xs">Permission ends (if time-limited)</Label>
                       <Input type="date" value={rtr.expires_at} onChange={(e) => setRtr({ ...rtr, expires_at: e.target.value })} />
                     </div>
                     <div className="sm:col-span-3">
+                      <p className="mb-2 text-xs text-muted-foreground">
+                        Upload the check result or document copies on the renter&apos;s profile.
+                      </p>
                       <Button
                         size="sm"
                         disabled={busy !== null}
@@ -144,6 +160,7 @@ export function TenancyPeoplePanel({
                             renter_id: t.renterId,
                             checked_at: rtr.checked_at,
                             method: rtr.method,
+                            share_code: rtr.share_code || null,
                             expires_at: rtr.expires_at || null,
                           });
                           if (r.ok) setRtrFor(null);

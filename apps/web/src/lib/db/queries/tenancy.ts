@@ -17,7 +17,8 @@ import {
   documents,
   inspections,
 } from "../schema";
-import { createComplianceItem, createDocument } from "./compliance";
+import { createDocument } from "./compliance";
+import { recordRenterRightToRent } from "./renter-documents";
 import { createTask } from "./finance";
 import { parseBranchSettings, getClientAccountDetails } from "@/lib/branch-settings";
 import { getPaymentRefFromMetadata } from "@/lib/payment-ref";
@@ -202,36 +203,16 @@ export async function removeTenancyParty(tenancyId: string, partyId: string) {
   return row ?? null;
 }
 
-/**
- * Record a Right to Rent check. Time-limited permission gets a compliance item
- * that expires on the follow-up date, so the existing certificate reminders chase it.
- */
+/** Record a Right to Rent check from the tenancy page. See recordRenterRightToRent. */
 export async function recordRightToRent(
   tenancyId: string,
   renterId: string,
-  data: { checkedAt: string; method: string; expiresAt?: string | null }
+  data: { checkedAt: string; method: string; expiresAt?: string | null; shareCode?: string | null }
 ) {
   await ensureAgency();
   const t = await requireTenancy(tenancyId);
   if (!t) return null;
-  const [updated] = await db
-    .update(renters)
-    .set({ rtrCheckedAt: data.checkedAt, rtrMethod: data.method, rtrExpiresAt: data.expiresAt ?? null })
-    .where(and(eq(renters.id, renterId), agencyEq(renters.agencyId)))
-    .returning();
-  if (!updated) return null;
-  await createComplianceItem({
-    branchId: t.branchId,
-    propertyId: t.propertyId,
-    tenancyId: t.id,
-    type: "right_to_rent",
-    issuedAt: data.checkedAt,
-    expiresAt: data.expiresAt ?? null,
-    reference: `${displayPersonName(updated.firstName, updated.lastName)} (${data.method})`,
-    // Time-limited permission gets expiring/expired from the date, like a certificate.
-    status: data.expiresAt ? undefined : "valid",
-  });
-  return updated;
+  return recordRenterRightToRent(renterId, data, t.id);
 }
 
 export async function saveDepositReturn(

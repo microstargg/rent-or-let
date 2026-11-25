@@ -44,6 +44,7 @@ const actionSchema = z.discriminatedUnion("action", [
     checked_at: isoDate,
     method: z.enum(["manual", "share_code", "idsp"]),
     expires_at: isoDate.optional().nullable(),
+    share_code: z.string().trim().max(20).optional().nullable(),
   }),
   z.object({
     action: z.literal("deposit_return"),
@@ -158,6 +159,7 @@ export async function PATCH(
         checkedAt: body.checked_at,
         method: body.method,
         expiresAt: body.expires_at,
+        shareCode: body.share_code,
       });
       if (!row) return NextResponse.json({ error: "Not found" }, { status: 404 });
       await log("right_to_rent", `Right to Rent check recorded (${body.method.replace("_", " ")})${body.expires_at ? `, follow-up due ${body.expires_at}` : ""}`);

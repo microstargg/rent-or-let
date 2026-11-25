@@ -320,6 +320,8 @@ export const renters = pgTable(
     rtrCheckedAt: date("rtr_checked_at"),
     rtrMethod: text("rtr_method"),
     rtrExpiresAt: date("rtr_expires_at"),
+    /** Home Office share code used for an online check (e.g. W12 345 678). */
+    rtrShareCode: text("rtr_share_code"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [index("idx_renters_branch").on(table.branchId)]
@@ -1155,4 +1157,45 @@ export const agreementSignatures = pgTable(
     uniqueIndex("agreement_signatures_token").on(table.tokenHash),
     index("idx_agreement_signatures_agreement").on(table.agreementId),
   ]
+);
+
+/**
+ * Files that must never sit at a public URL (ID, Right to Rent evidence, signed
+ * agreements). Stored in a private Vercel Blob store when PRIVATE_BLOB_READ_WRITE_TOKEN
+ * is set, otherwise here as base64. See lib/storage/private-files.ts.
+ */
+export const privateFiles = pgTable("private_files", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  agencyId: text("agency_id").notNull().references(() => agencies.slug),
+  contentType: text("content_type").notNull(),
+  sizeBytes: integer("size_bytes").notNull(),
+  dataBase64: text("data_base64").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Documents held on a renter's profile: Right to Rent evidence, ID, references and so on. */
+export const renterDocuments = pgTable(
+  "renter_documents",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    agencyId: text("agency_id").notNull().references(() => agencies.slug),
+    branchId: uuid("branch_id")
+      .notNull()
+      .references(() => branches.id),
+    renterId: uuid("renter_id")
+      .notNull()
+      .references(() => renters.id, { onDelete: "cascade" }),
+    /** right_to_rent | id | reference | guarantor | proof_of_address | income | other */
+    kind: text("kind").notNull(),
+    label: text("label"),
+    /** "blob:<pathname>" or "db:<private_files.id>" */
+    storageKey: text("storage_key").notNull(),
+    filename: text("filename").notNull(),
+    contentType: text("content_type").notNull(),
+    sizeBytes: integer("size_bytes").notNull(),
+    sha256: text("sha256").notNull(),
+    uploadedBy: text("uploaded_by"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("idx_renter_documents_renter").on(table.renterId)]
 );
