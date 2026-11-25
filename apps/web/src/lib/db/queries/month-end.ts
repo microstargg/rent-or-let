@@ -50,8 +50,7 @@ function dayEnd(iso: string) {
 }
 
 export async function getMonthEndOverview(branchId: string, period: MonthPeriod) {
-  await ensureBankFeed();
-  await ensureJobInvoiceSchema();
+  await Promise.all([ensureBankFeed(), ensureJobInvoiceSchema()]);
   const from = dayStart(period.from);
   const to = dayEnd(period.to);
 
@@ -65,7 +64,7 @@ export async function getMonthEndOverview(branchId: string, period: MonthPeriod)
     .groupBy(paymentAllocations.invoiceId)
     .as("paid_sub");
 
-  const rentRows = await db
+  const rentRowsQ = db
     .select({
       invoiceId: invoices.id,
       tenancyId: invoices.tenancyId,
@@ -92,25 +91,16 @@ export async function getMonthEndOverview(branchId: string, period: MonthPeriod)
     )
     .orderBy(invoices.dueDate);
 
-  const rent = rentRows.map((r) => {
-    const amount = Number(r.amount);
-    const paid = Number(r.paid ?? 0);
-    return { ...r, amount, paid, outstanding: Math.max(0, Math.round((amount - paid) * 100) / 100) };
-  });
-  const rentExpected = rent.reduce((s, r) => s + r.amount, 0);
-  const rentReceived = rent.reduce((s, r) => s + Math.min(r.paid, r.amount), 0);
-
-  const [coverage] = await db
+  const coverageQ = db
     .select({
       lastBooked: sql<Date | null>`max(${bankTransactions.bookedAt})`,
       linesInMonth: sql<string>`count(*) filter (where ${bankTransactions.bookedAt} between ${from.toISOString()} and ${to.toISOString()})`,
     })
     .from(bankTransactions)
     .where(and(eq(bankTransactions.branchId, branchId), agencyEq(bankTransactions.agencyId)));
-  const lastBooked = coverage?.lastBooked ? new Date(coverage.lastBooked) : null;
 
   // 2. Money in that couldn't be tied to a tenant.
-  const [exceptionCount] = await db
+  const exceptionCountQ = db
     .select({ n: sql<string>`count(*)` })
     .from(paymentExceptions)
     .where(
@@ -122,10 +112,10 @@ export async function getMonthEndOverview(branchId: string, period: MonthPeriod)
     );
 
   // 3. Landlords still owed money.
-  const balances = (await listLandlordBalances(branchId)).filter((b) => b.balance > 0.005);
+  const balancesQ = listLandlordBalances(branchId);
 
   // 4. Money out this month: payouts and contractor jobs, and whether the bank shows them.
-  const payouts = await db
+  const payoutsQ = db
     .select({
       id: landlordPayouts.id,
       amount: landlordPayouts.amount,
@@ -150,7 +140,7 @@ export async function getMonthEndOverview(branchId: string, period: MonthPeriod)
     .orderBy(landlordPayouts.paidAt);
 
   const jobDate = sql`coalesce(${workOrders.scheduledFor}, ${workOrders.createdAt})`;
-  const jobRows = await db
+  const jobRowsQ = db
     .select({
       workOrder: workOrders,
       contractorName: contractors.name,
@@ -172,6 +162,71 @@ export async function getMonthEndOverview(branchId: string, period: MonthPeriod)
       )
     )
     .orderBy(jobDate);
+  const outgoingLinesQ = db
+    .select()
+    .from(bankTransactions)
+    .where(
+      and(
+        eq(bankTransactions.branchId, branchId),
+        agencyEq(bankTransactions.agencyId),
+        sql`${bankTransactions.amount} < 0`,
+        inArray(bankTransactions.matchStatus, ["unmatched", "pending", "ignored"]),
+        gte(bankTransactions.bookedAt, from),
+        lte(bankTransactions.bookedAt, to)
+      )
+    )
+    .orderBy(bankTransactions.bookedAt);
+
+  // Open payouts/jobs that an unexpected line could be linked to by hand.
+  const linkableQ = listExpectedOutgoings(branchId);
+
+  // 5. Statements for this period.
+  const statementsQ = db
+    .select({ id: landlordStatements.id })
+    .from(landlordStatements)
+    .where(
+      and(
+        eq(landlordStatements.branchId, branchId),
+        agencyEq(landlordStatements.agencyId),
+        gte(landlordStatements.periodTo, period.from),
+        lte(landlordStatements.periodTo, period.to)
+      )
+    )
+    .orderBy(desc(landlordStatements.createdAt));
+
+  // Every query above is independent, so run them together: the page waits for the
+  // slowest one instead of the sum of all of them.
+  const [
+    rentRows,
+    [coverage],
+    [exceptionCount],
+    allBalances,
+    payouts,
+    jobRows,
+    outgoingLines,
+    expectedOutgoings,
+    statements,
+  ] = await Promise.all([
+    rentRowsQ,
+    coverageQ,
+    exceptionCountQ,
+    balancesQ,
+    payoutsQ,
+    jobRowsQ,
+    outgoingLinesQ,
+    linkableQ,
+    statementsQ,
+  ]);
+
+  const rent = rentRows.map((r) => {
+    const amount = Number(r.amount);
+    const paid = Number(r.paid ?? 0);
+    return { ...r, amount, paid, outstanding: Math.max(0, Math.round((amount - paid) * 100) / 100) };
+  });
+  const rentExpected = rent.reduce((s, r) => s + r.amount, 0);
+  const rentReceived = rent.reduce((s, r) => s + Math.min(r.paid, r.amount), 0);
+  const lastBooked = coverage?.lastBooked ? new Date(coverage.lastBooked) : null;
+  const balances = allBalances.filter((b) => b.balance > 0.005);
   const contractorPayments = jobRows
     .map((r) => {
       const cost = workOrderContractorCost(r.workOrder);
@@ -189,46 +244,15 @@ export async function getMonthEndOverview(branchId: string, period: MonthPeriod)
       };
     })
     .filter((r) => r.cost > 0);
-
-  const outgoingLines = await db
-    .select()
-    .from(bankTransactions)
-    .where(
-      and(
-        eq(bankTransactions.branchId, branchId),
-        agencyEq(bankTransactions.agencyId),
-        sql`${bankTransactions.amount} < 0`,
-        inArray(bankTransactions.matchStatus, ["unmatched", "pending", "ignored"]),
-        gte(bankTransactions.bookedAt, from),
-        lte(bankTransactions.bookedAt, to)
-      )
-    )
-    .orderBy(bankTransactions.bookedAt);
   const unexpected = outgoingLines.filter((t) => t.matchStatus !== "ignored");
   const markedExpected = outgoingLines.filter((t) => t.matchStatus === "ignored");
-
-  // Open payouts/jobs that an unexpected line could be linked to by hand.
-  const linkable = (await listExpectedOutgoings(branchId)).map((c) => ({
+  const linkable = expectedOutgoings.map((c) => ({
     kind: c.kind,
     id: c.id,
     amount: c.amount,
     label: c.label,
     date: c.date.toISOString().slice(0, 10),
   }));
-
-  // 5. Statements for this period.
-  const statements = await db
-    .select({ id: landlordStatements.id })
-    .from(landlordStatements)
-    .where(
-      and(
-        eq(landlordStatements.branchId, branchId),
-        agencyEq(landlordStatements.agencyId),
-        gte(landlordStatements.periodTo, period.from),
-        lte(landlordStatements.periodTo, period.to)
-      )
-    )
-    .orderBy(desc(landlordStatements.createdAt));
 
   const jobMargin = contractorPayments.reduce((s, j) => s + (j.charge - j.cost), 0);
 

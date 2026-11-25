@@ -33,7 +33,8 @@ export interface OutgoingCandidate {
 /** Landlord payouts and completed contractor jobs that no bank line has been tied to yet. */
 export async function listExpectedOutgoings(branchId: string): Promise<OutgoingCandidate[]> {
   await ensureBankFeed();
-  const payouts = await db
+  const [payouts, jobs] = await Promise.all([
+    db
     .select({
       payout: landlordPayouts,
       firstName: landlords.firstName,
@@ -48,9 +49,8 @@ export async function listExpectedOutgoings(branchId: string): Promise<OutgoingC
         agencyEq(landlordPayouts.agencyId),
         isNull(bankTransactions.id)
       )
-    );
-
-  const jobs = await db
+    ),
+    db
     .select({ workOrder: workOrders, contractorName: contractors.name, summary: tickets.summary })
     .from(workOrders)
     .innerJoin(contractors, eq(workOrders.contractorId, contractors.id))
@@ -64,7 +64,8 @@ export async function listExpectedOutgoings(branchId: string): Promise<OutgoingC
         agencyEq(workOrders.agencyId),
         isNull(bankTransactions.id)
       )
-    );
+    ),
+  ]);
 
   return [
     ...payouts.map(({ payout, firstName, lastName }) => ({

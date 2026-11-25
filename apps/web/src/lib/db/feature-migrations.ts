@@ -166,13 +166,19 @@ function messageOf(err: unknown): string {
 
 async function applyFeatureMigrations(url: string): Promise<void> {
   const sql = neon(url);
-  for (const group of FEATURE_MIGRATIONS) {
-    try {
-      const rows = (await sql(group.probe)) as { ok: boolean }[];
-      if (rows[0]?.ok) continue;
-    } catch {
-      // Fall through and run the statements.
-    }
+  // Probe every group at once: one round trip of wait instead of one per group.
+  const applied = await Promise.all(
+    FEATURE_MIGRATIONS.map(async (group) => {
+      try {
+        const rows = (await sql(group.probe)) as { ok: boolean }[];
+        return rows[0]?.ok === true;
+      } catch {
+        return false; // Fall through and run the statements.
+      }
+    })
+  );
+  for (const [i, group] of FEATURE_MIGRATIONS.entries()) {
+    if (applied[i]) continue;
     for (const statement of group.statements) {
       try {
         await sql(statement);
