@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getDefaultBranch, listRenters } from "@/lib/db/queries";
+import { getBranchWithSettings, getDefaultBranch, listRenters } from "@/lib/db/queries";
 import { getTenancyDetail } from "@/lib/db/queries/tenancy";
 import { AdminPageHeader, AdminSection, StatPill, StatusBadge } from "@/components/admin/admin-page";
 import { TenancyEndButton } from "@/components/admin/tenancy-end-button";
 import {
+  TenancyArrearsPanel,
   TenancyAgreementPanel,
   TenancyDepositPanel,
   TenancyNoticesPanel,
@@ -13,13 +14,25 @@ import {
 import { displayPersonName } from "@/lib/person-name";
 import { formatCurrency } from "@/lib/utils";
 import { SECTION_8_GROUNDS } from "@/lib/tenancy/section8";
+import { planProgress } from "@/lib/finance/arrears";
+import { listActivity } from "@/lib/db/queries/activity";
+import { getInspectionMeters } from "@/lib/db/queries/tenancy";
+import { UtilityNoticePanel } from "@/components/admin/utility-notice-panel";
+import { parseUtilityContacts, parseUtilityNotices } from "@/lib/tenancy/utility-notices";
+import { ActivityList } from "@/components/admin/activity-list";
 
 export default async function TenancyDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const detail = await getTenancyDetail(id);
   if (!detail) notFound();
   const branch = await getDefaultBranch();
-  const renters = await listRenters(branch?.id);
+  const [renters, activity, moveIn, moveOut, branchSettings] = await Promise.all([
+    listRenters(branch?.id),
+    listActivity({ tenancyId: id }, 40),
+    getInspectionMeters(id, "move_in"),
+    getInspectionMeters(id, "move_out"),
+    branch ? getBranchWithSettings(branch.id) : null,
+  ]);
   const { tenancy, property, renter, landlord } = detail;
 
   const tenants = [
@@ -91,6 +104,16 @@ export default async function TenancyDetailPage({ params }: { params: Promise<{ 
         />
       </AdminSection>
 
+      <AdminSection title="Rent arrears" description="Agree a repayment plan. Automatic reminders are switched on in Settings.">
+        <TenancyArrearsPanel
+          tenancyId={tenancy.id}
+          overdue={detail.overdue}
+          plan={detail.paymentPlan}
+          progress={detail.paymentPlan ? planProgress(detail.paymentPlan, detail.overdue, new Date()) : null}
+          reminders={(tenancy.arrearsReminders as { sent: number[]; lastSentAt?: string } | null) ?? null}
+        />
+      </AdminSection>
+
       <AdminSection title="Tenancy agreement" description="Sends a written statement of terms for everyone to sign online.">
         <TenancyAgreementPanel
           tenancyId={tenancy.id}
@@ -133,6 +156,25 @@ export default async function TenancyDetailPage({ params }: { params: Promise<{ 
           }))}
           grounds={SECTION_8_GROUNDS}
         />
+      </AdminSection>
+
+      <AdminSection
+        title="Council and utilities"
+        description="Tell the council and suppliers who is living there, with the meter readings from the inspection."
+      >
+        <UtilityNoticePanel
+          tenancyId={tenancy.id}
+          startDate={tenancy.startDate}
+          endDate={tenancy.endDate}
+          notices={parseUtilityNotices(tenancy.utilityNotices)}
+          moveIn={moveIn}
+          moveOut={moveOut}
+          savedContacts={parseUtilityContacts(branchSettings?.settings.utility_contacts)}
+        />
+      </AdminSection>
+
+      <AdminSection title="Activity" description="Changes made by your team, newest first.">
+        <ActivityList entries={activity} />
       </AdminSection>
     </div>
   );

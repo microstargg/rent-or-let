@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireAdminApi } from "@/lib/api-auth";
 import { createLandlord, listLandlords, getDefaultBranch } from "@/lib/db/queries";
 import { parseJsonBody } from "@/lib/api-validation";
+import { landlordMoneyFields } from "@/lib/finance/landlord-fields";
 
 const schema = z.object({
   first_name: z.string().min(1),
@@ -11,6 +12,11 @@ const schema = z.object({
   phone: z.string().nullable().optional(),
   notes: z.string().nullable().optional(),
   prs_registration_number: z.string().max(40).nullable().optional(),
+  service_level: z.enum(["fully_managed", "rent_collection", "let_only"]).nullable().optional(),
+  fee_percent: z.number().min(0).max(50).nullable().optional(),
+  letting_fee: z.number().min(0).max(100000).nullable().optional(),
+  nrl_status: z.enum(["approved", "withhold"]).or(z.literal("")).nullable().optional(),
+  nrl_approval_ref: z.string().max(40).nullable().optional(),
 });
 
 export async function GET() {
@@ -41,6 +47,7 @@ export async function POST(request: Request) {
     phone: body.phone || null,
     notes: body.notes || null,
     prsRegistrationNumber: body.prs_registration_number?.trim() || null,
+    ...landlordMoneyFields(body),
   });
   return NextResponse.json(row, { status: 201 });
 }

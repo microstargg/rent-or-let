@@ -27,6 +27,7 @@ export type NotificationType =
   | "compliance_expiring"
   | "compliance_expired"
   | "emergency_ticket"
+  | "hazard_overdue"
   | "new_application";
 
 export interface NotificationInput {

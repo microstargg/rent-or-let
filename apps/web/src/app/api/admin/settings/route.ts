@@ -45,6 +45,17 @@ const patchSchema = z.object({
   redress_scheme: z.enum(["tpo", "prs"]).optional().nullable(),
   redress_member_number: z.string().max(40).optional().nullable(),
   require_prs_number: z.boolean().optional(),
+  management_fee_percent: z.number().min(0).max(50).optional(),
+  vat_registered: z.boolean().optional(),
+  vat_rate: z.number().min(0).max(50).optional(),
+  late_fee_rules: z
+    .object({
+      enabled: z.boolean(),
+      base_rate: z.number().min(0).max(25).nullable(),
+      margin: z.number().min(0).max(3),
+    })
+    .optional(),
+  arrears_reminders: z.object({ enabled: z.boolean(), sms: z.boolean() }).optional(),
 });
 
 export async function PATCH(request: Request) {
@@ -84,6 +95,11 @@ export async function PATCH(request: Request) {
       redress_member_number: body.redress_member_number || undefined,
     }),
     ...(body.require_prs_number !== undefined && { require_prs_number: body.require_prs_number }),
+    ...(body.management_fee_percent !== undefined && { management_fee_percent: body.management_fee_percent }),
+    ...(body.vat_registered !== undefined && { vat_registered: body.vat_registered }),
+    ...(body.vat_rate !== undefined && { vat_rate: body.vat_rate }),
+    ...(body.late_fee_rules !== undefined && { late_fee_rules: body.late_fee_rules }),
+    ...(body.arrears_reminders !== undefined && { arrears_reminders: body.arrears_reminders }),
   };
 
   if (!settings.maintenance_inbox_token) {

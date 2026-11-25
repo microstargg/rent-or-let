@@ -13,6 +13,11 @@ export type StatementLedgerLine = {
 
 const UNALLOCATED = "__none__";
 
+/** Agency fees shown together on statements. */
+export function isFeeEntry(entryType: string): boolean {
+  return entryType === "management_fee" || entryType === "letting_fee";
+}
+
 function emptyProperty(
   id: string | null,
   address: string
@@ -35,7 +40,7 @@ function applyEntry(bucket: LandlordStatementPropertyTotals, entry: StatementLed
   bucket.net += amt;
   bucket.count = (bucket.count ?? 0) + 1;
   if (entry.entryType === "rent_received") bucket.rent += amt;
-  else if (entry.entryType === "management_fee") bucket.fees += amt;
+  else if (isFeeEntry(entry.entryType)) bucket.fees += amt;
   else if (entry.entryType === "work_order_cost") {
     bucket.costs += amt;
     if (entry.work) bucket.works.push(entry.work);
@@ -77,7 +82,7 @@ export function groupLandlordStatementTotals(input: {
     totals.net = Number(totals.net) + (Number(entry.amount) || 0);
     totals.count = Number(totals.count) + 1;
     if (entry.entryType === "rent_received") totals.rent = Number(totals.rent) + Number(entry.amount);
-    else if (entry.entryType === "management_fee") totals.fees = Number(totals.fees) + Number(entry.amount);
+    else if (isFeeEntry(entry.entryType)) totals.fees = Number(totals.fees) + Number(entry.amount);
     else if (entry.entryType === "work_order_cost") {
       totals.costs = Number(totals.costs) + Number(entry.amount);
       if (entry.work) totals.works = [...(totals.works ?? []), entry.work];

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireAdminApi } from "@/lib/api-auth";
 import { updateLandlord, deleteLandlord } from "@/lib/db/queries";
 import { parseJsonBody } from "@/lib/api-validation";
+import { landlordMoneyFields } from "@/lib/finance/landlord-fields";
 
 const schema = z.object({
   first_name: z.string().min(1).optional(),
@@ -11,6 +12,11 @@ const schema = z.object({
   phone: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
   prs_registration_number: z.string().max(40).optional().nullable(),
+  service_level: z.enum(["fully_managed", "rent_collection", "let_only"]).nullable().optional(),
+  fee_percent: z.number().min(0).max(50).nullable().optional(),
+  letting_fee: z.number().min(0).max(100000).nullable().optional(),
+  nrl_status: z.enum(["approved", "withhold"]).or(z.literal("")).nullable().optional(),
+  nrl_approval_ref: z.string().max(40).nullable().optional(),
 });
 
 export async function PATCH(
@@ -33,6 +39,7 @@ export async function PATCH(
     ...(body.prs_registration_number !== undefined && {
       prsRegistrationNumber: body.prs_registration_number?.trim() || null,
     }),
+    ...landlordMoneyFields(body),
   });
   return NextResponse.json(row);
 }

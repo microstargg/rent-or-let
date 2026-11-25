@@ -15,6 +15,7 @@ import {
   tenancyAgreements,
   tenancyParties,
   documents,
+  inspections,
 } from "../schema";
 import { createComplianceItem, createDocument } from "./compliance";
 import { createTask } from "./finance";
@@ -27,6 +28,8 @@ import {
   newSigningToken,
   type AgreementTerms,
 } from "@/lib/tenancy/agreement";
+import { parsePaymentPlan } from "@/lib/finance/arrears";
+import { parseInspectionReport } from "@/lib/inspections/report";
 import { parseDepositReturn, splitDeposit, type DepositDeduction, type DepositReturn } from "@/lib/tenancy/deposits";
 
 /** Rent and late fees that have fallen due and are unpaid (future charges ignored). */
@@ -104,6 +107,7 @@ export async function getTenancyDetail(id: string) {
     notices: noticeRows,
     overdue,
     depositReturn: parseDepositReturn(row.tenancy.depositReturn),
+    paymentPlan: parsePaymentPlan(row.tenancy.paymentPlan),
   };
 }
 
@@ -499,4 +503,68 @@ export async function getAgreementWithSignatures(agreementId: string) {
     .where(and(eq(agreementSignatures.agreementId, agreementId), agencyEq(agreementSignatures.agencyId)))
     .orderBy(asc(agreementSignatures.createdAt));
   return { agreement, signatures };
+}
+
+/** Lead and joint tenants on a tenancy, for reminders and notices. */
+export async function listTenancyContacts(tenancyId: string) {
+  await ensureAgency();
+  const [lead] = await db
+    .select({ renter: renters, tenancy: tenancies })
+    .from(tenancies)
+    .innerJoin(renters, eq(tenancies.primaryRenterId, renters.id))
+    .where(and(eq(tenancies.id, tenancyId), agencyEq(tenancies.agencyId)))
+    .limit(1);
+  if (!lead) return { tenancy: null, contacts: [] };
+  const joint = await db
+    .select({ renter: renters })
+    .from(tenancyParties)
+    .innerJoin(renters, eq(tenancyParties.renterId, renters.id))
+    .where(
+      and(
+        eq(tenancyParties.tenancyId, tenancyId),
+        eq(tenancyParties.role, "tenant"),
+        agencyEq(tenancyParties.agencyId)
+      )
+    );
+  const contacts = [lead.renter, ...joint.map((j) => j.renter)].map((r) => ({
+    renterId: r.id,
+    name: r.firstName,
+    fullName: displayPersonName(r.firstName, r.lastName),
+    email: r.email,
+    phone: r.phone,
+  }));
+  return { tenancy: lead.tenancy, contacts };
+}
+
+export async function setTenancyJson(
+  tenancyId: string,
+  field: "paymentPlan" | "arrearsReminders" | "utilityNotices",
+  value: Record<string, unknown> | null
+) {
+  await ensureAgency();
+  const [row] = await db
+    .update(tenancies)
+    .set({ [field]: value })
+    .where(and(eq(tenancies.id, tenancyId), agencyEq(tenancies.agencyId)))
+    .returning();
+  return row ?? null;
+}
+
+/** Meter readings from the tenancy's latest check-in or check-out (completed ones first). */
+export async function getInspectionMeters(tenancyId: string, type: "move_in" | "move_out") {
+  await ensureAgency();
+  const rows = await db
+    .select()
+    .from(inspections)
+    .where(and(eq(inspections.tenancyId, tenancyId), eq(inspections.type, type), agencyEq(inspections.agencyId)))
+    .orderBy(desc(inspections.createdAt))
+    .limit(5);
+  const row = rows.find((r) => r.completedAt) ?? rows[0];
+  if (!row) return null;
+  const report = parseInspectionReport(row.meta);
+  return {
+    inspectionId: row.id,
+    date: (row.completedAt ?? row.scheduledAt)?.toISOString().slice(0, 10) ?? null,
+    meters: report.meters.map((m) => ({ type: m.type, reading: m.reading ?? "" })),
+  };
 }

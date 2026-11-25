@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { periodLabel, type Section8Ground } from "@/lib/tenancy/section8";
 import type { DepositReturn } from "@/lib/tenancy/deposits";
+import type { PaymentPlan, PlanProgress } from "@/lib/finance/arrears";
 
 const selectClass = "mt-1.5 flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm";
 const card = "rounded-xl border bg-card p-5 shadow-sm";
@@ -104,7 +105,7 @@ export function TenancyPeoplePanel({
                     </Button>
                   )}
                 </div>
-                <p className={`mt-1 text-xs ${expired ? "text-destructive" : "text-muted-foreground"}`}>
+                <p className={`mt-1 text-xs ${expired ? "text-red-600" : "text-muted-foreground"}`}>
                   Right to Rent:{" "}
                   {t.rtrCheckedAt
                     ? `checked ${ukDate(t.rtrCheckedAt)} (${RTR_METHODS[t.rtrMethod ?? ""] ?? t.rtrMethod})${t.rtrExpiresAt ? `, follow-up due ${ukDate(t.rtrExpiresAt)}` : ", no time limit"}`
@@ -271,7 +272,7 @@ export function TenancyPeoplePanel({
           </Button>
         )}
       </div>
-      {message && <p className="text-sm text-destructive lg:col-span-2">{message}</p>}
+      {message && <p className="text-sm text-red-600 lg:col-span-2">{message}</p>}
     </div>
   );
 }
@@ -391,7 +392,7 @@ export function TenancyAgreementPanel({
           {current ? "Send a new version" : "Prepare agreement"}
         </Button>
       )}
-      {message && <p className="mt-2 text-sm text-destructive">{message}</p>}
+      {message && <p className="mt-2 text-sm text-red-600">{message}</p>}
     </div>
   );
 }
@@ -507,7 +508,7 @@ export function TenancyDepositPanel({
       <p className="mt-3 text-xs text-muted-foreground">
         The scheme expects the deposit back within 10 days of agreeing the amounts.
       </p>
-      {message && <p className="mt-2 text-sm text-destructive">{message}</p>}
+      {message && <p className="mt-2 text-sm text-red-600">{message}</p>}
     </div>
   );
 }
@@ -638,6 +639,98 @@ export function TenancyNoticesPanel({
         </Button>
       )}
       {message && <p className="mt-2 text-sm">{message}</p>}
+    </div>
+  );
+}
+
+export function TenancyArrearsPanel({
+  tenancyId,
+  overdue,
+  plan,
+  progress,
+  reminders,
+}: {
+  tenancyId: string;
+  overdue: number;
+  plan: PaymentPlan | null;
+  progress: PlanProgress | null;
+  reminders: { sent: number[]; lastSentAt?: string } | null;
+}) {
+  const { run, busy, message } = useTenancyAction(tenancyId);
+  const [open, setOpen] = useState(false);
+  const [instalment, setInstalment] = useState("");
+  const [start, setStart] = useState(today());
+  const [notes, setNotes] = useState("");
+  const active = plan?.status === "active" ? plan : null;
+  const months = Number(instalment) > 0 ? Math.ceil(overdue / Number(instalment)) : null;
+
+  return (
+    <div className={card}>
+      <p className="text-sm">
+        Overdue now: <span className="font-medium tabular-nums">£{overdue.toFixed(2)}</span>
+        {reminders?.lastSentAt && (
+          <span className="text-muted-foreground">
+            {" "}
+            · last automatic reminder {ukDate(reminders.lastSentAt)} (day {Math.max(...reminders.sent)})
+          </span>
+        )}
+      </p>
+      {active && progress ? (
+        <div className="mt-3 rounded-lg bg-muted/40 p-3 text-sm">
+          <p className="font-medium">
+            Payment plan: £{active.instalment.toFixed(2)} a month on top of rent from {ukDate(active.startDate)}
+          </p>
+          <p className={`mt-1 ${progress.onTrack ? "text-emerald-700" : "text-red-600"}`}>
+            {progress.onTrack ? "On track" : "Behind"}: should owe £{progress.expectedBalance.toFixed(2)} by now, owes £
+            {progress.actualBalance.toFixed(2)}. {progress.monthsLeft} instalments left.
+          </p>
+          {active.notes && <p className="mt-1 text-muted-foreground">{active.notes}</p>}
+          <p className="mt-1 text-xs text-muted-foreground">Automatic reminders pause while the plan is on track.</p>
+          <Button size="sm" variant="ghost" className="mt-2" disabled={busy !== null} onClick={() => run({ action: "payment_plan", cancel: true })}>
+            End plan
+          </Button>
+        </div>
+      ) : overdue > 0 ? (
+        open ? (
+          <div className="mt-3 grid gap-2 sm:grid-cols-3">
+            <div>
+              <Label className="text-xs">Extra each month (£)</Label>
+              <Input type="number" min="1" step="0.01" value={instalment} onChange={(e) => setInstalment(e.target.value)} />
+              {months && <p className="mt-1 text-xs text-muted-foreground">Clears in {months} months</p>}
+            </div>
+            <div>
+              <Label className="text-xs">First payment</Label>
+              <Input type="date" value={start} onChange={(e) => setStart(e.target.value)} />
+            </div>
+            <div>
+              <Label className="text-xs">Notes</Label>
+              <Input value={notes} onChange={(e) => setNotes(e.target.value)} />
+            </div>
+            <div className="flex gap-2 sm:col-span-3">
+              <Button
+                size="sm"
+                disabled={!(Number(instalment) > 0) || busy !== null}
+                onClick={async () => {
+                  const r = await run({ action: "payment_plan", instalment: Number(instalment), start_date: start, notes: notes || null });
+                  if (r.ok) setOpen(false);
+                }}
+              >
+                Save plan
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => setOpen(false)}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <Button size="sm" variant="outline" className="mt-3" onClick={() => setOpen(true)}>
+            Agree a payment plan
+          </Button>
+        )
+      ) : (
+        <p className="mt-1 text-sm text-muted-foreground">Nothing overdue.</p>
+      )}
+      {message && <p className="mt-2 text-sm text-red-600">{message}</p>}
     </div>
   );
 }

@@ -21,6 +21,11 @@ import {
 } from "@/lib/finance/statement-format";
 import { statementDownloadPath, statementPropertyAddress } from "@/lib/pdf/landlord-statement";
 import { StatementShareActions } from "@/components/admin/statement-share-actions";
+import { TaxExportsPanel } from "@/components/admin/tax-exports-panel";
+import { listLandlords } from "@/lib/db/queries";
+import { listNrlWithholdLandlords } from "@/lib/db/queries/landlord-finance";
+import { nrlTaxDue, previousNrlQuarter, summariseForTax, taxYearOf, taxYearRange } from "@/lib/finance/tax";
+import { displayPersonName } from "@/lib/person-name";
 
 export default async function LandlordStatementsPage() {
   const branch = await getDefaultBranch();
@@ -28,6 +33,14 @@ export default async function LandlordStatementsPage() {
   const balances = branch ? await listLandlordBalances(branch.id) : [];
   const due = balances.filter((b) => b.balance > 0.001);
   const dueTotal = due.reduce((sum, b) => sum + b.balance, 0);
+  const landlordRows = branch ? await listLandlords(branch.id) : [];
+  const quarter = previousNrlQuarter(new Date());
+  const nrlRows = branch ? await listNrlWithholdLandlords(branch.id, quarter) : [];
+  const thisTaxYear = taxYearOf(new Date());
+  const monthStart = new Date();
+  monthStart.setUTCDate(1);
+  const lastMonthEnd = new Date(monthStart.getTime() - 86400000);
+  const lastMonthStart = new Date(Date.UTC(lastMonthEnd.getUTCFullYear(), lastMonthEnd.getUTCMonth(), 1));
   const grouped = groupStatementsWithProperties(
     statements,
     (row) => statementPropertyAddress(row.statement) ?? ""
@@ -71,6 +84,27 @@ export default async function LandlordStatementsPage() {
         ) : (
           <AdminEmptyState title="Nothing outstanding" description="Landlord ledgers are settled." />
         )}
+      </AdminSection>
+
+      <AdminSection title="Tax and exports">
+        <TaxExportsPanel
+          landlords={landlordRows.map((l) => ({ id: l.id, name: displayPersonName(l.firstName, l.lastName) }))}
+          taxYears={[thisTaxYear - 1, thisTaxYear, thisTaxYear - 2].map((y) => ({ value: y, label: taxYearRange(y).label }))}
+          defaultFrom={lastMonthStart.toISOString().slice(0, 10)}
+          defaultTo={lastMonthEnd.toISOString().slice(0, 10)}
+          nrlQuarterLabel={quarter.label}
+          nrl={nrlRows.map(({ landlord, lines }) => {
+            const t = summariseForTax(lines);
+            return {
+              landlordId: landlord.id,
+              name: displayPersonName(landlord.firstName, landlord.lastName),
+              approvalRef: landlord.nrlApprovalRef,
+              profit: t.profit,
+              withheld: t.taxWithheld,
+              due: nrlTaxDue(t),
+            };
+          })}
+        />
       </AdminSection>
 
       <AdminSection title="Issued statements">

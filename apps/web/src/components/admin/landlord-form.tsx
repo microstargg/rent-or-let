@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useEntityDialogClose } from "@/components/admin/admin-entity-dialog";
+import { SERVICE_LEVELS } from "@/lib/finance/fees";
 
 export interface PersonFormValues {
   id?: string;
@@ -15,7 +16,14 @@ export interface PersonFormValues {
   phone?: string | null;
   notes?: string | null;
   prsRegistrationNumber?: string | null;
+  serviceLevel?: string | null;
+  feePercent?: string | null;
+  lettingFee?: string | null;
+  nrlStatus?: string | null;
+  nrlApprovalRef?: string | null;
 }
+
+const selectClass = "mt-1.5 flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm";
 
 interface LandlordFormProps {
   initial?: PersonFormValues;
@@ -42,6 +50,11 @@ export function LandlordForm({ initial, onSuccess, compact }: LandlordFormProps)
       phone: fd.get("phone") || null,
       notes: fd.get("notes") || null,
       prs_registration_number: fd.get("prs_registration_number") || null,
+      service_level: fd.get("service_level") || null,
+      fee_percent: fd.get("fee_percent") ? Number(fd.get("fee_percent")) : null,
+      letting_fee: fd.get("letting_fee") ? Number(fd.get("letting_fee")) : null,
+      nrl_status: fd.get("nrl_status") || null,
+      nrl_approval_ref: fd.get("nrl_approval_ref") || null,
     };
     const res = await fetch(
       isEdit ? `/api/admin/landlords/${initial!.id}` : "/api/admin/landlords",
@@ -113,6 +126,36 @@ export function LandlordForm({ initial, onSuccess, compact }: LandlordFormProps)
           defaultValue={initial?.prsRegistrationNumber ?? ""}
           placeholder="Needed before the property can be advertised once the database is live"
         />
+      </div>
+      <div>
+        <Label htmlFor="service_level">Service</Label>
+        <select id="service_level" name="service_level" className={selectClass} defaultValue={initial?.serviceLevel ?? "fully_managed"}>
+          {SERVICE_LEVELS.map((s) => (
+            <option key={s.value} value={s.value}>
+              {s.label}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div>
+        <Label htmlFor="fee_percent">Management fee % (blank = agency default)</Label>
+        <Input id="fee_percent" name="fee_percent" type="number" min="0" max="50" step="0.01" defaultValue={initial?.feePercent ?? ""} />
+      </div>
+      <div>
+        <Label htmlFor="letting_fee">Letting fee per new tenancy (£, before VAT)</Label>
+        <Input id="letting_fee" name="letting_fee" type="number" min="0" step="0.01" defaultValue={initial?.lettingFee ?? ""} />
+      </div>
+      <div>
+        <Label htmlFor="nrl_status">Lives abroad (NRL scheme)</Label>
+        <select id="nrl_status" name="nrl_status" className={selectClass} defaultValue={initial?.nrlStatus ?? ""}>
+          <option value="">No, UK resident</option>
+          <option value="approved">Yes, HMRC approved to receive rent gross</option>
+          <option value="withhold">Yes, not approved: withhold basic rate tax</option>
+        </select>
+      </div>
+      <div className="sm:col-span-2">
+        <Label htmlFor="nrl_approval_ref">HMRC NRL approval reference</Label>
+        <Input id="nrl_approval_ref" name="nrl_approval_ref" defaultValue={initial?.nrlApprovalRef ?? ""} />
       </div>
       <div className="sm:col-span-2">
         <Label htmlFor="notes">Notes</Label>
