@@ -9,14 +9,17 @@ export function RegulatorySettingsClient({
   redressScheme,
   redressMemberNumber,
   requirePrsNumber,
+  landlordComplianceEmails,
 }: {
   redressScheme: string | null;
   redressMemberNumber: string | null;
   requirePrsNumber: boolean;
+  landlordComplianceEmails: boolean;
 }) {
   const [scheme, setScheme] = useState(redressScheme ?? "");
   const [member, setMember] = useState(redressMemberNumber ?? "");
   const [requirePrs, setRequirePrs] = useState(requirePrsNumber);
+  const [landlordEmails, setLandlordEmails] = useState(landlordComplianceEmails);
   const [msg, setMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -30,6 +33,7 @@ export function RegulatorySettingsClient({
         redress_scheme: scheme || null,
         redress_member_number: member || null,
         require_prs_number: requirePrs,
+        landlord_compliance_emails: landlordEmails,
       }),
     });
     const data = await res.json().catch(() => ({}));
@@ -65,6 +69,18 @@ export function RegulatorySettingsClient({
       <label className="mt-3 flex items-start gap-2 text-sm">
         <input type="checkbox" className="mt-1" checked={requirePrs} onChange={(e) => setRequirePrs(e.target.checked)} />
         <span>Stop portal sync for landlords without a PRS Database number. Turn on once the database is live.</span>
+      </label>
+      <label className="mt-3 flex items-start gap-2 text-sm">
+        <input
+          type="checkbox"
+          className="mt-1"
+          checked={landlordEmails}
+          onChange={(e) => setLandlordEmails(e.target.checked)}
+        />
+        <span>
+          Email landlords about their compliance: when a certificate is 60, 30 and 7 days from expiry, when it
+          expires, and a summary on the 1st of each month.
+        </span>
       </label>
       <Button type="button" className="mt-3" size="sm" onClick={save} disabled={busy}>
         Save

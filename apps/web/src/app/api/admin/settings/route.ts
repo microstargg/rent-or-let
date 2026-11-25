@@ -56,6 +56,7 @@ const patchSchema = z.object({
     })
     .optional(),
   arrears_reminders: z.object({ enabled: z.boolean(), sms: z.boolean() }).optional(),
+  landlord_compliance_emails: z.boolean().optional(),
 });
 
 export async function PATCH(request: Request) {
@@ -100,6 +101,9 @@ export async function PATCH(request: Request) {
     ...(body.vat_rate !== undefined && { vat_rate: body.vat_rate }),
     ...(body.late_fee_rules !== undefined && { late_fee_rules: body.late_fee_rules }),
     ...(body.arrears_reminders !== undefined && { arrears_reminders: body.arrears_reminders }),
+    ...(body.landlord_compliance_emails !== undefined && {
+      landlord_compliance_emails: body.landlord_compliance_emails,
+    }),
   };
 
   if (!settings.maintenance_inbox_token) {

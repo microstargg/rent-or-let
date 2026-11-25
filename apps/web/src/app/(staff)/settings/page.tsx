@@ -74,6 +74,7 @@ export default async function AdminSettingsPage() {
           redressScheme={full?.settings.redress_scheme ?? null}
           redressMemberNumber={full?.settings.redress_member_number ?? null}
           requirePrsNumber={full?.settings.require_prs_number ?? false}
+          landlordComplianceEmails={full?.settings.landlord_compliance_emails ?? false}
         />
       </div>
     </div>
