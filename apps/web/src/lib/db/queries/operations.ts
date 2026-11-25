@@ -484,12 +484,13 @@ export async function createTenancy(data: {
     .set({ isVacant: false, status: "let_agreed", updatedAt: new Date() })
     .where(and(eq(properties.id, data.propertyId), agencyEq(properties.agencyId)));
 
-  const { seedTenancyComplianceChecklist } = await import("./compliance");
+  const { seedTenancyComplianceChecklist, createRegisterUpdateTask } = await import("./compliance");
   await seedTenancyComplianceChecklist({
     branchId: data.branchId,
     propertyId: data.propertyId,
     tenancyId: row.id,
   });
+  await createRegisterUpdateTask(data.branchId, data.propertyId, "new tenancy");
 
   const { scheduleInterimInspections } = await import("./lifecycle");
   await scheduleInterimInspections(row.id);
@@ -562,6 +563,8 @@ export async function endTenancy(id: string) {
     .update(properties)
     .set({ isVacant: true, updatedAt: new Date() })
     .where(and(eq(properties.id, tenancy[0].propertyId), agencyEq(properties.agencyId)));
+  const { createRegisterUpdateTask } = await import("./compliance");
+  await createRegisterUpdateTask(tenancy[0].branchId, tenancy[0].propertyId, "tenancy ended");
 
   return row ?? null;
 }

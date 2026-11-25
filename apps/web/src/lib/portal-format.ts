@@ -22,6 +22,7 @@ const COMPLIANCE_LABELS: Record<string, string> = {
   right_to_rent: "Right to rent check",
   smoke_co: "Smoke and CO alarm check",
   written_terms: "Written statement of tenancy terms",
+  prs_register: "Landlord register (Register your rental property)",
   hmo_licence: "HMO licence",
   selective_licence: "Selective licence",
   additional_licence: "Additional HMO licence",

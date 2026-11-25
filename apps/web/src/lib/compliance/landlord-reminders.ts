@@ -11,7 +11,7 @@ import { dueReminderStage, stagesCoveredBy, ukDate, type ReminderStage } from ".
 function lineFor(r: Requirement & { propertyAddress: string }) {
   const label = complianceLabel(r.type);
   const who = r.responsible === "landlord" ? " (you arrange this)" : "";
-  if (!r.item) return `- ${label}${who}: not on file yet`;
+  if (!r.item) return `- ${label}${who}: ${r.dueDate ? `due by ${ukDate(r.dueDate)}` : "not on file yet"}`;
   if (!r.item.expiresAt) return `- ${label}${who}: ${r.status === "missing" ? "not on file yet" : "on file"}`;
   const verb = r.status === "expired" ? "expired" : "expires";
   return `- ${label}${who}: ${verb} ${ukDate(r.item.expiresAt)}`;

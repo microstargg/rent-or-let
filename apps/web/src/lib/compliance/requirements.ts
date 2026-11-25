@@ -105,6 +105,8 @@ export interface Requirement {
   item: ComplianceItemLike | null;
   /** False for records the agency added that no rule asks for (e.g. "other"). */
   required: boolean;
+  /** Deadline when there is no record to carry an expiry (e.g. register deadline). */
+  dueDate?: string | null;
 }
 
 export interface PropertyComplianceMeta {
@@ -330,12 +332,14 @@ export const STATUS_ORDER: Record<ComplianceStatus, number> = {
   valid: 3,
 };
 
-export function sortRequirements<T extends { status: ComplianceStatus; item: ComplianceItemLike | null }>(
+export function sortRequirements<
+  T extends { status: ComplianceStatus; item: ComplianceItemLike | null; dueDate?: string | null },
+>(
   reqs: T[]
 ): T[] {
   return [...reqs].sort(
     (a, b) =>
       STATUS_ORDER[a.status] - STATUS_ORDER[b.status] ||
-      (a.item?.expiresAt ?? "9999").localeCompare(b.item?.expiresAt ?? "9999")
+      (a.item?.expiresAt ?? a.dueDate ?? "9999").localeCompare(b.item?.expiresAt ?? b.dueDate ?? "9999")
   );
 }

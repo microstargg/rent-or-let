@@ -7,6 +7,7 @@ import {
 import { listBranchRequirements } from "@/lib/db/queries/compliance";
 import { complianceLabel } from "@/lib/portal-format";
 import { scoreRequirements } from "@/lib/compliance/requirements";
+import { REGISTER_WINDOWS } from "@/lib/compliance/register";
 import { ComplianceActions } from "@/components/admin/compliance-actions";
 import { ComplianceCreateForm } from "@/components/admin/compliance-create-form";
 import {
@@ -38,6 +39,11 @@ export default async function AdminCompliancePage() {
   const atRisk = scores.filter((s) => s.score < 80 || s.expired > 0 || s.expiring > 0);
   const expiredCount = items.filter((i) => i.item.status === "expired").length;
   const expiringCount = items.filter((i) => i.item.status === "expiring").length;
+  const letRegister = requirementRows
+    .filter((r) => r.register.isLet)
+    .map((r) => ({ property: r.property, register: r.register }))
+    .sort((a, b) => (a.register.deadline ?? "9999").localeCompare(b.register.deadline ?? "9999"));
+  const registeredCount = letRegister.filter((r) => r.register.propertyNumber).length;
   const missingCount = items.filter((i) => i.item.status === "missing").length + gaps.length;
 
   const sortedItems = [...items].sort((a, b) => {
@@ -99,6 +105,41 @@ export default async function AdminCompliancePage() {
             title="No compliance scores yet"
             description="Add certificates below, or create a tenancy to seed the move-in checklist."
           />
+        )}
+      </AdminSection>
+
+      <AdminSection
+        title="Landlord register"
+        description={`${registeredCount} of ${letRegister.length} let properties registered. Registration opens by region from 15 Dec 2026; every let property must be registered by 14 Nov 2027.`}
+      >
+        {letRegister.length ? (
+          <ul className="divide-y rounded-xl border bg-card">
+            {letRegister
+              .filter((r) => !r.register.propertyNumber || r.register.status !== "valid")
+              .slice(0, 50)
+              .map(({ property, register }) => (
+                <li key={property.id} className="flex flex-wrap items-start justify-between gap-3 px-4 py-3">
+                  <div className="min-w-0">
+                    <Link href={`/properties/${property.id}`} className="font-medium hover:underline">
+                      {property.displayAddress}
+                    </Link>
+                    <p className="text-xs text-muted-foreground">
+                      {register.region
+                        ? `${REGISTER_WINDOWS[register.region].label}: opens ${formatDate(register.opens!)}, deadline ${formatDate(register.deadline!)}`
+                        : "Region unknown: set it on the property"}
+                      {register.propertyNumber ? ` · ${register.propertyNumber}` : " · not registered yet"}
+                      {register.landlordRenewalDate ? ` · fee renews ${formatDate(register.landlordRenewalDate)}` : ""}
+                    </p>
+                  </div>
+                  <StatusBadge
+                    status={register.status === "not_due" ? "upcoming" : register.status}
+                    tone={register.status === "not_due" ? "neutral" : undefined}
+                  />
+                </li>
+              ))}
+          </ul>
+        ) : (
+          <AdminEmptyState title="No let properties" />
         )}
       </AdminSection>
 

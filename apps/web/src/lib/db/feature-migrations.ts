@@ -145,6 +145,17 @@ export const FEATURE_MIGRATIONS: FeatureMigration[] = [
       `ALTER TABLE tenancies ADD COLUMN IF NOT EXISTS utility_notices jsonb`,
     ],
   },
+  {
+    // drizzle/0019_landlord_register.sql
+    name: "landlord_register",
+    probe: `SELECT (${col("properties", "prs_property_number")} AND ${col("landlords", "prs_renewal_date")}) AS ok`,
+    statements: [
+      `ALTER TABLE properties ADD COLUMN IF NOT EXISTS prs_property_number text`,
+      `ALTER TABLE properties ADD COLUMN IF NOT EXISTS prs_registered_at date`,
+      `ALTER TABLE properties ADD COLUMN IF NOT EXISTS prs_region text`,
+      `ALTER TABLE landlords ADD COLUMN IF NOT EXISTS prs_renewal_date date`,
+    ],
+  },
 ];
 
 const pendingByUrl = new Map<string, Promise<void>>();

@@ -17,7 +17,10 @@ export default async function LandlordPortalCompliance() {
   if (!ctx) return null;
 
   const { landlordId, branchId } = ctx.profile.profile;
-  const { properties, actions, counts } = await getLandlordCompliance(landlordId, branchId);
+  const { properties, actions, counts, register, landlordNumber, renewalDate } = await getLandlordCompliance(
+    landlordId,
+    branchId
+  );
   const needsAttention = counts.expired + counts.missing;
 
   return (
@@ -57,6 +60,34 @@ export default async function LandlordPortalCompliance() {
         </AdminSection>
       )}
 
+      {register.length > 0 && (
+        <AdminSection
+          title="Landlord register"
+          description={`England's "Register your rental property" service. Your landlord number: ${landlordNumber ?? "not added yet"}${renewalDate ? `. Fees renew ${formatDate(renewalDate)}` : ""}.`}
+        >
+          <ul className="divide-y rounded-xl border bg-card">
+            {register.map((r) => (
+              <li key={r.propertyId} className="flex flex-wrap items-start justify-between gap-3 px-4 py-3">
+                <div className="min-w-0">
+                  <p className="font-medium">{r.address}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {r.propertyNumber ? `Registered: ${r.propertyNumber}` : "Not registered yet"}
+                    {r.regionLabel && r.opens && r.deadline
+                      ? ` · ${r.regionLabel} opens ${formatDate(r.opens)}, deadline ${formatDate(r.deadline)}`
+                      : ""}
+                    {!r.isLet ? " · only needed once it's let or marketed" : ""}
+                  </p>
+                </div>
+                <StatusBadge
+                  status={r.status === "not_due" ? "upcoming" : r.status}
+                  tone={r.status === "not_due" ? "neutral" : undefined}
+                />
+              </li>
+            ))}
+          </ul>
+        </AdminSection>
+      )}
+
       {properties.length ? (
         properties.map((p) => (
           <AdminSection key={p.id} title={p.address}>
@@ -70,7 +101,9 @@ export default async function LandlordPortalCompliance() {
                         ? `${r.status === "expired" ? "Expired" : "Expires"} ${formatDate(r.item.expiresAt)}`
                         : r.item
                           ? "No expiry date"
-                          : "Not on file yet"}
+                          : r.dueDate
+                            ? `Due by ${formatDate(r.dueDate)}`
+                            : "Not on file yet"}
                       {" · "}
                       {r.responsible === "landlord" ? "You arrange this" : "Your agent arranges this"}
                       {r.item?.documentId ? (
