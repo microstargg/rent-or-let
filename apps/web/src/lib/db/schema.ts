@@ -52,6 +52,8 @@ export const staffProfiles = pgTable(
     email: text("email").notNull(),
     fullName: text("full_name").notNull(),
     role: text("role").notNull().default("staff"),
+    /** Email and in-app notification choices, see lib/notifications/preferences.ts */
+    notificationPrefs: jsonb("notification_prefs").notNull().default({}),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
@@ -88,6 +90,17 @@ export const landlords = pgTable(
     phone: text("phone"),
     bankDetails: jsonb("bank_details"),
     notes: text("notes"),
+    /** Private Rented Sector Database registration number (Renters' Rights Act). */
+    prsRegistrationNumber: text("prs_registration_number"),
+    /** let_only | rent_collection | fully_managed (null = fully managed) */
+    serviceLevel: text("service_level"),
+    /** Management fee % for this landlord; null uses the agency default. */
+    feePercent: numeric("fee_percent", { precision: 5, scale: 2 }),
+    /** One-off fee charged to the landlord when a new tenancy starts. */
+    lettingFee: numeric("letting_fee", { precision: 10, scale: 2 }),
+    /** Non-resident landlord scheme: null/"uk", "approved" (HMRC lets gross rent go), "withhold". */
+    nrlStatus: text("nrl_status"),
+    nrlApprovalRef: text("nrl_approval_ref"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [index("idx_landlords_branch").on(table.branchId)]
@@ -209,6 +222,12 @@ export const tenantApplications = pgTable("tenant_applications", {
   petsDetails: text("pets_details"),
   referenceData: jsonb("reference_data").notNull().default({}),
   additionalInfo: text("additional_info"),
+  holdingDepositAmount: numeric("holding_deposit_amount", { precision: 10, scale: 2 }),
+  holdingDepositPaidAt: date("holding_deposit_paid_at"),
+  /** applied | refunded | retained */
+  holdingDepositOutcome: text("holding_deposit_outcome"),
+  holdingDepositOutcomeAt: date("holding_deposit_outcome_at"),
+  holdingDepositNote: text("holding_deposit_note"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -290,6 +309,10 @@ export const renters = pgTable(
     phone: text("phone"),
     employmentInfo: jsonb("employment_info"),
     notes: text("notes"),
+    /** Right to Rent: date checked, method, and expiry for time-limited permission (null = no follow-up). */
+    rtrCheckedAt: date("rtr_checked_at"),
+    rtrMethod: text("rtr_method"),
+    rtrExpiresAt: date("rtr_expires_at"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [index("idx_renters_branch").on(table.branchId)]
@@ -319,6 +342,13 @@ export const tenancies = pgTable(
     depositProtectedAt: date("deposit_protected_at"),
     depositProtectionRef: text("deposit_protection_ref"),
     rentReviewDate: date("rent_review_date"),
+    /** End of tenancy deposit split, deductions and any dispute. See lib/tenancy/deposit-return.ts */
+    depositReturn: jsonb("deposit_return"),
+    /** Agreed arrears repayment plan. See lib/finance/arrears.ts */
+    paymentPlan: jsonb("payment_plan"),
+    /** Which automatic arrears reminders have gone out for the current arrears. */
+    arrearsReminders: jsonb("arrears_reminders"),
+    utilityNotices: jsonb("utility_notices"),
     metadata: jsonb("metadata").notNull().default({}),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -422,6 +452,7 @@ export const tickets = pgTable(
     description: text("description"),
     locationArea: text("location_area"),
     isEmergency: boolean("is_emergency").notNull().default(false),
+    hazard: jsonb("hazard"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -464,6 +495,8 @@ export const workOrders = pgTable(
       .notNull()
       .references(() => tickets.id, { onDelete: "cascade" }),
     contractorId: uuid("contractor_id").references(() => contractors.id, { onDelete: "set null" }),
+    /** Staff member responsible for the job (staff_profiles.id). */
+    assigneeStaffId: text("assignee_staff_id"),
     scheduledFor: timestamp("scheduled_for", { withTimezone: true }),
     status: text("status").notNull().default("draft"),
     costEstimate: numeric("cost_estimate", { precision: 12, scale: 2 }),
@@ -474,7 +507,10 @@ export const workOrders = pgTable(
     meta: jsonb("meta").notNull().default({}),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [index("idx_work_orders_ticket").on(table.ticketId)]
+  (table) => [
+    index("idx_work_orders_ticket").on(table.ticketId),
+    index("idx_work_orders_assignee").on(table.assigneeStaffId),
+  ]
 );
 
 export const renterProfiles = pgTable(
@@ -608,10 +644,38 @@ export const tasks = pgTable(
     relatedType: text("related_type"),
     relatedId: uuid("related_id"),
     assigneeStaffId: text("assignee_staff_id"),
+    notes: text("notes"),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
     meta: jsonb("meta").notNull().default({}),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [index("idx_tasks_branch_status").on(table.branchId, table.status)]
+  (table) => [
+    index("idx_tasks_branch_status").on(table.branchId, table.status),
+    index("idx_tasks_assignee").on(table.assigneeStaffId),
+  ]
+);
+
+/** In-app notifications for staff (the bell), also the source of instant emails. */
+export const notifications = pgTable(
+  "notifications",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    agencyId: text("agency_id").notNull().references(() => agencies.slug),
+    staffId: text("staff_id").notNull(),
+    type: text("type").notNull(),
+    title: text("title").notNull(),
+    body: text("body"),
+    href: text("href"),
+    /** Stops the same event notifying the same person twice. */
+    dedupeKey: text("dedupe_key"),
+    readAt: timestamp("read_at", { withTimezone: true }),
+    emailedAt: timestamp("emailed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("idx_notifications_staff").on(table.agencyId, table.staffId, table.createdAt),
+    uniqueIndex("notifications_dedupe").on(table.agencyId, table.staffId, table.dedupeKey),
+  ]
 );
 
 export const documents = pgTable(
@@ -764,9 +828,65 @@ export const viewings = pgTable(
     scheduledAt: timestamp("scheduled_at", { withTimezone: true }).notNull(),
     outcome: text("outcome"),
     notes: text("notes"),
+    attendeeName: text("attendee_name"),
+    attendeeEmail: text("attendee_email"),
+    attendeePhone: text("attendee_phone"),
+    confirmedAt: timestamp("confirmed_at", { withTimezone: true }),
+    reminderSentAt: timestamp("reminder_sent_at", { withTimezone: true }),
+    feedback: text("feedback"),
+    feedbackSentAt: timestamp("feedback_sent_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [index("idx_viewings_property").on(table.propertyId)]
+);
+
+export const propertyKeys = pgTable(
+  "property_keys",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    agencyId: text("agency_id").notNull().references(() => agencies.slug),
+    branchId: uuid("branch_id")
+      .notNull()
+      .references(() => branches.id),
+    propertyId: uuid("property_id")
+      .notNull()
+      .references(() => properties.id, { onDelete: "cascade" }),
+    label: text("label").notNull(),
+    keyCount: integer("key_count").notNull().default(1),
+    holderType: text("holder_type").notNull().default("office"),
+    holderName: text("holder_name"),
+    outSince: date("out_since"),
+    dueBack: date("due_back"),
+    notes: text("notes"),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("idx_property_keys_property").on(table.propertyId)]
+);
+
+/** Who did what, kept even if the property or tenancy is later deleted. */
+export const activityLog = pgTable(
+  "activity_log",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    agencyId: text("agency_id").notNull().references(() => agencies.slug),
+    branchId: uuid("branch_id"),
+    entityType: text("entity_type").notNull(),
+    entityId: uuid("entity_id"),
+    propertyId: uuid("property_id"),
+    tenancyId: uuid("tenancy_id"),
+    actorId: text("actor_id"),
+    actorName: text("actor_name"),
+    action: text("action").notNull(),
+    summary: text("summary").notNull(),
+    meta: jsonb("meta").notNull().default({}),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("idx_activity_log_property").on(table.propertyId, table.createdAt),
+    index("idx_activity_log_tenancy").on(table.tenancyId, table.createdAt),
+    index("idx_activity_log_entity").on(table.entityId, table.createdAt),
+  ]
 );
 
 export const landlordProfiles = pgTable(
@@ -954,5 +1074,78 @@ export const bankTransactions = pgTable(
     ),
     index("idx_bank_transactions_connection").on(table.connectionId),
     index("idx_bank_transactions_match_status").on(table.branchId, table.matchStatus),
+  ]
+);
+
+/** Joint tenants (role "tenant", renter_id) and guarantors (role "guarantor", name/email). */
+export const tenancyParties = pgTable(
+  "tenancy_parties",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    agencyId: text("agency_id").notNull().references(() => agencies.slug),
+    branchId: uuid("branch_id")
+      .notNull()
+      .references(() => branches.id),
+    tenancyId: uuid("tenancy_id")
+      .notNull()
+      .references(() => tenancies.id, { onDelete: "cascade" }),
+    role: text("role").notNull(),
+    renterId: uuid("renter_id").references(() => renters.id, { onDelete: "cascade" }),
+    guaranteesRenterId: uuid("guarantees_renter_id").references(() => renters.id, {
+      onDelete: "set null",
+    }),
+    fullName: text("full_name"),
+    email: text("email"),
+    phone: text("phone"),
+    address: text("address"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("idx_tenancy_parties_tenancy").on(table.tenancyId)]
+);
+
+export const tenancyAgreements = pgTable(
+  "tenancy_agreements",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    agencyId: text("agency_id").notNull().references(() => agencies.slug),
+    branchId: uuid("branch_id")
+      .notNull()
+      .references(() => branches.id),
+    tenancyId: uuid("tenancy_id")
+      .notNull()
+      .references(() => tenancies.id, { onDelete: "cascade" }),
+    /** sent | signed | cancelled */
+    status: text("status").notNull().default("sent"),
+    terms: jsonb("terms").notNull(),
+    termsHash: text("terms_hash").notNull(),
+    documentId: uuid("document_id").references(() => documents.id, { onDelete: "set null" }),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("idx_tenancy_agreements_tenancy").on(table.tenancyId)]
+);
+
+export const agreementSignatures = pgTable(
+  "agreement_signatures",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    agencyId: text("agency_id").notNull().references(() => agencies.slug),
+    agreementId: uuid("agreement_id")
+      .notNull()
+      .references(() => tenancyAgreements.id, { onDelete: "cascade" }),
+    /** tenant | guarantor | agent */
+    role: text("role").notNull(),
+    fullName: text("full_name").notNull(),
+    email: text("email"),
+    tokenHash: text("token_hash").notNull(),
+    signedName: text("signed_name"),
+    signedAt: timestamp("signed_at", { withTimezone: true }),
+    signedIp: text("signed_ip"),
+    signedUserAgent: text("signed_user_agent"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("agreement_signatures_token").on(table.tokenHash),
+    index("idx_agreement_signatures_agreement").on(table.agreementId),
   ]
 );

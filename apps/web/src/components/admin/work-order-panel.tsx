@@ -7,11 +7,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { StatusBadge } from "@/components/admin/admin-page";
+import { JobAssigneeSelect, type StaffOption } from "@/components/admin/assignee-select";
 
 interface WorkOrderRow {
   workOrder: {
     id: string;
     status: string;
+    assigneeStaffId: string | null;
     scheduledFor: Date | null;
     costEstimate: string | null;
     finalCost: string | null;
@@ -30,13 +32,16 @@ export function WorkOrderPanel({
   ticketId,
   workOrders,
   contractors,
+  staff = [],
 }: {
   ticketId: string;
   workOrders: WorkOrderRow[];
   contractors: { id: string; name: string }[];
+  staff?: StaffOption[];
 }) {
   const router = useRouter();
   const [contractorId, setContractorId] = useState(contractors[0]?.id ?? "");
+  const [assigneeId, setAssigneeId] = useState("");
   const [estimate, setEstimate] = useState("");
   const [charge, setCharge] = useState("");
   const [scheduledFor, setScheduledFor] = useState("");
@@ -89,6 +94,27 @@ export function WorkOrderPanel({
               </Link>
             </p>
           </div>
+          {staff.length > 0 && (
+            <div className="sm:col-span-2">
+              <Label htmlFor="wo_assignee">Staff member responsible</Label>
+              <select
+                id="wo_assignee"
+                value={assigneeId}
+                onChange={(e) => setAssigneeId(e.target.value)}
+                className="mt-1 min-h-11 w-full rounded-md border px-3 py-2 text-sm"
+              >
+                <option value="">Nobody yet</option>
+                {staff.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1 text-xs text-muted-foreground">
+                They get a notification and see it in My jobs and their morning email.
+              </p>
+            </div>
+          )}
           <div>
             <Label htmlFor="wo_estimate">Contractor estimate (£)</Label>
             <Input
@@ -135,6 +161,7 @@ export function WorkOrderPanel({
               work_order: {
                 action: "create",
                 contractor_id: contractorId || null,
+                assignee_staff_id: assigneeId || null,
                 cost_estimate: estimate ? Number(estimate) : null,
                 client_charge: charge ? Number(charge) : null,
                 scheduled_for: scheduledFor || null,
@@ -143,6 +170,7 @@ export function WorkOrderPanel({
               setEstimate("");
               setCharge("");
               setScheduledFor("");
+              setAssigneeId("");
             });
           }}
         >
@@ -185,6 +213,15 @@ export function WorkOrderPanel({
                 </div>
                 <StatusBadge status={workOrder.status} />
               </div>
+
+              {!isDone && staff.length > 0 && (
+                <JobAssigneeSelect
+                  ticketId={ticketId}
+                  workOrderId={workOrder.id}
+                  value={workOrder.assigneeStaffId}
+                  staff={staff}
+                />
+              )}
 
               {!isDone && (
                 <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end">

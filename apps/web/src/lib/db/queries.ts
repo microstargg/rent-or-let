@@ -557,7 +557,7 @@ export async function insertTenantApplication(data: {
   additionalInfo?: string | null;
 }) {
   await ensureAgency();
-  await db.insert(tenantApplications).values({
+  const [application] = await db.insert(tenantApplications).values({
     agencyId: currentAgencyId(),
     propertyId: data.propertyId ?? null,
     firstName: data.firstName,
@@ -573,6 +573,12 @@ export async function insertTenantApplication(data: {
     petsDetails: data.petsDetails,
     additionalInfo: data.additionalInfo,
     status: "submitted",
+  }).returning({ id: tenantApplications.id });
+  await notifyStaff("everyone", {
+    type: "new_application",
+    title: `New tenant application from ${data.firstName} ${data.lastName}`.trim(),
+    href: "/applications",
+    dedupeKey: application ? `application:${application.id}` : null,
   });
 }
 
@@ -1125,5 +1131,6 @@ export {
   decidePetRequest,
   listOverduePetRequests,
 } from "./queries/pets";
+import { notifyStaff } from "./queries/notifications";
 
 export { mapProperty };

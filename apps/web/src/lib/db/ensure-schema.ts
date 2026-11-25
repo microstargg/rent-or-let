@@ -1,4 +1,5 @@
 import { neon } from "@neondatabase/serverless";
+import { getAgencyOrNull, ISOLATED_AGENCY_SLUGS, type Agency } from "@repo/config/server";
 
 /**
  * Idempotent statements from drizzle/0010_job_invoices.sql.
@@ -334,4 +335,85 @@ export async function ensureBankFeedSchema(): Promise<void> {
     });
   }
   await bankFeedPending;
+}
+
+/** Statements from drizzle/0015_notifications.sql, split for neon's one-statement calls. */
+export const NOTIFICATIONS_MIGRATION_STATEMENTS = [
+  `ALTER TABLE work_orders ADD COLUMN IF NOT EXISTS assignee_staff_id text`,
+  `CREATE INDEX IF NOT EXISTS idx_work_orders_assignee ON work_orders(assignee_staff_id)`,
+  `ALTER TABLE tasks ADD COLUMN IF NOT EXISTS notes text`,
+  `ALTER TABLE tasks ADD COLUMN IF NOT EXISTS completed_at timestamptz`,
+  `CREATE INDEX IF NOT EXISTS idx_tasks_assignee ON tasks(assignee_staff_id)`,
+  `ALTER TABLE staff_profiles ADD COLUMN IF NOT EXISTS notification_prefs jsonb NOT NULL DEFAULT '{}'::jsonb`,
+  `CREATE TABLE IF NOT EXISTS notifications (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  agency_id text NOT NULL REFERENCES agencies(slug),
+  staff_id text NOT NULL,
+  type text NOT NULL,
+  title text NOT NULL,
+  body text,
+  href text,
+  dedupe_key text,
+  read_at timestamptz,
+  emailed_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now()
+)`,
+  `CREATE INDEX IF NOT EXISTS idx_notifications_staff ON notifications(agency_id, staff_id, created_at)`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS notifications_dedupe ON notifications(agency_id, staff_id, dedupe_key)`,
+] as const;
+
+const notificationsPending = new Map<string, Promise<void>>();
+
+async function applyNotificationsMigration(url: string): Promise<void> {
+  const sql = neon(url);
+  // One cheap round trip on a warm database: skip the DDL when it has already run.
+  try {
+    const rows = (await sql(
+      `SELECT
+         to_regclass('public.notifications') IS NOT NULL AS has_table,
+         EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'work_orders' AND column_name = 'assignee_staff_id') AS has_assignee,
+         EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'staff_profiles' AND column_name = 'notification_prefs') AS has_prefs,
+         EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'tasks' AND column_name = 'completed_at') AS has_task_cols`
+    )) as { has_table: boolean; has_assignee: boolean; has_prefs: boolean; has_task_cols: boolean }[];
+    const r = rows[0];
+    if (r?.has_table && r.has_assignee && r.has_prefs && r.has_task_cols) return;
+  } catch {
+    // Fall through and try the statements.
+  }
+  for (const statement of NOTIFICATIONS_MIGRATION_STATEMENTS) {
+    try {
+      await sql(statement);
+    } catch (err) {
+      const msg = messageOf(err);
+      if (isIgnorableDdlError(msg)) continue;
+      throw new Error(`Notifications schema: ${msg}`);
+    }
+  }
+}
+
+/** Same as ensureNotificationsSchema, for a database URL known up front (demo reset). */
+export async function ensureNotificationsSchemaForUrl(url: string): Promise<void> {
+  let pendingForUrl = notificationsPending.get(url);
+  if (!pendingForUrl) {
+    pendingForUrl = applyNotificationsMigration(url).catch((err) => {
+      notificationsPending.delete(url);
+      throw err;
+    });
+    notificationsPending.set(url, pendingForUrl);
+  }
+  await pendingForUrl;
+}
+
+/**
+ * Job assignees, task notes and the notifications table. Runs against the current
+ * agency's own database (the demo has its own), once per database per server.
+ */
+export async function ensureNotificationsSchema(forAgency?: Agency): Promise<void> {
+  const agency = forAgency ?? getAgencyOrNull();
+  const url = agency
+    ? agency.runtime.databaseUrl ||
+      (ISOLATED_AGENCY_SLUGS.has(agency.slug) ? undefined : process.env.DATABASE_URL)
+    : process.env.DATABASE_URL;
+  if (!url) return;
+  await ensureNotificationsSchemaForUrl(url);
 }

@@ -4,8 +4,25 @@ import {
   getAgency,
   getAgencyOrNull,
   isAgencyContextLocked,
+  type Agency,
 } from "@repo/config/server";
 import { bindRequestAgency } from "@/lib/agency";
+import { ensureNotificationsSchema } from "./ensure-schema";
+import { ensureFeatureSchema } from "./feature-migrations";
+
+/** New columns (job assignee, notification prefs) must exist before any select on those tables. */
+async function ensureLatestSchema(agency: Agency): Promise<void> {
+  try {
+    await ensureNotificationsSchema(agency);
+  } catch (err) {
+    console.error("[schema] notifications ensure failed", err);
+  }
+  try {
+    await ensureFeatureSchema(agency);
+  } catch (err) {
+    console.error("[schema] feature ensure failed", err);
+  }
+}
 
 /**
  * Per-request slug store. `enterWith` does not survive Next.js RSC awaits, so
@@ -29,10 +46,15 @@ function rememberAgencySlug(slug: string): string {
  */
 export async function ensureAgency(): Promise<string> {
   if (isAgencyContextLocked()) {
-    return rememberAgencySlug(getAgency().slug);
+    const agency = getAgency();
+    const slug = rememberAgencySlug(agency.slug);
+    await ensureLatestSchema(agency);
+    return slug;
   }
   const agency = await bindRequestAgency();
-  return rememberAgencySlug(agency.slug);
+  const slug = rememberAgencySlug(agency.slug);
+  await ensureLatestSchema(agency);
+  return slug;
 }
 
 export function currentAgencyId(): string {

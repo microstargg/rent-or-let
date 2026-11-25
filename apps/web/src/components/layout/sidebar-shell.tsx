@@ -17,6 +17,8 @@ export function SidebarShell({
   homeHref,
   mobileSubtitle,
   mobileAction,
+  headerAction,
+  mobileHeaderAction,
   footer,
   renderNav,
   children,
@@ -26,6 +28,10 @@ export function SidebarShell({
   homeHref: string;
   mobileSubtitle?: string;
   mobileAction?: React.ReactNode;
+  /** Shown beside the title on desktop (e.g. the notification bell). */
+  headerAction?: React.ReactNode;
+  /** Shown in the mobile top bar, before mobileAction. */
+  mobileHeaderAction?: React.ReactNode;
   footer: React.ReactNode;
   renderNav: (onNavigate?: () => void) => React.ReactNode;
   children: React.ReactNode;
@@ -63,7 +69,10 @@ export function SidebarShell({
     <div className="flex min-h-screen bg-background">
       {/* Desktop sidebar */}
       <aside className="hidden w-64 shrink-0 flex-col border-r bg-muted/20 print:hidden md:flex">
-        <div className="border-b">{brand}</div>
+        <div className="flex items-center justify-between border-b pr-2">
+          {brand}
+          {headerAction}
+        </div>
         <div className="flex-1 overflow-y-auto py-3">{renderNav()}</div>
         <div className="border-t px-4 py-3">{footer}</div>
       </aside>
@@ -127,6 +136,7 @@ export function SidebarShell({
               <p className="truncate text-xs text-muted-foreground">{mobileSubtitle}</p>
             )}
           </div>
+          {mobileHeaderAction}
           {mobileAction}
         </header>
 

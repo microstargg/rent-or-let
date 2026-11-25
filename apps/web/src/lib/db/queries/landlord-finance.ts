@@ -11,7 +11,8 @@ import {
   invoices,
   properties,
 } from "../schema";
-import { getManagementFeePercent, parseBranchSettings } from "@/lib/branch-settings";
+import { getManagementFeePercent, getVatRate, parseBranchSettings } from "@/lib/branch-settings";
+import { feeWithVat, landlordFeePercent } from "@/lib/finance/fees";
 import { createDocument } from "./compliance";
 import {
   parseStatementUploadFilename,
@@ -97,8 +98,15 @@ export async function postRentReceivedToLandlord(data: {
     .from(branches)
     .where(and(eq(branches.id, data.branchId), agencyEq(branches.agencyId)))
     .limit(1);
-  const feePercent = getManagementFeePercent(parseBranchSettings(branch?.settings));
-  const fee = Math.round(data.rentAmount * (feePercent / 100) * 100) / 100;
+  const settings = parseBranchSettings(branch?.settings);
+  const [landlord] = await db
+    .select({ serviceLevel: landlords.serviceLevel, feePercent: landlords.feePercent })
+    .from(landlords)
+    .where(and(eq(landlords.id, data.landlordId), agencyEq(landlords.agencyId)))
+    .limit(1);
+  const feePercent = landlordFeePercent(landlord, getManagementFeePercent(settings));
+  const vatRate = getVatRate(settings);
+  const { net, vat, gross: fee } = feeWithVat(data.rentAmount * (feePercent / 100), vatRate);
 
   await insertLandlordLedgerEntry({
     branchId: data.branchId,
@@ -121,8 +129,8 @@ export async function postRentReceivedToLandlord(data: {
       entryType: "management_fee",
       amount: -fee,
       paymentId: data.paymentId,
-      memo: `Management fee ${feePercent}%`,
-      meta: { fee_percent: feePercent },
+      memo: vat ? `Management fee ${feePercent}% + VAT` : `Management fee ${feePercent}%`,
+      meta: { fee_percent: feePercent, net, vat, vat_rate: vatRate },
       occurredAt: data.occurredAt,
     });
   }
@@ -641,4 +649,113 @@ export async function listLandlordPayouts(branchId: string) {
     .innerJoin(landlords, eq(landlordPayouts.landlordId, landlords.id))
     .where(and(eq(landlordPayouts.branchId, branchId), agencyEq(landlordPayouts.agencyId)))
     .orderBy(desc(landlordPayouts.paidAt));
+}
+
+/** One-off letting fee (plus VAT) charged to the landlord when a tenancy starts. */
+export async function chargeLettingFee(data: {
+  branchId: string;
+  landlordId: string;
+  propertyId: string;
+  tenancyId: string;
+}) {
+  await ensureAgency();
+  const [landlord] = await db
+    .select({ lettingFee: landlords.lettingFee })
+    .from(landlords)
+    .where(and(eq(landlords.id, data.landlordId), agencyEq(landlords.agencyId)))
+    .limit(1);
+  const amount = Number(landlord?.lettingFee ?? 0);
+  if (!(amount > 0)) return null;
+  const [branch] = await db
+    .select()
+    .from(branches)
+    .where(and(eq(branches.id, data.branchId), agencyEq(branches.agencyId)))
+    .limit(1);
+  const vatRate = getVatRate(parseBranchSettings(branch?.settings));
+  const { net, vat, gross } = feeWithVat(amount, vatRate);
+  return insertLandlordLedgerEntry({
+    branchId: data.branchId,
+    landlordId: data.landlordId,
+    propertyId: data.propertyId,
+    tenancyId: data.tenancyId,
+    entryType: "letting_fee",
+    amount: -gross,
+    memo: vat ? "Letting fee + VAT" : "Letting fee",
+    meta: { net, vat, vat_rate: vatRate },
+  });
+}
+
+/** Ledger lines between two dates (inclusive), with landlord and property names, for exports. */
+export async function listLandlordLedgerBetween(opts: { from: string; to: string; landlordId?: string }) {
+  await ensureAgency();
+  return db
+    .select({
+      entry: landlordLedgerEntries,
+      landlordFirstName: landlords.firstName,
+      landlordLastName: landlords.lastName,
+      propertyAddress: properties.displayAddress,
+    })
+    .from(landlordLedgerEntries)
+    .innerJoin(landlords, eq(landlordLedgerEntries.landlordId, landlords.id))
+    .leftJoin(properties, eq(landlordLedgerEntries.propertyId, properties.id))
+    .where(
+      and(
+        agencyEq(landlordLedgerEntries.agencyId),
+        gte(landlordLedgerEntries.occurredAt, new Date(`${opts.from}T00:00:00Z`)),
+        lte(landlordLedgerEntries.occurredAt, new Date(`${opts.to}T23:59:59.999Z`)),
+        ...(opts.landlordId ? [eq(landlordLedgerEntries.landlordId, opts.landlordId)] : [])
+      )
+    )
+    .orderBy(landlordLedgerEntries.occurredAt);
+}
+
+/** Non-resident landlords who need tax withheld, with this quarter's figures. */
+export async function listNrlWithholdLandlords(branchId: string, quarter: { key: string; from: string; to: string }) {
+  await ensureAgency();
+  const rows = await db
+    .select()
+    .from(landlords)
+    .where(and(eq(landlords.branchId, branchId), eq(landlords.nrlStatus, "withhold"), agencyEq(landlords.agencyId)));
+  const out = [];
+  for (const l of rows) {
+    const entries = await listLandlordLedgerBetween({ from: quarter.from, to: quarter.to, landlordId: l.id });
+    const lines = entries.map((e) => e.entry);
+    // Tax withheld for this quarter may be posted after it ends, so match on the quarter key too.
+    const withheldForQuarter = await db
+      .select({ amount: landlordLedgerEntries.amount })
+      .from(landlordLedgerEntries)
+      .where(
+        and(
+          eq(landlordLedgerEntries.landlordId, l.id),
+          eq(landlordLedgerEntries.entryType, "nrl_tax"),
+          agencyEq(landlordLedgerEntries.agencyId),
+          sql`${landlordLedgerEntries.meta}->>'quarter' = ${quarter.key}`
+        )
+      );
+    out.push({
+      landlord: l,
+      lines: [
+        ...lines.filter((e) => e.entryType !== "nrl_tax"),
+        ...withheldForQuarter.map((w) => ({ entryType: "nrl_tax", amount: w.amount })),
+      ],
+    });
+  }
+  return out;
+}
+
+export async function withholdNrlTax(data: {
+  branchId: string;
+  landlordId: string;
+  amount: number;
+  quarterKey: string;
+  quarterLabel: string;
+}) {
+  return insertLandlordLedgerEntry({
+    branchId: data.branchId,
+    landlordId: data.landlordId,
+    entryType: "nrl_tax",
+    amount: -Math.abs(data.amount),
+    memo: `Non-resident landlord tax withheld, ${data.quarterLabel}`,
+    meta: { quarter: data.quarterKey },
+  });
 }

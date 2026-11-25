@@ -222,6 +222,40 @@ function helveticaWidth(text: string, size: number): number {
   return (w * size) / 1000;
 }
 
+/**
+ * Split text into lines that fit the styled PDF body width. Text blocks don't wrap
+ * on their own, so long paragraphs must go through this first.
+ */
+export function wrapToWidth(text: string, size = AMOUNT_SIZE, width = PAGE_WIDTH - 2 * MARGIN_X): string[] {
+  const lines: string[] = [];
+  for (const para of text.split("\n")) {
+    let line = "";
+    for (const word of para.split(/\s+/).filter(Boolean)) {
+      const next = line ? `${line} ${word}` : word;
+      if (line && helveticaWidth(next, size) > width) {
+        lines.push(line);
+        line = word;
+      } else {
+        line = next;
+      }
+    }
+    lines.push(line);
+  }
+  return lines;
+}
+
+/** Text blocks for a paragraph, wrapped to the page. */
+export function paragraphBlocks(text: string, bold = false): PdfBlock[] {
+  return wrapToWidth(text).map((line) => ({ kind: "text" as const, text: line, bold }));
+}
+
+/** A label/value row, or the label then wrapped value lines when the value is too long for one line. */
+export function rowBlocks(label: string, value: string): PdfBlock[] {
+  const available = PAGE_WIDTH - 2 * MARGIN_X - helveticaWidth(label, AMOUNT_SIZE) - 24;
+  if (helveticaWidth(value, AMOUNT_SIZE) <= available) return [{ kind: "row", label, value }];
+  return [{ kind: "text", text: label, bold: true }, ...paragraphBlocks(value)];
+}
+
 export type PdfBlock =
   | { kind: "title"; text: string }
   | { kind: "heading"; text: string }

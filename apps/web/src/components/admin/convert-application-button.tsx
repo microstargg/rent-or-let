@@ -23,7 +23,7 @@ export function ConvertApplicationButton({
         body: JSON.stringify({
           action: "convert_application",
           application_id: applicationId,
-          rent_amount: rentAmount ?? 1000,
+          ...(rentAmount ? { rent_amount: rentAmount } : {}),
           start_date: new Date().toISOString().slice(0, 10),
         }),
       });
