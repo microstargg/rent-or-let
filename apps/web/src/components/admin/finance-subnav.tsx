@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 const financeLinks = [
   { href: "/finance/month-end", label: "Month end" },
   { href: "/finance/invoices", label: "Invoices" },
-  { href: "/finance/arrears", label: "Arrears" },
+  { href: "/finance/arrears", label: "Balances" },
   { href: "/finance/exceptions", label: "Exceptions" },
   { href: "/finance/statements", label: "Statements" },
   { href: "/finance/payouts", label: "Payouts" },

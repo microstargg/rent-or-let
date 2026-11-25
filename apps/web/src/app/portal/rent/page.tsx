@@ -13,6 +13,8 @@ import { getPaymentRefFromMetadata } from "@/lib/payment-ref";
 import { AdminEmptyState, AdminPageHeader, StatusBadge } from "@/components/admin/admin-page";
 import { formatDate } from "@/lib/utils";
 import { formatMoney } from "@/lib/portal-format";
+import { getTenancyCredit } from "@/lib/db/queries/tenant-credit";
+import { isOpeningArrears } from "@/lib/finance/tenant-credit";
 
 export default async function PortalRentPage() {
   const ctx = await requireRenterSession();
@@ -21,7 +23,9 @@ export default async function PortalRentPage() {
   const { branchId, renterId } = ctx.profile.profile;
   const rows = await listInvoicesForRenter(branchId, renterId);
   const tenancy = await getActiveTenancyForRenter(renterId, branchId);
-  const balance = tenancy ? await getTenancyBalance(tenancy.id) : 0;
+  const [balance, credit] = tenancy
+    ? await Promise.all([getTenancyBalance(tenancy.id), getTenancyCredit(tenancy.id)])
+    : [0, 0];
   const branch = await getBranchWithSettings(branchId);
   const account = getClientAccountDetails(branch?.settings ?? {});
   const paymentRef = tenancy ? getPaymentRefFromMetadata(tenancy.metadata) : null;
@@ -37,6 +41,11 @@ export default async function PortalRentPage() {
         <p className="text-sm text-muted-foreground">Current balance</p>
         <p className="text-2xl font-bold">{formatMoney(balance)}</p>
         <p className="text-xs text-muted-foreground">Positive = amount owed</p>
+        {credit > 0 && (
+          <p className="mt-2 text-sm text-emerald-700">
+            You&apos;re {formatMoney(credit)} in credit. We hold it for you and use it towards your next rent when it&apos;s due.
+          </p>
+        )}
       </div>
 
       <div className="mt-6">
@@ -57,7 +66,8 @@ export default async function PortalRentPage() {
           >
             <div>
               <h2 className="font-semibold capitalize">
-                {invoice.type.replaceAll("_", " ")} — {formatMoney(invoice.amount)}
+                {isOpeningArrears(invoice.meta) ? "Balance brought forward" : invoice.type.replaceAll("_", " ")} —{" "}
+                {formatMoney(invoice.amount)}
               </h2>
               <p className="mt-0.5 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
                 Due {formatDate(invoice.dueDate)}

@@ -14,6 +14,7 @@ import {
   paymentExceptions,
   tasks,
   branches,
+  landlordLedgerEntries,
 } from "../schema";
 import { getLateFeeRules, parseBranchSettings } from "@/lib/branch-settings";
 import { lateInterest, LATE_RENT_MIN_DAYS } from "@/lib/finance/late-interest";
@@ -118,7 +119,7 @@ export async function getAllocatedTotalForInvoice(invoiceId: string): Promise<nu
   return Number(row?.total ?? 0);
 }
 
-async function getTenancyContext(tenancyId: string) {
+export async function getTenancyContext(tenancyId: string) {
   const [row] = await db
     .select({
       tenancyId: tenancies.id,
@@ -232,7 +233,7 @@ export async function createInvoices(
   return created;
 }
 
-async function refreshInvoiceStatus(invoiceId: string) {
+export async function refreshInvoiceStatus(invoiceId: string) {
   const invoice = await getInvoiceById(invoiceId);
   if (!invoice || invoice.status === "void") return invoice;
 
@@ -252,7 +253,7 @@ async function refreshInvoiceStatus(invoiceId: string) {
 }
 
 /** Open tenant-payable invoices for a tenancy, oldest due first. */
-async function listOpenTenancyInvoices(tenancyId: string) {
+export async function listOpenTenancyInvoices(tenancyId: string) {
   return db
     .select()
     .from(invoices)
@@ -271,8 +272,12 @@ async function listOpenTenancyInvoices(tenancyId: string) {
  * Record a payment and allocate to an invoice. Supports partials and overpayments.
  * With `spillToTenancy`, money left after the target invoice clears the tenancy's other
  * open invoices oldest first (a tenant catching up on arrears, or paying in advance)
- * before anything is flagged as an overpayment. `paidAt` dates the payment and every
- * ledger line, so a bank receipt lands on the statement for the day it was banked.
+ * before anything is left over. `paidAt` dates the payment and every ledger line, so a
+ * bank receipt lands on the statement for the day it was banked.
+ *
+ * Anything left over stays on the payment unallocated: that is the tenant's credit
+ * (see tenant-credit.ts), held in the client account until it is used against rent
+ * on its due date or refunded.
  */
 export async function recordPaymentAndAllocate(data: {
   branchId: string;
@@ -345,6 +350,8 @@ export async function recordPaymentAndAllocate(data: {
       paymentId: payment.id,
       invoiceId: target.id,
       amount: String(allocateAmount),
+      // Allocated when the money arrived, so month end sees it on the right day.
+      createdAt: paidAt,
     });
     await insertLedgerEntry({
       branchId: data.branchId,
@@ -381,14 +388,17 @@ export async function recordPaymentAndAllocate(data: {
   let exception = null;
   const overpay = Math.round(left * 100) / 100;
   if (overpay > 0.001) {
-    exception = await createPaymentException({
+    await insertLedgerEntry({
       branchId: data.branchId,
       tenancyId: data.tenancyId,
+      propertyId: ctx?.propertyId,
+      landlordId: ctx?.landlordId,
+      entryType: "credit",
+      amount: 0,
       paymentId: payment.id,
-      invoiceId: data.invoiceId,
-      kind: "overpayment",
-      amount: overpay,
-      note: `Overpayment of £${overpay.toFixed(2)}`,
+      memo: `£${overpay.toFixed(2)} more than was due, kept as credit`,
+      meta: { credit: overpay },
+      occurredAt: paidAt,
     });
   } else if (payAmount + 0.001 < targetRemaining && payAmount > 0) {
     exception = await createPaymentException({
@@ -403,7 +413,7 @@ export async function recordPaymentAndAllocate(data: {
   }
 
   const updatedInvoice = await getInvoiceById(data.invoiceId);
-  return { payment, invoice: updatedInvoice, exception };
+  return { payment, invoice: updatedInvoice, exception, credit: overpay > 0.001 ? overpay : 0 };
 }
 
 export async function markInvoicePaid(invoiceId: string, method = "bank_transfer") {
@@ -676,6 +686,8 @@ export async function applyLateFeesForBranch(branchId: string, now = new Date())
   let total = 0;
   for (const inv of overdue) {
     if (!inv.tenancyId) continue;
+    // Arrears brought over from a previous agent: interest is for the agency to decide by hand.
+    if ((inv.meta as { opening_balance?: boolean } | null)?.opening_balance) continue;
     const allocated = await getAllocatedTotalForInvoice(inv.id);
     const outstanding = Math.max(0, Number(inv.amount) - allocated);
     const { interest, rate, days } = lateInterest({
@@ -831,23 +843,24 @@ export async function getLandlordStatementData(
   const fromIso = `${from}T00:00:00.000Z`;
   const toIso = `${to}T23:59:59.999Z`;
 
+  // Rent passed to the landlord's account, not raw receipts: money a tenant paid ahead
+  // is held for the tenant until the rent it covers falls due.
   const rows = await db
     .select({
-      amount: payments.amount,
+      amount: landlordLedgerEntries.amount,
       landlordId: landlords.id,
       firstName: landlords.firstName,
       lastName: landlords.lastName,
     })
-    .from(payments)
-    .innerJoin(tenancies, eq(payments.tenancyId, tenancies.id))
-    .innerJoin(properties, eq(tenancies.propertyId, properties.id))
-    .innerJoin(landlords, eq(properties.landlordId, landlords.id))
+    .from(landlordLedgerEntries)
+    .innerJoin(landlords, eq(landlordLedgerEntries.landlordId, landlords.id))
     .where(
       and(
-        eq(payments.branchId, branchId),
-        agencyEq(payments.agencyId),
-        gte(payments.paidAt, new Date(fromIso)),
-        lte(payments.paidAt, new Date(toIso))
+        eq(landlordLedgerEntries.branchId, branchId),
+        agencyEq(landlordLedgerEntries.agencyId),
+        eq(landlordLedgerEntries.entryType, "rent_received"),
+        gte(landlordLedgerEntries.occurredAt, new Date(fromIso)),
+        lte(landlordLedgerEntries.occurredAt, new Date(toIso))
       )
     );
 

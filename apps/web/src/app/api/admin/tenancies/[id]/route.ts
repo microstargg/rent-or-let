@@ -92,6 +92,22 @@ const actionSchema = z.discriminatedUnion("action", [
     forwarding_address: z.string().max(400).optional().nullable(),
     save_contacts: z.boolean().optional(),
   }),
+  z.object({ action: z.literal("apply_credit") }),
+  z.object({
+    action: z.literal("refund_credit"),
+    amount: z.number().positive().max(1000000),
+    paid_on: isoDate,
+    reference: z.string().trim().max(80).optional().nullable(),
+    note: z.string().trim().max(500).optional().nullable(),
+  }),
+  z.object({
+    action: z.literal("opening_balance"),
+    /** null clears it. */
+    kind: z.enum(["arrears", "credit"]).nullable(),
+    amount: z.number().min(0).max(1000000).optional(),
+    as_of: isoDate.optional(),
+    note: z.string().trim().max(500).optional().nullable(),
+  }),
   z.object({
     action: z.literal("send_agreement"),
     additional_terms: z.string().max(8000).optional().nullable(),
@@ -220,6 +236,53 @@ export async function PATCH(
       });
       await log("section_8_served", `Section 8 notice served on grounds ${body.grounds.join(", ")}`, { noticeId: notice?.id });
       return NextResponse.json({ notice, check }, { status: 201 });
+    }
+
+    case "apply_credit": {
+      const { applyTenantCredit } = await import("@/lib/db/queries/tenant-credit");
+      // Staff choice: use it against everything already raised, not only what's due today.
+      const result = await applyTenantCredit(id, { dueBy: null });
+      if (result.applied > 0) {
+        await log("credit_applied", `Credit of ${formatCurrency(result.applied)} used against rent`, result);
+      }
+      return NextResponse.json(result);
+    }
+
+    case "refund_credit": {
+      const { refundTenantCredit } = await import("@/lib/db/queries/tenant-credit");
+      const result = await refundTenantCredit({
+        tenancyId: id,
+        amount: body.amount,
+        paidAt: new Date(`${body.paid_on}T12:00:00.000Z`),
+        reference: body.reference,
+        note: body.note,
+      });
+      if ("error" in result) return NextResponse.json({ error: result.error }, { status: 400 });
+      await log("credit_refunded", `Credit of ${formatCurrency(body.amount)} refunded to tenant`, {
+        reference: body.reference ?? null,
+      });
+      return NextResponse.json(result);
+    }
+
+    case "opening_balance": {
+      const { setOpeningBalance } = await import("@/lib/db/queries/tenant-credit");
+      if (body.kind && (!body.amount || !body.as_of)) {
+        return NextResponse.json({ error: "Enter the amount and the date it was correct on" }, { status: 400 });
+      }
+      const result = await setOpeningBalance(
+        id,
+        body.kind && body.amount && body.as_of
+          ? { kind: body.kind, amount: body.amount, asOf: body.as_of, note: body.note }
+          : null
+      );
+      if ("error" in result) return NextResponse.json({ error: result.error }, { status: 400 });
+      await log(
+        "opening_balance_set",
+        result.opening
+          ? `Opening ${result.opening.kind === "arrears" ? "arrears" : "credit"} of ${formatCurrency(result.opening.amount)} as of ${result.opening.asOf}`
+          : "Opening balance removed"
+      );
+      return NextResponse.json(result);
     }
 
     case "payment_plan": {

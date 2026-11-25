@@ -139,6 +139,14 @@ export function LandlordStatementView({
       <section className="mt-8">
         <hr className="mb-3 border-neutral-300" />
         <AmountRow label="Total net due to landlord" value={totals.net} bold />
+        {totals.heldForTenants && totals.heldForTenants > 0 ? (
+          <div className="mt-4">
+            <AmountRow label="Rent paid in advance, held for tenants" value={totals.heldForTenants} />
+            <p className="mt-1 text-xs text-neutral-500">
+              Not included above. It is passed to you when the rent it covers falls due.
+            </p>
+          </div>
+        ) : null}
         <p className="mt-6 text-xs leading-relaxed text-neutral-500">
           This statement is generated from the landlord ledger for the dates above. Positive net is
           owed to the landlord; negative means the landlord owes the agency.

@@ -11,6 +11,7 @@ import {
 import { getBranchWithSettings, updateBranchSettings } from "./operations";
 import { parseBranchSettings, type ClientAccountCheck } from "@/lib/branch-settings";
 import type { MonthPeriod } from "./month-end";
+import { totalTenantCreditAt } from "./tenant-credit";
 
 function money(v: unknown): number {
   return Math.round(Number(v ?? 0) * 100) / 100;
@@ -21,7 +22,8 @@ function money(v: unknown): number {
  * Deposits are held by the deposit schemes, so they are not part of it.
  *
  *   owed to landlords
- * + money in not yet allocated (open exceptions)
+ * + credit held for tenants (overpaid, paid ahead, opening credit; see tenant-credit.ts)
+ * + money in not yet allocated (open unmatched bank receipts)
  * + management fees + works charged to landlords   (agency money until moved out)
  * − contractor payments seen in the bank
  * − other payments out marked as expected (fee transfers, bank charges…)
@@ -54,6 +56,9 @@ export async function getClientAccountCheck(branchId: string, period: MonthPerio
         eq(paymentExceptions.branchId, branchId),
         agencyEq(paymentExceptions.agencyId),
         eq(paymentExceptions.status, "open"),
+        // Only receipts nobody has matched yet. Partial payments record money still owed, not
+        // money held, and overpayments are counted as tenant credit.
+        eq(paymentExceptions.kind, "unmatched"),
         lte(paymentExceptions.createdAt, end)
       )
     );
@@ -89,18 +94,20 @@ export async function getClientAccountCheck(branchId: string, period: MonthPerio
     );
 
   // Independent queries: run them together rather than one after another.
-  const [[ledger], [exceptions], [out], [inTransit], branch, suggestedBalance] = await Promise.all([
+  const [[ledger], [exceptions], [out], [inTransit], branch, suggestedBalance, tenantCredit] = await Promise.all([
     ledgerQ,
     exceptionsQ,
     outQ,
     inTransitQ,
     getBranchWithSettings(branchId),
     closingBalanceFromStatement(branchId, end),
+    totalTenantCreditAt(branchId, end),
   ]);
 
   const lines = [
     { label: "Owed to landlords", amount: money(ledger?.landlords) },
-    { label: "Money in not yet allocated (exceptions)", amount: money(exceptions?.total) },
+    { label: "Held for tenants (credit)", amount: money(tenantCredit) },
+    { label: "Money in not yet matched (exceptions)", amount: money(exceptions?.total) },
     { label: "Management fees taken", amount: money(ledger?.fees) },
     { label: "Works charged to landlords", amount: money(ledger?.works) },
     { label: "Less: paid to contractors", amount: -money(out?.contractors) },

@@ -43,7 +43,7 @@ const navSections: SidebarNavSection[] = [
     items: [
       { href: "/finance/month-end", label: "Month end", icon: CalendarCheck },
       { href: "/finance/invoices", label: "Invoices", icon: Receipt },
-      { href: "/finance/arrears", label: "Arrears", icon: AlertTriangle },
+      { href: "/finance/arrears", label: "Balances", icon: AlertTriangle },
       { href: "/finance/exceptions", label: "Exceptions", icon: Scale },
       { href: "/finance/statements", label: "Statements", icon: ClipboardList },
       { href: "/finance/payouts", label: "Payouts", icon: Banknote },

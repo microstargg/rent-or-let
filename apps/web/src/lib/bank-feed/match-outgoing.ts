@@ -7,9 +7,13 @@ import {
   contractors,
   landlordPayouts,
   landlords,
+  payments,
+  renters,
+  tenancies,
   tickets,
   workOrders,
 } from "@/lib/db/schema";
+import { REFUND_METHOD } from "@/lib/db/queries/tenant-credit";
 import {
   listUnmatchedOutgoingTransactions,
   updateBankTransaction,
@@ -19,7 +23,7 @@ import { workOrderContractorCost } from "@/lib/operations/maintenance/work-order
 const DAY = 86_400_000;
 
 export interface OutgoingCandidate {
-  kind: "payout" | "contractor";
+  kind: "payout" | "contractor" | "refund";
   id: string;
   amount: number;
   date: Date;
@@ -30,10 +34,10 @@ export interface OutgoingCandidate {
   label: string;
 }
 
-/** Landlord payouts and completed contractor jobs that no bank line has been tied to yet. */
+/** Landlord payouts, completed contractor jobs and tenant refunds that no bank line has been tied to yet. */
 export async function listExpectedOutgoings(branchId: string): Promise<OutgoingCandidate[]> {
   await ensureBankFeed();
-  const [payouts, jobs] = await Promise.all([
+  const [payouts, jobs, refunds] = await Promise.all([
     db
     .select({
       payout: landlordPayouts,
@@ -65,6 +69,20 @@ export async function listExpectedOutgoings(branchId: string): Promise<OutgoingC
         isNull(bankTransactions.id)
       )
     ),
+    db
+    .select({ payment: payments, firstName: renters.firstName, lastName: renters.lastName })
+    .from(payments)
+    .innerJoin(tenancies, eq(payments.tenancyId, tenancies.id))
+    .innerJoin(renters, eq(tenancies.primaryRenterId, renters.id))
+    .leftJoin(bankTransactions, eq(bankTransactions.paymentId, payments.id))
+    .where(
+      and(
+        eq(payments.branchId, branchId),
+        eq(payments.method, REFUND_METHOD),
+        agencyEq(payments.agencyId),
+        isNull(bankTransactions.id)
+      )
+    ),
   ]);
 
   return [
@@ -91,7 +109,23 @@ export async function listExpectedOutgoings(branchId: string): Promise<OutgoingC
         label: `${contractorName ?? "Contractor"} — ${summary}`,
       }))
       .filter((c) => c.amount > 0),
+    ...refunds.map(({ payment, firstName, lastName }) => ({
+      kind: "refund" as const,
+      id: payment.id,
+      amount: Math.abs(Number(payment.amount)),
+      date: payment.paidAt,
+      before: 10 * DAY,
+      after: 10 * DAY,
+      names: [firstName, lastName],
+      label: `Credit refund to ${`${firstName} ${lastName}`.trim()}`,
+    })),
   ];
+}
+
+function linkFor(kind: OutgoingCandidate["kind"], id: string) {
+  if (kind === "payout") return { landlordPayoutId: id };
+  if (kind === "contractor") return { workOrderId: id };
+  return { paymentId: id };
 }
 
 function nameTokens(names: string[]): string[] {
@@ -151,7 +185,7 @@ export async function matchOutgoingBankTransactions(branchId: string) {
     if (pick) {
       await updateBankTransaction(txn.id, {
         matchStatus: "matched",
-        ...(pick.kind === "payout" ? { landlordPayoutId: pick.id } : { workOrderId: pick.id }),
+        ...linkFor(pick.kind, pick.id),
       });
       candidates.splice(candidates.indexOf(pick), 1);
       matched += 1;
@@ -165,12 +199,12 @@ export async function matchOutgoingBankTransactions(branchId: string) {
   return { matched, unmatched };
 }
 
-/** Manually tie an outgoing line to a payout or job, or mark it as expected (fee transfer, bank charge…). */
+/** Manually tie an outgoing line to a payout, job or refund, or mark it as expected (fee transfer, bank charge…). */
 export async function resolveOutgoingTransaction(
   branchId: string,
   txnId: string,
   resolution:
-    | { kind: "payout" | "contractor"; id: string }
+    | { kind: "payout" | "contractor" | "refund"; id: string }
     | { kind: "other"; note: string }
 ) {
   await ensureBankFeed();
@@ -200,9 +234,7 @@ export async function resolveOutgoingTransaction(
   if (!open.some((c) => c.kind === resolution.kind && c.id === resolution.id)) return null;
   return updateBankTransaction(txn.id, {
     matchStatus: "matched",
-    ...(resolution.kind === "payout"
-      ? { landlordPayoutId: resolution.id }
-      : { workOrderId: resolution.id }),
+    ...linkFor(resolution.kind, resolution.id),
     raw: { ...raw, matched_manually: true },
   });
 }
@@ -212,7 +244,7 @@ export async function reopenOutgoingTransaction(branchId: string, txnId: string)
   await ensureBankFeed();
   const [row] = await db
     .update(bankTransactions)
-    .set({ matchStatus: "unmatched", landlordPayoutId: null, workOrderId: null })
+    .set({ matchStatus: "unmatched", landlordPayoutId: null, workOrderId: null, paymentId: null })
     .where(
       and(
         eq(bankTransactions.id, txnId),

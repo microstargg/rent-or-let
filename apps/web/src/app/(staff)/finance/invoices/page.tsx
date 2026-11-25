@@ -84,7 +84,7 @@ export default async function AdminInvoicesPage() {
                 return (
                   <tr key={invoice.id} className="align-top">
                     <td className="px-4 py-3">
-                      <p className="font-medium">{invoiceTypeLabel(invoice.type)}</p>
+                      <p className="font-medium">{invoiceTypeLabel(invoice.type, invoice.meta)}</p>
                       <p className="text-muted-foreground">
                         £{Number(invoice.amount).toFixed(2)}
                       </p>
