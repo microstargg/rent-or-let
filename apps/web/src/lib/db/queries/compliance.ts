@@ -169,10 +169,16 @@ export async function updateComplianceItem(
       existing.type
     );
 
+  // A new expiry date starts the landlord reminder cycle again.
+  const meta =
+    data.expiresAt !== undefined && data.expiresAt !== existing.expiresAt
+      ? { ...((existing.meta ?? {}) as Record<string, unknown>), landlordReminders: [] }
+      : undefined;
   const [row] = await db
     .update(complianceItems)
     .set({
       ...data,
+      ...(meta && { meta }),
       status,
       updatedAt: new Date(),
     })
@@ -508,4 +514,17 @@ export async function updatePropertyComplianceSettings(
     .where(and(eq(properties.id, propertyId), agencyEq(properties.agencyId)))
     .returning({ id: properties.id });
   return row ?? null;
+}
+
+/** Merge keys into a compliance item's meta (used to record reminder sends). */
+export async function mergeComplianceItemMeta(id: string, patch: Record<string, unknown>) {
+  await ensureAgency();
+  const existing = await getComplianceItemById(id);
+  if (!existing) return null;
+  const meta = { ...((existing.meta ?? {}) as Record<string, unknown>), ...patch };
+  await db
+    .update(complianceItems)
+    .set({ meta })
+    .where(and(eq(complianceItems.id, id), agencyEq(complianceItems.agencyId)));
+  return meta;
 }

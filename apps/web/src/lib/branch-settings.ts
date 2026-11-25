@@ -38,6 +38,8 @@ export interface BranchSettings {
   /** Redress scheme membership (TPO or PRS), shown on agreements and checked before advertising. */
   redress_scheme?: "tpo" | "prs" | string;
   redress_member_number?: string;
+  /** Email landlords about expiring and missing compliance records (off by default). */
+  landlord_compliance_emails?: boolean;
   /** Block portal sync when the landlord has no PRS Database registration number. */
   require_prs_number?: boolean;
   /** Council tax, water and energy contacts for move-in / move-out notices. */

@@ -4,9 +4,8 @@ import {
   listPropertiesForLandlord,
   getLandlordBalance,
   listTicketsForLandlord,
-  listComplianceItems,
 } from "@/lib/db/queries";
-import { itemStatus } from "@/lib/compliance/requirements";
+import { getLandlordCompliance } from "@/lib/compliance/landlord-view";
 import { AdminEmptyState, AdminSection, AdminPageHeader, StatusBadge } from "@/components/admin/admin-page";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -22,21 +21,16 @@ export default async function LandlordPortalHome() {
     listPropertiesForLandlord(landlordId),
     getLandlordBalance(landlordId),
     listTicketsForLandlord(landlordId),
-    listComplianceItems(branchId),
+    getLandlordCompliance(landlordId, branchId),
   ]);
 
   const propIds = new Set(props.map((p) => p.id));
   const openTickets = tickets.filter(
     (t) => !["completed", "cancelled"].includes(t.ticket.status)
   );
-  const complianceAlerts = compliance
-    .filter((c) => propIds.has(c.item.propertyId))
-    .map((c) => ({
-      ...c,
-      status: itemStatus(c.item),
-    }))
-    .filter((c) => c.status !== "valid")
-    .sort((a, b) => (a.item.expiresAt ?? "").localeCompare(b.item.expiresAt ?? ""));
+  const complianceAlerts = compliance.all
+    .filter((r) => r.status !== "valid")
+    .sort((a, b) => (a.item?.expiresAt ?? "").localeCompare(b.item?.expiresAt ?? ""));
 
   const stats = [
     {
@@ -91,16 +85,16 @@ export default async function LandlordPortalHome() {
       {complianceAlerts.length > 0 && (
         <AdminSection
           title="Compliance needing attention"
-          description="Certificates that are missing, expired or expire within 30 days"
+          description="Certificates and checks that are not on file, expired or expiring soon"
         >
           <ul className="divide-y rounded-xl border bg-card">
-            {complianceAlerts.slice(0, 5).map(({ item, propertyAddress, status }) => (
-              <li key={item.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+            {complianceAlerts.slice(0, 5).map(({ key, type, item, propertyId, propertyAddress, status }) => (
+              <li key={`${propertyId}:${key}`} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
                 <div className="min-w-0">
-                  <p className="font-medium">{complianceLabel(item.type)}</p>
+                  <p className="font-medium">{complianceLabel(type)}</p>
                   <p className="text-sm text-muted-foreground">
                     {propertyAddress}
-                    {item.expiresAt ? ` · expires ${formatDate(item.expiresAt)}` : ""}
+                    {item?.expiresAt ? ` · expires ${formatDate(item.expiresAt)}` : item ? "" : " · not on file yet"}
                   </p>
                 </div>
                 <StatusBadge status={status} />
