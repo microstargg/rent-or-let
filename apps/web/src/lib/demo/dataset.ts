@@ -583,11 +583,15 @@ export function buildDemoDataset(today: Date = new Date()): DemoDataset {
       items.push(
         { type: "deposit_pi", issued: addDays(tenancy.start, 9), expires: null, tenancy: true, status: "valid" },
         { type: "right_to_rent", issued: addDays(tenancy.start, -10), expires: null, tenancy: true, status: "valid" },
+        { type: "smoke_co", issued: tenancy.start, expires: null, tenancy: true, status: "valid" },
         // Two recent tenancies still waiting on the RRA information sheet.
         i === 24 || i === 25
           ? { type: "rra_info_sheet", issued: null, expires: null, tenancy: true, status: "missing" }
           : { type: "rra_info_sheet", issued: addMonths(now, -1), expires: null, tenancy: true, status: "valid" }
       );
+      if (isoDate(tenancy.start) >= "2026-05-01") {
+        items.push({ type: "written_terms", issued: addDays(tenancy.start, -3), expires: null, tenancy: true, status: "valid" });
+      }
     }
     for (const item of items) {
       let status = item.status;

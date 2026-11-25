@@ -1,30 +1,36 @@
 import { eq, and, desc, sql, inArray } from "drizzle-orm";
 import { db } from "../index";
 import { agencyEq, currentAgencyId, ensureAgency } from "../agency-scope";
-import { complianceItems, documents, properties, tasks } from "../schema";
+import { complianceItems, documents, properties, tasks, tenancies, tenancyAgreements } from "../schema";
 import { createTask } from "./finance";
+import {
+  computeStatus,
+  hasEvidence,
+  propertyRequirements,
+  scoreRequirements,
+  type Requirement,
+} from "@/lib/compliance/requirements";
 
 export const TENANCY_COMPLIANCE_TYPES = [
   "gas_safety",
   "epc",
+  "smoke_co",
   "deposit_pi",
   "rra_info_sheet",
   "right_to_rent",
 ] as const;
 
+/**
+ * Status for a record. `hasEvidence` should come from `hasEvidence()` in
+ * lib/compliance/requirements: a file, reference, issue date or "seen" tick.
+ * An expiry date with no evidence counts as missing.
+ */
 export function computeComplianceStatus(
   expiresAt: string | null | undefined,
-  hasDocument: boolean
+  evidence: boolean,
+  type?: string
 ): "missing" | "valid" | "expiring" | "expired" {
-  if (!expiresAt && !hasDocument) return "missing";
-  if (!expiresAt) return hasDocument ? "valid" : "missing";
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const exp = new Date(expiresAt);
-  const days = Math.floor((exp.getTime() - today.getTime()) / 86400000);
-  if (days < 0) return "expired";
-  if (days <= 30) return "expiring";
-  return "valid";
+  return computeStatus(expiresAt, evidence, type);
 }
 
 export async function createDocument(data: {
@@ -109,7 +115,15 @@ export async function createComplianceItem(data: {
   await ensureAgency();
   const status =
     data.status ??
-    computeComplianceStatus(data.expiresAt, Boolean(data.documentId));
+    computeComplianceStatus(
+      data.expiresAt,
+      hasEvidence({
+        documentId: data.documentId ?? null,
+        reference: data.reference ?? null,
+        issuedAt: data.issuedAt ?? null,
+      }),
+      data.type
+    );
   const [row] = await db
     .insert(complianceItems)
     .values({
@@ -145,9 +159,15 @@ export async function updateComplianceItem(
 
   const expiresAt = data.expiresAt !== undefined ? data.expiresAt : existing.expiresAt;
   const documentId = data.documentId !== undefined ? data.documentId : existing.documentId;
+  const reference = data.reference !== undefined ? data.reference : existing.reference;
+  const issuedAt = data.issuedAt !== undefined ? data.issuedAt : existing.issuedAt;
   const status =
     data.status ??
-    computeComplianceStatus(expiresAt, Boolean(documentId));
+    computeComplianceStatus(
+      expiresAt,
+      hasEvidence({ documentId, reference, issuedAt, meta: existing.meta }),
+      existing.type
+    );
 
   const [row] = await db
     .update(complianceItems)
@@ -232,37 +252,90 @@ export async function seedTenancyComplianceChecklist(data: {
   return created;
 }
 
+/**
+ * Every requirement for the branch's properties (or one property), matched
+ * against recorded items. Missing requirements are included.
+ */
+export async function listBranchRequirements(
+  branchId: string,
+  opts: { propertyIds?: string[] } = {}
+): Promise<
+  {
+    property: { id: string; displayAddress: string; landlordId: string | null; metadata: unknown };
+    requirements: Requirement[];
+  }[]
+> {
+  await ensureAgency();
+  const propFilter = opts.propertyIds
+    ? opts.propertyIds.length
+      ? inArray(properties.id, opts.propertyIds)
+      : sql`false`
+    : undefined;
+  const props = await db
+    .select({
+      id: properties.id,
+      displayAddress: properties.displayAddress,
+      landlordId: properties.landlordId,
+      metadata: properties.metadata,
+    })
+    .from(properties)
+    .where(and(eq(properties.branchId, branchId), agencyEq(properties.agencyId), propFilter));
+  if (!props.length) return [];
+  const ids = props.map((p) => p.id);
+  const [tenancyRows, itemRows, signed] = await Promise.all([
+    db
+      .select({
+        id: tenancies.id,
+        propertyId: tenancies.propertyId,
+        startDate: tenancies.startDate,
+        status: tenancies.status,
+        depositAmount: tenancies.depositAmount,
+      })
+      .from(tenancies)
+      .where(and(inArray(tenancies.propertyId, ids), agencyEq(tenancies.agencyId))),
+    db
+      .select()
+      .from(complianceItems)
+      .where(and(inArray(complianceItems.propertyId, ids), agencyEq(complianceItems.agencyId))),
+    db
+      .select({ tenancyId: tenancyAgreements.tenancyId })
+      .from(tenancyAgreements)
+      .where(and(eq(tenancyAgreements.status, "signed"), agencyEq(tenancyAgreements.agencyId)))
+      .catch(() => [] as { tenancyId: string }[]),
+  ]);
+  const signedIds = new Set(signed.map((s) => s.tenancyId));
+  return props.map((p) => ({
+    property: { id: p.id, displayAddress: p.displayAddress, landlordId: p.landlordId, metadata: p.metadata },
+    requirements: propertyRequirements({
+      property: p,
+      tenancies: tenancyRows,
+      items: itemRows,
+      signedAgreementTenancyIds: signedIds,
+    }),
+  }));
+}
+
 export async function getPropertyComplianceScore(propertyId: string) {
   await ensureAgency();
-  const items = await db
-    .select()
-    .from(complianceItems)
-    .where(and(eq(complianceItems.propertyId, propertyId), agencyEq(complianceItems.agencyId)));
-  if (items.length === 0) return { score: 100, total: 0, valid: 0, missing: 0, expiring: 0, expired: 0 };
-  const counts = { valid: 0, missing: 0, expiring: 0, expired: 0 };
-  for (const i of items) {
-    if (i.status === "valid") counts.valid += 1;
-    else if (i.status === "expiring") counts.expiring += 1;
-    else if (i.status === "expired") counts.expired += 1;
-    else counts.missing += 1;
-  }
-  const score = Math.round((counts.valid / items.length) * 100);
-  return { score, total: items.length, ...counts };
+  const [p] = await db
+    .select({ branchId: properties.branchId })
+    .from(properties)
+    .where(and(eq(properties.id, propertyId), agencyEq(properties.agencyId)))
+    .limit(1);
+  if (!p) return scoreRequirements([]);
+  const [row] = await listBranchRequirements(p.branchId, { propertyIds: [propertyId] });
+  return scoreRequirements(row?.requirements ?? []);
 }
 
 export async function listPropertyComplianceScores(branchId: string) {
-  await ensureAgency();
-  const props = await db
-    .select({ id: properties.id, displayAddress: properties.displayAddress })
-    .from(properties)
-    .where(and(eq(properties.branchId, branchId), agencyEq(properties.agencyId)));
-
-  const results = [];
-  for (const p of props) {
-    const score = await getPropertyComplianceScore(p.id);
-    results.push({ propertyId: p.id, propertyAddress: p.displayAddress, ...score });
-  }
-  return results.sort((a, b) => a.score - b.score);
+  const rows = await listBranchRequirements(branchId);
+  return rows
+    .map(({ property, requirements }) => ({
+      propertyId: property.id,
+      propertyAddress: property.displayAddress,
+      ...scoreRequirements(requirements),
+    }))
+    .sort((a, b) => a.score - b.score);
 }
 
 export async function refreshComplianceStatuses(branchId: string) {
@@ -283,7 +356,7 @@ export async function refreshComplianceStatuses(branchId: string) {
     expiresAt: string | null;
   }[] = [];
   for (const item of items) {
-    const next = computeComplianceStatus(item.expiresAt, Boolean(item.documentId));
+    const next = computeComplianceStatus(item.expiresAt, hasEvidence(item), item.type);
     if (next !== item.status && (next === "expiring" || next === "expired")) {
       changed.push({
         id: item.id,
@@ -410,4 +483,29 @@ export async function countComplianceIssues(branchId: string) {
       )
     );
   return row?.value ?? 0;
+}
+
+/** Save gas supply and licensing settings into properties.metadata.compliance. */
+export async function updatePropertyComplianceSettings(
+  propertyId: string,
+  settings: { gasSupply?: boolean; licensing?: "hmo" | "selective" | "additional" | null }
+) {
+  await ensureAgency();
+  const [p] = await db
+    .select({ metadata: properties.metadata })
+    .from(properties)
+    .where(and(eq(properties.id, propertyId), agencyEq(properties.agencyId)))
+    .limit(1);
+  if (!p) return null;
+  const metadata = (p.metadata ?? {}) as Record<string, unknown>;
+  const current = (metadata.compliance ?? {}) as Record<string, unknown>;
+  const next = { ...current };
+  if (settings.gasSupply !== undefined) next.gasSupply = settings.gasSupply;
+  if (settings.licensing !== undefined) next.licensing = settings.licensing;
+  const [row] = await db
+    .update(properties)
+    .set({ metadata: { ...metadata, compliance: next }, updatedAt: new Date() })
+    .where(and(eq(properties.id, propertyId), agencyEq(properties.agencyId)))
+    .returning({ id: properties.id });
+  return row ?? null;
 }

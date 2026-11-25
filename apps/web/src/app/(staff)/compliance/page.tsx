@@ -2,9 +2,11 @@ import Link from "next/link";
 import {
   getDefaultBranch,
   listComplianceItems,
-  listPropertyComplianceScores,
   listAllProperties,
 } from "@/lib/db/queries";
+import { listBranchRequirements } from "@/lib/db/queries/compliance";
+import { complianceLabel } from "@/lib/portal-format";
+import { scoreRequirements } from "@/lib/compliance/requirements";
 import { ComplianceActions } from "@/components/admin/compliance-actions";
 import { ComplianceCreateForm } from "@/components/admin/compliance-create-form";
 import {
@@ -19,12 +21,24 @@ import { formatDate } from "@/lib/utils";
 export default async function AdminCompliancePage() {
   const branch = await getDefaultBranch();
   const items = branch ? await listComplianceItems(branch.id) : [];
-  const scores = branch ? await listPropertyComplianceScores(branch.id) : [];
+  const requirementRows = branch ? await listBranchRequirements(branch.id) : [];
+  const scores = requirementRows
+    .map(({ property, requirements }) => ({
+      propertyId: property.id,
+      propertyAddress: property.displayAddress,
+      ...scoreRequirements(requirements),
+    }))
+    .sort((a, b) => a.score - b.score);
+  const gaps = requirementRows.flatMap(({ property, requirements }) =>
+    requirements
+      .filter((r) => r.required && !r.item)
+      .map((r) => ({ ...r, propertyAddress: property.displayAddress }))
+  );
   const properties = await listAllProperties();
   const atRisk = scores.filter((s) => s.score < 80 || s.expired > 0 || s.expiring > 0);
   const expiredCount = items.filter((i) => i.item.status === "expired").length;
   const expiringCount = items.filter((i) => i.item.status === "expiring").length;
-  const missingCount = items.filter((i) => i.item.status === "missing").length;
+  const missingCount = items.filter((i) => i.item.status === "missing").length + gaps.length;
 
   const sortedItems = [...items].sort((a, b) => {
     const order = { expired: 0, expiring: 1, missing: 2, valid: 3 };
@@ -85,6 +99,33 @@ export default async function AdminCompliancePage() {
             title="No compliance scores yet"
             description="Add certificates below, or create a tenancy to seed the move-in checklist."
           />
+        )}
+      </AdminSection>
+
+      <AdminSection
+        title="Not on file"
+        description="Records the law needs for these properties and tenancies that haven't been added yet"
+      >
+        {gaps.length ? (
+          <ul className="divide-y rounded-xl border bg-card">
+            {gaps.slice(0, 50).map((g) => (
+              <li key={`${g.propertyId}:${g.key}`} className="flex flex-wrap items-start justify-between gap-3 px-4 py-3">
+                <div className="min-w-0">
+                  <Link href={`/properties/${g.propertyId}`} className="font-medium hover:underline">
+                    {complianceLabel(g.type)}
+                  </Link>
+                  <p className="text-sm text-muted-foreground">{g.propertyAddress}</p>
+                  <p className="text-xs text-muted-foreground">{g.reason}</p>
+                </div>
+                <StatusBadge status="missing" />
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <AdminEmptyState title="Nothing missing" description="Every property has the records it needs on file." />
+        )}
+        {gaps.length > 50 && (
+          <p className="mt-2 text-xs text-muted-foreground">Showing 50 of {gaps.length}.</p>
         )}
       </AdminSection>
 

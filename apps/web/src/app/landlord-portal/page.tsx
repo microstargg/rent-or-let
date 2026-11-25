@@ -6,7 +6,7 @@ import {
   listTicketsForLandlord,
   listComplianceItems,
 } from "@/lib/db/queries";
-import { computeComplianceStatus } from "@/lib/db/queries/compliance";
+import { itemStatus } from "@/lib/compliance/requirements";
 import { AdminEmptyState, AdminSection, AdminPageHeader, StatusBadge } from "@/components/admin/admin-page";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -33,7 +33,7 @@ export default async function LandlordPortalHome() {
     .filter((c) => propIds.has(c.item.propertyId))
     .map((c) => ({
       ...c,
-      status: computeComplianceStatus(c.item.expiresAt, Boolean(c.item.documentId)),
+      status: itemStatus(c.item),
     }))
     .filter((c) => c.status !== "valid")
     .sort((a, b) => (a.item.expiresAt ?? "").localeCompare(b.item.expiresAt ?? ""));

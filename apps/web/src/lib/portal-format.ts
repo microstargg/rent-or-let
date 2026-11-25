@@ -20,6 +20,8 @@ const COMPLIANCE_LABELS: Record<string, string> = {
   deposit_pi: "Deposit prescribed information",
   rra_info_sheet: "Renters' Rights Act information sheet",
   right_to_rent: "Right to rent check",
+  smoke_co: "Smoke and CO alarm check",
+  written_terms: "Written statement of tenancy terms",
   hmo_licence: "HMO licence",
   selective_licence: "Selective licence",
   additional_licence: "Additional HMO licence",
