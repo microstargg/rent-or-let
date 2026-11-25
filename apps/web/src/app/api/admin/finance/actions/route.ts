@@ -20,6 +20,7 @@ const bodySchema = z.object({
   action: z.string(),
   exceptionId: z.string().uuid().optional(),
   invoiceId: z.string().uuid().optional(),
+  landlordId: z.string().uuid().optional(),
 });
 
 export async function POST(request: Request) {
@@ -36,6 +37,25 @@ export async function POST(request: Request) {
   if (body.action === "apply_late_fees") {
     const result = await applyLateFeesForBranch(branch.id);
     return NextResponse.json(result);
+  }
+
+  if (body.action === "nrl_withhold" && body.landlordId) {
+    const { listNrlWithholdLandlords, withholdNrlTax } = await import("@/lib/db/queries/landlord-finance");
+    const { nrlTaxDue, previousNrlQuarter, summariseForTax } = await import("@/lib/finance/tax");
+    const quarter = previousNrlQuarter(new Date());
+    const rows = await listNrlWithholdLandlords(branch.id, quarter);
+    const row = rows.find((r) => r.landlord.id === body.landlordId);
+    if (!row) return NextResponse.json({ error: "Landlord isn't set to have NRL tax withheld" }, { status: 400 });
+    const due = nrlTaxDue(summariseForTax(row.lines));
+    if (due <= 0) return NextResponse.json({ withheld: 0 });
+    await withholdNrlTax({
+      branchId: branch.id,
+      landlordId: row.landlord.id,
+      amount: due,
+      quarterKey: quarter.key,
+      quarterLabel: quarter.label,
+    });
+    return NextResponse.json({ withheld: due });
   }
 
   if (body.action === "raise_rent") {

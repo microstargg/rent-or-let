@@ -1,5 +1,6 @@
-import { eq, and, desc, count, notInArray, or, ilike, type SQL } from "drizzle-orm";
+import { eq, and, desc, count, notInArray, or, ilike, isNotNull, type SQL } from "drizzle-orm";
 import { db } from "../index";
+import { renterOnTenancy } from "../renter-tenancy";
 import { agencyEq, currentAgencyId, ensureAgency } from "../agency-scope";
 import {
   tickets,
@@ -137,7 +138,7 @@ export async function listTicketsForRenter(branchId: string, renterId: string) {
     .where(
       and(
         eq(tickets.branchId, branchId),
-        eq(tenancies.primaryRenterId, renterId),
+        renterOnTenancy(renterId),
         agencyEq(tickets.agencyId)
       )
     )
@@ -154,7 +155,7 @@ export async function getTicketForRenter(ticketId: string, branchId: string, ren
       and(
         eq(tickets.id, ticketId),
         eq(tickets.branchId, branchId),
-        eq(tenancies.primaryRenterId, renterId),
+        renterOnTenancy(renterId),
         agencyEq(tickets.agencyId)
       )
     )
@@ -588,4 +589,31 @@ export async function findBranchByMaintenanceToken(token: string) {
     }
   }
   return null;
+}
+
+export async function setTicketHazard(id: string, hazard: Record<string, unknown> | null) {
+  await ensureAgency();
+  const [row] = await db
+    .update(tickets)
+    .set({ hazard, updatedAt: new Date() })
+    .where(and(eq(tickets.id, id), agencyEq(tickets.agencyId)))
+    .returning();
+  return row ?? null;
+}
+
+/** Open tickets on a hazard clock: damp and mould, or any ticket with a clock started. */
+export async function listOpenHazardTickets(branchId: string) {
+  await ensureAgency();
+  return db
+    .select({ ticket: tickets, propertyAddress: properties.displayAddress })
+    .from(tickets)
+    .innerJoin(properties, eq(tickets.propertyId, properties.id))
+    .where(
+      and(
+        eq(tickets.branchId, branchId),
+        agencyEq(tickets.agencyId),
+        notInArray(tickets.status, ["completed", "cancelled"]),
+        or(eq(tickets.category, "damp_mould"), isNotNull(tickets.hazard))
+      )
+    );
 }

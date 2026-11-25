@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requireLandlordSession } from "@/lib/auth/server";
 import { listLandlordStatements } from "@/lib/db/queries";
+import { taxYearOf, taxYearRange } from "@/lib/finance/tax";
 import {
   groupStatementsWithProperties,
   statementPortalPath,
@@ -30,6 +31,14 @@ export default async function LandlordPortalStatements() {
       <AdminPageHeader
         title="Statements"
         description="Monthly statements of rent collected, fees and money paid to you"
+        actions={
+          <a
+            href={`/api/landlord-portal/tax-summary?year=${taxYearOf(new Date()) - 1}`}
+            className="text-sm text-primary hover:underline"
+          >
+            Tax year {taxYearRange(taxYearOf(new Date()) - 1).label} summary (CSV)
+          </a>
+        }
       />
       <div className="mt-8 space-y-4">
         {mine.map(({ overall: { statement }, properties }) => (

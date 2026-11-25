@@ -3,7 +3,9 @@ import {
   insertPortalSyncLog,
   updateProperty,
   getPropertyMetadata,
+  getLandlordById,
 } from "@/lib/db/queries";
+import { parseBranchSettings } from "@/lib/branch-settings";
 import {
   PORTAL_CONFIGS,
   mapPropertyToRTDF,
@@ -40,6 +42,17 @@ export async function syncPropertyToPortals(
   if (!result) return { message: "Property not found" };
 
   if (action === "send") {
+    const settings = parseBranchSettings(result.branch.settings);
+    if (settings.require_prs_number && result.property.landlord_id) {
+      const landlord = await getLandlordById(result.property.landlord_id);
+      if (landlord && !landlord.prsRegistrationNumber?.trim()) {
+        return {
+          blocked: true,
+          message:
+            "The landlord has no PRS Database registration number. Add it on Landlords before advertising.",
+        };
+      }
+    }
     const scan = scanListingCopy({
       summary: result.property.summary,
       description: result.property.description,

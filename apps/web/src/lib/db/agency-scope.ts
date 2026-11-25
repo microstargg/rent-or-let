@@ -8,6 +8,7 @@ import {
 } from "@repo/config/server";
 import { bindRequestAgency } from "@/lib/agency";
 import { ensureNotificationsSchema } from "./ensure-schema";
+import { ensureFeatureSchema } from "./feature-migrations";
 
 /** New columns (job assignee, notification prefs) must exist before any select on those tables. */
 async function ensureLatestSchema(agency: Agency): Promise<void> {
@@ -15,6 +16,11 @@ async function ensureLatestSchema(agency: Agency): Promise<void> {
     await ensureNotificationsSchema(agency);
   } catch (err) {
     console.error("[schema] notifications ensure failed", err);
+  }
+  try {
+    await ensureFeatureSchema(agency);
+  } catch (err) {
+    console.error("[schema] feature ensure failed", err);
   }
 }
 

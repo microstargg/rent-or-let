@@ -1,5 +1,6 @@
 import { eq, and, desc, asc, ilike, or, sql, count, type SQL } from "drizzle-orm";
 import { db } from "../index";
+import { renterOnTenancy } from "../renter-tenancy";
 import { agencyEq, currentAgencyId, ensureAgency } from "../agency-scope";
 import { landlords, renters, tenancies, properties, branches } from "../schema";
 import { parseBranchSettings, type BranchSettings } from "@/lib/branch-settings";
@@ -125,6 +126,12 @@ export async function createLandlord(data: {
   email?: string | null;
   phone?: string | null;
   notes?: string | null;
+  prsRegistrationNumber?: string | null;
+  serviceLevel?: string | null;
+  feePercent?: string | null;
+  lettingFee?: string | null;
+  nrlStatus?: string | null;
+  nrlApprovalRef?: string | null;
   bankDetails?: Record<string, unknown> | null;
 }) {
   await ensureAgency();
@@ -138,6 +145,12 @@ export async function createLandlord(data: {
       email: data.email,
       phone: data.phone,
       notes: data.notes,
+      prsRegistrationNumber: data.prsRegistrationNumber ?? null,
+      serviceLevel: data.serviceLevel ?? null,
+      feePercent: data.feePercent ?? null,
+      lettingFee: data.lettingFee ?? null,
+      nrlStatus: data.nrlStatus ?? null,
+      nrlApprovalRef: data.nrlApprovalRef ?? null,
       bankDetails: data.bankDetails ?? null,
     })
     .returning();
@@ -152,6 +165,12 @@ export async function updateLandlord(
     email: string | null;
     phone: string | null;
     notes: string | null;
+    prsRegistrationNumber: string | null;
+    serviceLevel: string | null;
+    feePercent: string | null;
+    lettingFee: string | null;
+    nrlStatus: string | null;
+    nrlApprovalRef: string | null;
     bankDetails: Record<string, unknown> | null;
   }>
 ) {
@@ -401,7 +420,7 @@ export async function getActiveTenancyForRenter(renterId: string, branchId: stri
     .from(tenancies)
     .where(
       and(
-        eq(tenancies.primaryRenterId, renterId),
+        renterOnTenancy(renterId),
         eq(tenancies.branchId, branchId),
         eq(tenancies.status, "active"),
         agencyEq(tenancies.agencyId)
@@ -474,6 +493,21 @@ export async function createTenancy(data: {
 
   const { scheduleInterimInspections } = await import("./lifecycle");
   await scheduleInterimInspections(row.id);
+
+  const [property] = await db
+    .select({ landlordId: properties.landlordId })
+    .from(properties)
+    .where(and(eq(properties.id, data.propertyId), agencyEq(properties.agencyId)))
+    .limit(1);
+  if (property?.landlordId) {
+    const { chargeLettingFee } = await import("./landlord-finance");
+    await chargeLettingFee({
+      branchId: data.branchId,
+      landlordId: property.landlordId,
+      propertyId: data.propertyId,
+      tenancyId: row.id,
+    });
+  }
 
   return row;
 }
