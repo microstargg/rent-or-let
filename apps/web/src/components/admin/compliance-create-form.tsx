@@ -84,6 +84,7 @@ export function ComplianceCreateForm({
           <option value="right_to_rent">Right to Rent</option>
           <option value="deposit_pi">Deposit PI</option>
           <option value="rra_info_sheet">RRA info sheet</option>
+          <option value="written_terms">Written terms</option>
           <option value="hmo_licence">HMO licence</option>
           <option value="selective_licence">Selective licence</option>
           <option value="additional_licence">Additional HMO licence</option>

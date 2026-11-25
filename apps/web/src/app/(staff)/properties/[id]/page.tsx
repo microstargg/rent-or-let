@@ -8,6 +8,10 @@ import { AdminSection } from "@/components/admin/admin-page";
 import { KeysRegister } from "@/components/admin/keys-register";
 import { BookViewingForm, ViewingsList } from "@/components/admin/viewings-panel";
 import { ActivityList } from "@/components/admin/activity-list";
+import { PropertyCompliancePanel } from "@/components/admin/property-compliance-panel";
+import { listBranchRequirements } from "@/lib/db/queries/compliance";
+import { propertyComplianceMeta, sortRequirements } from "@/lib/compliance/requirements";
+import { complianceLabel } from "@/lib/portal-format";
 
 interface EditPropertyPageProps {
   params: Promise<{ id: string }>;
@@ -17,15 +21,40 @@ export default async function EditPropertyPage({ params }: EditPropertyPageProps
   const { id } = await params;
   const property = await getPropertyById(id);
   if (!property) notFound();
-  const [keys, viewingRows, activity] = await Promise.all([
+  const [keys, viewingRows, activity, requirementRows] = await Promise.all([
     listPropertyKeys(id),
     listViewingsForProperty(id),
     listActivity({ propertyId: id }, 30),
+    listBranchRequirements(property.branch_id, { propertyIds: [id] }),
   ]);
+  const complianceMeta = propertyComplianceMeta(requirementRows[0]?.property.metadata);
+  const requirements = sortRequirements(requirementRows[0]?.requirements ?? []);
 
   return (
     <div>
       <PropertyEditClient property={property} />
+
+      <AdminSection
+        title="Compliance"
+        description="What this property needs by law, and what's on file. Add certificates on the Compliance page."
+      >
+        <div className="rounded-xl border bg-card p-4">
+          <PropertyCompliancePanel
+            propertyId={id}
+            gasSupply={complianceMeta.gasSupply !== false}
+            licensing={complianceMeta.licensing ?? null}
+            rows={requirements.map((r) => ({
+              key: r.key,
+              label: complianceLabel(r.type),
+              reason: r.reason,
+              status: r.status,
+              expiresAt: r.item?.expiresAt ?? null,
+              tenancyLabel: r.tenancyId ? "current tenancy" : null,
+              required: r.required,
+            }))}
+          />
+        </div>
+      </AdminSection>
 
       <AdminSection title="Keys" description="Who has which keys, and when they're due back.">
         <div className="rounded-xl border bg-card p-4">

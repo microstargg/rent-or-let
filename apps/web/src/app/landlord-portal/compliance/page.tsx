@@ -1,6 +1,6 @@
 import { requireLandlordSession } from "@/lib/auth/server";
 import { listComplianceItems, listPropertiesForLandlord } from "@/lib/db/queries";
-import { computeComplianceStatus } from "@/lib/db/queries/compliance";
+import { itemStatus } from "@/lib/compliance/requirements";
 import { AdminEmptyState, AdminPageHeader, StatPill, StatusBadge } from "@/components/admin/admin-page";
 import { formatDate } from "@/lib/utils";
 import { complianceLabel } from "@/lib/portal-format";
@@ -18,7 +18,7 @@ export default async function LandlordPortalCompliance() {
     .filter((i) => propIds.has(i.item.propertyId))
     .map((i) => ({
       ...i,
-      status: computeComplianceStatus(i.item.expiresAt, Boolean(i.item.documentId)),
+      status: itemStatus(i.item),
     }))
     .sort(
       (a, b) =>
