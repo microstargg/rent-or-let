@@ -31,7 +31,7 @@ export async function getClientAccountCheck(branchId: string, period: MonthPerio
   await ensureBankFeed();
   const end = new Date(`${period.to}T23:59:59.999Z`);
 
-  const [ledger] = await db
+  const ledgerQ = db
     .select({
       landlords: sql<string>`coalesce(sum(${landlordLedgerEntries.amount}), 0)`,
       fees: sql<string>`coalesce(sum(-${landlordLedgerEntries.amount}) filter (where ${landlordLedgerEntries.entryType} = 'management_fee'), 0)`,
@@ -46,7 +46,7 @@ export async function getClientAccountCheck(branchId: string, period: MonthPerio
       )
     );
 
-  const [exceptions] = await db
+  const exceptionsQ = db
     .select({ total: sql<string>`coalesce(sum(${paymentExceptions.amount}), 0)` })
     .from(paymentExceptions)
     .where(
@@ -58,7 +58,7 @@ export async function getClientAccountCheck(branchId: string, period: MonthPerio
       )
     );
 
-  const [out] = await db
+  const outQ = db
     .select({
       contractors: sql<string>`coalesce(sum(-${bankTransactions.amount}) filter (where ${bankTransactions.workOrderId} is not null), 0)`,
       other: sql<string>`coalesce(sum(-${bankTransactions.amount}) filter (where ${bankTransactions.matchStatus} = 'ignored'), 0)`,
@@ -75,7 +75,7 @@ export async function getClientAccountCheck(branchId: string, period: MonthPerio
     );
 
   // Payouts recorded by the period end whose bank line is missing or dated after it.
-  const [inTransit] = await db
+  const inTransitQ = db
     .select({ total: sql<string>`coalesce(sum(${landlordPayouts.amount}), 0)` })
     .from(landlordPayouts)
     .leftJoin(bankTransactions, eq(bankTransactions.landlordPayoutId, landlordPayouts.id))
@@ -88,6 +88,16 @@ export async function getClientAccountCheck(branchId: string, period: MonthPerio
       )
     );
 
+  // Independent queries: run them together rather than one after another.
+  const [[ledger], [exceptions], [out], [inTransit], branch, suggestedBalance] = await Promise.all([
+    ledgerQ,
+    exceptionsQ,
+    outQ,
+    inTransitQ,
+    getBranchWithSettings(branchId),
+    closingBalanceFromStatement(branchId, end),
+  ]);
+
   const lines = [
     { label: "Owed to landlords", amount: money(ledger?.landlords) },
     { label: "Money in not yet allocated (exceptions)", amount: money(exceptions?.total) },
@@ -99,7 +109,6 @@ export async function getClientAccountCheck(branchId: string, period: MonthPerio
   ];
   const expected = money(lines.reduce((s, l) => s + l.amount, 0));
 
-  const branch = await getBranchWithSettings(branchId);
   const checks = parseBranchSettings(branch?.settings).client_account_checks ?? {};
   const saved = checks[period.month] ?? null;
   const previous =
@@ -113,7 +122,7 @@ export async function getClientAccountCheck(branchId: string, period: MonthPerio
     unexplainedOut: money(out?.unexplained),
     saved,
     previous,
-    suggestedBalance: await closingBalanceFromStatement(branchId, end),
+    suggestedBalance,
   };
 }
 

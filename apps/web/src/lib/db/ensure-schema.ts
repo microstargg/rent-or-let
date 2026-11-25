@@ -30,6 +30,26 @@ function isIgnorableDdlError(msg: string): boolean {
   return /already exists|duplicate/i.test(msg);
 }
 
+type NeonSql = ReturnType<typeof neon<false, false>>;
+
+const hasCol = (table: string, column: string) =>
+  `EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = '${table}' AND column_name = '${column}')`;
+const hasRel = (name: string) => `to_regclass('public.${name}') IS NOT NULL`;
+
+/**
+ * One cheap round trip that says whether a migration group has already been applied.
+ * The DDL below used to run on every cold start (10+ sequential round trips, and some
+ * statements take table locks), which made the first page load after a deploy or idle slow.
+ */
+async function alreadyApplied(sql: NeonSql, checks: string[]): Promise<boolean> {
+  try {
+    const rows = (await sql(`SELECT (${checks.join(" AND ")}) AS ok`)) as { ok: boolean }[];
+    return rows[0]?.ok === true;
+  } catch {
+    return false;
+  }
+}
+
 export function isMissingInvoiceColumnError(err: unknown): boolean {
   const chunks = [messageOf(err)];
   let current: unknown = err;
@@ -52,6 +72,21 @@ async function applyJobInvoiceMigration(): Promise<void> {
   if (!url) return;
 
   const sql = neon(url);
+  if (
+    await alreadyApplied(sql, [
+      `EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'invoices' AND column_name = 'tenancy_id' AND is_nullable = 'YES')`,
+      hasCol("invoices", "property_id"),
+      hasCol("invoices", "landlord_id"),
+      hasCol("invoices", "work_order_id"),
+      hasRel("invoices_work_order"),
+      hasRel("idx_invoices_property"),
+      hasRel("idx_invoices_landlord"),
+      hasCol("landlord_ledger_entries", "invoice_id"),
+      hasCol("work_orders", "client_charge"),
+    ])
+  ) {
+    return;
+  }
   const errors: string[] = [];
 
   for (const statement of JOB_INVOICE_MIGRATION_STATEMENTS) {
@@ -133,6 +168,15 @@ async function applyPetRequestMigration(): Promise<void> {
   const url = process.env.DATABASE_URL;
   if (!url) return;
   const sql = neon(url);
+  if (
+    await alreadyApplied(sql, [
+      hasRel("pet_requests"),
+      hasRel("idx_pet_requests_tenancy"),
+      hasRel("idx_pet_requests_branch_status"),
+    ])
+  ) {
+    return;
+  }
   try {
     await sql(PET_REQUEST_DDL);
     await sql(`CREATE INDEX IF NOT EXISTS idx_pet_requests_tenancy ON pet_requests(tenancy_id)`);
@@ -173,14 +217,19 @@ const MEMBERSHIP_MIGRATION_STATEMENTS = [
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
   )`,
   `CREATE UNIQUE INDEX IF NOT EXISTS staff_invites_agency_email ON staff_invites (agency_id, email)`,
-  `INSERT INTO staff_profiles (id, agency_id, email, full_name, role)
+] as const;
+
+/** Keeps the owner's staff row on veri-properties. Cheap, so it still runs once per server. */
+const OWNER_VERI_MEMBERSHIP = `INSERT INTO staff_profiles (id, agency_id, email, full_name, role)
    SELECT id, 'veri-properties', email, full_name, role
    FROM staff_profiles
    WHERE lower(email) = 'sirmicrostar@gmail.com'
      AND agency_id <> 'veri-properties'
    LIMIT 1
-   ON CONFLICT DO NOTHING`,
-] as const;
+   ON CONFLICT DO NOTHING`;
+
+/** Each profile table's primary key is (agency_id, id). */
+const compositeProfileKeys = `(SELECT count(*) FROM pg_constraint WHERE contype = 'p' AND array_length(conkey, 1) = 2 AND conrelid IN (to_regclass('public.staff_profiles'), to_regclass('public.renter_profiles'), to_regclass('public.landlord_profiles'))) = 3`;
 
 let membershipPending: Promise<void> | null = null;
 
@@ -196,7 +245,17 @@ async function applyAgencyMembershipMigration(): Promise<void> {
   const url = process.env.DATABASE_URL;
   if (!url) return;
   const sql = neon(url);
-  for (const statement of MEMBERSHIP_MIGRATION_STATEMENTS) {
+  // Without this check every cold start dropped and rebuilt three primary keys,
+  // locking the profile tables (and so sign-in) while it ran.
+  const applied = await alreadyApplied(sql, [
+    compositeProfileKeys,
+    hasRel("staff_invites"),
+    hasRel("staff_invites_agency_email"),
+  ]);
+  const statements: readonly string[] = applied
+    ? [OWNER_VERI_MEMBERSHIP]
+    : [...MEMBERSHIP_MIGRATION_STATEMENTS, OWNER_VERI_MEMBERSHIP];
+  for (const statement of statements) {
     try {
       await sql(statement);
     } catch (err) {
@@ -231,6 +290,15 @@ async function applyPropertyStatementMigration(): Promise<void> {
   const url = process.env.DATABASE_URL;
   if (!url) return;
   const sql = neon(url);
+  if (
+    await alreadyApplied(sql, [
+      hasCol("landlord_statements", "property_id"),
+      hasCol("landlord_statements", "parent_statement_id"),
+      hasRel("idx_landlord_statements_parent"),
+    ])
+  ) {
+    return;
+  }
   for (const statement of PROPERTY_STATEMENT_MIGRATION_STATEMENTS) {
     try {
       await sql(statement);
@@ -315,6 +383,23 @@ async function applyBankFeedMigration(): Promise<void> {
   const url = process.env.DATABASE_URL;
   if (!url) return;
   const sql = neon(url);
+  if (
+    await alreadyApplied(sql, [
+      hasRel("bank_connections"),
+      hasRel("idx_bank_connections_branch"),
+      hasRel("idx_bank_connections_branch_status"),
+      hasRel("bank_transactions"),
+      hasRel("bank_transactions_branch_provider_txn"),
+      hasRel("idx_bank_transactions_connection"),
+      hasRel("idx_bank_transactions_match_status"),
+      hasCol("bank_transactions", "landlord_payout_id"),
+      hasCol("bank_transactions", "work_order_id"),
+      hasRel("idx_bank_transactions_payout"),
+      hasRel("idx_bank_transactions_work_order"),
+    ])
+  ) {
+    return;
+  }
   for (const statement of BANK_FEED_MIGRATION_STATEMENTS) {
     try {
       await sql(statement);

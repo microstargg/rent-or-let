@@ -88,12 +88,18 @@ export default async function MonthEndPage({
   if (!branch) {
     return <AdminEmptyState title="No branch" description="Set up a branch first." />;
   }
-  const data = await getMonthEndOverview(branch.id, period);
-  const account = await getClientAccountCheck(branch.id, period);
-  const openBankingEnabled =
-    (await getEnableBankingSetupStatus(await ensureAgency(), branch.id)).source != null;
+  const agencySlug = await ensureAgency();
+  // Load every section at once; the bank connection list is cheap, so fetch it
+  // alongside and drop it if open banking is off.
+  const [data, account, setupStatus, connections] = await Promise.all([
+    getMonthEndOverview(branch.id, period),
+    getClientAccountCheck(branch.id, period),
+    getEnableBankingSetupStatus(agencySlug, branch.id),
+    listEnableBankingConnections(branch.id),
+  ]);
+  const openBankingEnabled = setupStatus.source != null;
   const bankConnections = openBankingEnabled
-    ? (await listEnableBankingConnections(branch.id))
+    ? connections
         .filter((c) => c.status !== "revoked")
         .map((c) => ({
           id: c.id,

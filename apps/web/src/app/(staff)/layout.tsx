@@ -20,8 +20,7 @@ export default async function AdminLayout({
   }
 
   try {
-    await ensureAgencyMembershipSchema();
-    await ensureJobInvoiceSchema();
+    await Promise.all([ensureAgencyMembershipSchema(), ensureJobInvoiceSchema()]);
   } catch (err) {
     console.error("[admin] failed to apply job invoice schema", err);
   }
