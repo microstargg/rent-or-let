@@ -76,12 +76,13 @@ export default async function AdminCompliancePage() {
         {atRisk.length || scores.length ? (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {(atRisk.length ? atRisk : scores).slice(0, 12).map((s) => (
-              <div
+              <Link
                 key={s.propertyId}
-                className="rounded-xl border bg-card p-4 shadow-sm"
+                href={`/properties/${s.propertyId}`}
+                className="block rounded-xl border bg-card p-4 shadow-sm transition-colors hover:border-primary/50 hover:bg-muted/40"
               >
                 <div className="flex items-start justify-between gap-2">
-                  <p className="font-medium leading-snug">{s.propertyAddress}</p>
+                  <p className="font-medium leading-snug hover:underline">{s.propertyAddress}</p>
                   <span
                     className={
                       s.score >= 80
@@ -97,7 +98,7 @@ export default async function AdminCompliancePage() {
                 <p className="mt-2 text-xs text-muted-foreground">
                   {s.valid} valid · {s.expiring} expiring · {s.expired} expired · {s.missing} missing
                 </p>
-              </div>
+              </Link>
             ))}
           </div>
         ) : (
