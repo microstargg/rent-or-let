@@ -92,6 +92,8 @@ export const landlords = pgTable(
     notes: text("notes"),
     /** Private Rented Sector Database registration number (Renters' Rights Act). */
     prsRegistrationNumber: text("prs_registration_number"),
+    /** Shared renewal date for this landlord's register fees (1 year after first property). */
+    prsRenewalDate: date("prs_renewal_date"),
     /** let_only | rent_collection | fully_managed (null = fully managed) */
     serviceLevel: text("service_level"),
     /** Management fee % for this landlord; null uses the agency default. */
@@ -143,6 +145,11 @@ export const properties = pgTable(
     virtualTourUrl: text("virtual_tour_url"),
     floorplanUrl: text("floorplan_url"),
     epcUrl: text("epc_url"),
+    /** Landlord register property number (P-XXXX-XXXX). */
+    prsPropertyNumber: text("prs_property_number"),
+    prsRegisteredAt: date("prs_registered_at"),
+    /** Register rollout region; null means work it out from the postcode. */
+    prsRegion: text("prs_region"),
     portalSync: jsonb("portal_sync").notNull().default({}),
     publishedAt: timestamp("published_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

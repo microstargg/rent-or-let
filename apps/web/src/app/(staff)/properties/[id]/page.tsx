@@ -12,6 +12,7 @@ import { PropertyCompliancePanel } from "@/components/admin/property-compliance-
 import { listBranchRequirements } from "@/lib/db/queries/compliance";
 import { propertyComplianceMeta, sortRequirements } from "@/lib/compliance/requirements";
 import { complianceLabel } from "@/lib/portal-format";
+import { REGISTER_WINDOWS } from "@/lib/compliance/register";
 
 interface EditPropertyPageProps {
   params: Promise<{ id: string }>;
@@ -48,10 +49,24 @@ export default async function EditPropertyPage({ params }: EditPropertyPageProps
               label: complianceLabel(r.type),
               reason: r.reason,
               status: r.status,
-              expiresAt: r.item?.expiresAt ?? null,
+              expiresAt: r.item?.expiresAt ?? r.dueDate ?? null,
               tenancyLabel: r.tenancyId ? "current tenancy" : null,
               required: r.required,
             }))}
+            register={(() => {
+              const reg = requirementRows[0]?.register;
+              return {
+                region: reg?.region ?? null,
+                regionGuessed: reg?.regionGuessed ?? false,
+                regionLabel: reg?.region ? REGISTER_WINDOWS[reg.region].label : null,
+                opens: reg?.opens ?? null,
+                deadline: reg?.deadline ?? null,
+                propertyNumber: reg?.propertyNumber ?? null,
+                registeredAt: reg?.registeredAt ?? null,
+                isLet: reg?.isLet ?? false,
+                regions: Object.entries(REGISTER_WINDOWS).map(([value, w]) => ({ value, label: w.label })),
+              };
+            })()}
           />
         </div>
       </AdminSection>

@@ -1,15 +1,31 @@
 import { eq, and, desc, sql, inArray } from "drizzle-orm";
 import { db } from "../index";
 import { agencyEq, currentAgencyId, ensureAgency } from "../agency-scope";
-import { complianceItems, documents, properties, tasks, tenancies, tenancyAgreements } from "../schema";
+import {
+  complianceItems,
+  documents,
+  landlords,
+  properties,
+  tasks,
+  tenancies,
+  tenancyAgreements,
+} from "../schema";
 import { createTask } from "./finance";
 import {
   computeStatus,
   hasEvidence,
   propertyRequirements,
   scoreRequirements,
+  isActiveTenancy,
   type Requirement,
 } from "@/lib/compliance/requirements";
+import {
+  REGISTER_TRACKED_TYPES,
+  registerInfo,
+  registerStatus,
+  type RegisterInfo,
+  type RegisterStatus,
+} from "@/lib/compliance/register";
 
 export const TENANCY_COMPLIANCE_TYPES = [
   "gas_safety",
@@ -139,7 +155,33 @@ export async function createComplianceItem(data: {
       documentId: data.documentId ?? null,
     })
     .returning();
+  if (row && REGISTER_TRACKED_TYPES.has(data.type) && data.expiresAt) {
+    await createRegisterUpdateTask(data.branchId, data.propertyId, `new ${data.type.replaceAll("_", " ")} record`);
+  }
   return row;
+}
+
+/**
+ * The landlord register must be updated within 28 days of a certificate,
+ * licence or tenancy change. Creates a task when the property is registered.
+ */
+export async function createRegisterUpdateTask(branchId: string, propertyId: string, what: string) {
+  await ensureAgency();
+  const [p] = await db
+    .select({ number: properties.prsPropertyNumber, address: properties.displayAddress })
+    .from(properties)
+    .where(and(eq(properties.id, propertyId), agencyEq(properties.agencyId)))
+    .limit(1);
+  if (!p?.number) return null;
+  const due = new Date();
+  due.setDate(due.getDate() + 28);
+  return createTask({
+    branchId,
+    title: `Update the landlord register for ${p.address} (${what}) within 28 days`,
+    relatedType: "property",
+    relatedId: propertyId,
+    dueAt: due,
+  });
 }
 
 export async function updateComplianceItem(
@@ -169,6 +211,13 @@ export async function updateComplianceItem(
       existing.type
     );
 
+  if (
+    REGISTER_TRACKED_TYPES.has(existing.type) &&
+    data.expiresAt !== undefined &&
+    data.expiresAt !== existing.expiresAt
+  ) {
+    await createRegisterUpdateTask(existing.branchId, existing.propertyId, `${existing.type.replaceAll("_", " ")} renewed`);
+  }
   // A new expiry date starts the landlord reminder cycle again.
   const meta =
     data.expiresAt !== undefined && data.expiresAt !== existing.expiresAt
@@ -269,6 +318,7 @@ export async function listBranchRequirements(
   {
     property: { id: string; displayAddress: string; landlordId: string | null; metadata: unknown };
     requirements: Requirement[];
+    register: RegisterInfo & { isLet: boolean; landlordRenewalDate: string | null } & RegisterStatus;
   }[]
 > {
   await ensureAgency();
@@ -283,8 +333,14 @@ export async function listBranchRequirements(
       displayAddress: properties.displayAddress,
       landlordId: properties.landlordId,
       metadata: properties.metadata,
+      postcode: properties.postcode,
+      prsPropertyNumber: properties.prsPropertyNumber,
+      prsRegisteredAt: properties.prsRegisteredAt,
+      prsRegion: properties.prsRegion,
+      landlordRenewalDate: landlords.prsRenewalDate,
     })
     .from(properties)
+    .leftJoin(landlords, eq(properties.landlordId, landlords.id))
     .where(and(eq(properties.branchId, branchId), agencyEq(properties.agencyId), propFilter));
   if (!props.length) return [];
   const ids = props.map((p) => p.id);
@@ -310,15 +366,39 @@ export async function listBranchRequirements(
       .catch(() => [] as { tenancyId: string }[]),
   ]);
   const signedIds = new Set(signed.map((s) => s.tenancyId));
-  return props.map((p) => ({
-    property: { id: p.id, displayAddress: p.displayAddress, landlordId: p.landlordId, metadata: p.metadata },
-    requirements: propertyRequirements({
+  return props.map((p) => {
+    const requirements = propertyRequirements({
       property: p,
       tenancies: tenancyRows,
       items: itemRows,
       signedAgreementTenancyIds: signedIds,
-    }),
-  }));
+    });
+    const isLet = tenancyRows.some((t) => t.propertyId === p.id && isActiveTenancy(t));
+    const info = registerInfo(p);
+    const reg = registerStatus(info, p.landlordRenewalDate);
+    // Only let properties must be registered during the rollout.
+    if (isLet && reg.status !== "not_due") {
+      requirements.push({
+        key: "prs_register",
+        type: "prs_register",
+        propertyId: p.id,
+        tenancyId: null,
+        reason: info.propertyNumber
+          ? "Registered on the government's landlord register. The fee renews every year and changes must be updated within 28 days."
+          : `Every let property must be on the government's landlord register${info.deadline ? " by its region's deadline" : ""}. The landlord starts the registration and pays the fee.`,
+        responsible: "landlord",
+        status: reg.status,
+        item: null,
+        required: true,
+        dueDate: reg.dueDate,
+      });
+    }
+    return {
+      property: { id: p.id, displayAddress: p.displayAddress, landlordId: p.landlordId, metadata: p.metadata },
+      requirements,
+      register: { ...info, ...reg, isLet, landlordRenewalDate: p.landlordRenewalDate },
+    };
+  });
 }
 
 export async function getPropertyComplianceScore(propertyId: string) {
@@ -527,4 +607,34 @@ export async function mergeComplianceItemMeta(id: string, patch: Record<string, 
     .set({ meta })
     .where(and(eq(complianceItems.id, id), agencyEq(complianceItems.agencyId)));
   return meta;
+}
+
+/** Register details for a property: number, date registered, region override. */
+export async function updatePropertyRegister(
+  propertyId: string,
+  data: { prsPropertyNumber?: string | null; prsRegisteredAt?: string | null; prsRegion?: string | null }
+) {
+  await ensureAgency();
+  const [row] = await db
+    .update(properties)
+    .set({ ...data, updatedAt: new Date() })
+    .where(and(eq(properties.id, propertyId), agencyEq(properties.agencyId)))
+    .returning({ id: properties.id, landlordId: properties.landlordId, registeredAt: properties.prsRegisteredAt });
+  // The landlord's fees all renew a year after their first property was registered.
+  if (row?.landlordId && row.registeredAt) {
+    const [l] = await db
+      .select({ renewal: landlords.prsRenewalDate })
+      .from(landlords)
+      .where(and(eq(landlords.id, row.landlordId), agencyEq(landlords.agencyId)))
+      .limit(1);
+    if (l && !l.renewal) {
+      const d = new Date(`${row.registeredAt}T00:00:00Z`);
+      d.setUTCFullYear(d.getUTCFullYear() + 1);
+      await db
+        .update(landlords)
+        .set({ prsRenewalDate: d.toISOString().slice(0, 10) })
+        .where(and(eq(landlords.id, row.landlordId), agencyEq(landlords.agencyId)));
+    }
+  }
+  return row ?? null;
 }
