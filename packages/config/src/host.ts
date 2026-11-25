@@ -70,7 +70,15 @@ export function isSharedPreviewHost(hostname: string): boolean {
   return hostname.endsWith(".vercel.app") || hostname.endsWith(".vercel.sh");
 }
 
+/**
+ * Agency used when the Host doesn't name one. Vercel preview deployments
+ * (VERCEL_ENV=preview) default to the demo so testing never touches a real
+ * agency's data; set PREVIEW_AGENCY_SLUG to pick another.
+ */
 export function fallbackAgencySlug(): string {
+  if (process.env.VERCEL_ENV === "preview") {
+    return process.env.PREVIEW_AGENCY_SLUG?.trim() || "demo";
+  }
   return (
     process.env.AGENCY_SLUG?.trim() ||
     process.env.TENANT_ID?.trim() ||

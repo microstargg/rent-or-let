@@ -105,7 +105,7 @@ export function TenancyPeoplePanel({
                     </Button>
                   )}
                 </div>
-                <p className={`mt-1 text-xs ${expired ? "text-destructive" : "text-muted-foreground"}`}>
+                <p className={`mt-1 text-xs ${expired ? "text-red-600" : "text-muted-foreground"}`}>
                   Right to Rent:{" "}
                   {t.rtrCheckedAt
                     ? `checked ${ukDate(t.rtrCheckedAt)} (${RTR_METHODS[t.rtrMethod ?? ""] ?? t.rtrMethod})${t.rtrExpiresAt ? `, follow-up due ${ukDate(t.rtrExpiresAt)}` : ", no time limit"}`
@@ -272,7 +272,7 @@ export function TenancyPeoplePanel({
           </Button>
         )}
       </div>
-      {message && <p className="text-sm text-destructive lg:col-span-2">{message}</p>}
+      {message && <p className="text-sm text-red-600 lg:col-span-2">{message}</p>}
     </div>
   );
 }
@@ -392,7 +392,7 @@ export function TenancyAgreementPanel({
           {current ? "Send a new version" : "Prepare agreement"}
         </Button>
       )}
-      {message && <p className="mt-2 text-sm text-destructive">{message}</p>}
+      {message && <p className="mt-2 text-sm text-red-600">{message}</p>}
     </div>
   );
 }
@@ -508,7 +508,7 @@ export function TenancyDepositPanel({
       <p className="mt-3 text-xs text-muted-foreground">
         The scheme expects the deposit back within 10 days of agreeing the amounts.
       </p>
-      {message && <p className="mt-2 text-sm text-destructive">{message}</p>}
+      {message && <p className="mt-2 text-sm text-red-600">{message}</p>}
     </div>
   );
 }
@@ -680,7 +680,7 @@ export function TenancyArrearsPanel({
           <p className="font-medium">
             Payment plan: £{active.instalment.toFixed(2)} a month on top of rent from {ukDate(active.startDate)}
           </p>
-          <p className={`mt-1 ${progress.onTrack ? "text-emerald-700" : "text-destructive"}`}>
+          <p className={`mt-1 ${progress.onTrack ? "text-emerald-700" : "text-red-600"}`}>
             {progress.onTrack ? "On track" : "Behind"}: should owe £{progress.expectedBalance.toFixed(2)} by now, owes £
             {progress.actualBalance.toFixed(2)}. {progress.monthsLeft} instalments left.
           </p>
@@ -730,7 +730,7 @@ export function TenancyArrearsPanel({
       ) : (
         <p className="mt-1 text-sm text-muted-foreground">Nothing overdue.</p>
       )}
-      {message && <p className="mt-2 text-sm text-destructive">{message}</p>}
+      {message && <p className="mt-2 text-sm text-red-600">{message}</p>}
     </div>
   );
 }

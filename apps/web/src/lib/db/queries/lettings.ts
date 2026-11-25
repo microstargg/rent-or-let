@@ -30,6 +30,9 @@ export async function createViewing(data: {
   enquiryId?: string | null;
   scheduledAt: Date;
   notes?: string | null;
+  attendeeName?: string | null;
+  attendeeEmail?: string | null;
+  attendeePhone?: string | null;
 }) {
   await ensureAgency();
   const [row] = await db
@@ -41,6 +44,9 @@ export async function createViewing(data: {
       enquiryId: data.enquiryId ?? null,
       scheduledAt: data.scheduledAt,
       notes: data.notes ?? null,
+      attendeeName: data.attendeeName ?? null,
+      attendeeEmail: data.attendeeEmail ?? null,
+      attendeePhone: data.attendeePhone ?? null,
     })
     .returning();
 

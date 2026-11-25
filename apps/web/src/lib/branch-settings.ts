@@ -40,6 +40,8 @@ export interface BranchSettings {
   redress_member_number?: string;
   /** Block portal sync when the landlord has no PRS Database registration number. */
   require_prs_number?: boolean;
+  /** Council tax, water and energy contacts for move-in / move-out notices. */
+  utility_contacts?: { name: string; email: string }[];
   /** Month-end client account checks, keyed by "YYYY-MM". */
   client_account_checks?: Record<string, ClientAccountCheck>;
 }

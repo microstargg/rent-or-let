@@ -154,7 +154,7 @@ export function ApplicationChecksForm({
         )}
       </section>
 
-      {error && <p className="text-sm text-destructive">{error}</p>}
+      {error && <p className="text-sm text-red-600">{error}</p>}
       <Button onClick={save} disabled={busy}>
         {busy ? "Saving…" : "Save"}
       </Button>

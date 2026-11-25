@@ -3,6 +3,7 @@ import { verifyCronAuth } from "@/lib/api-auth";
 import { getDefaultBranch, refreshComplianceStatuses } from "@/lib/db/queries";
 import { runDailyNotifications } from "@/lib/notifications/digest";
 import { sendArrearsReminders } from "@/lib/finance/arrears-reminders";
+import { sendViewingReminders } from "@/lib/lettings/viewing-messages";
 import {
   getAgencyBySlug,
   listAgencySlugs,
@@ -12,7 +13,8 @@ import {
 /**
  * Daily at 07:00 UTC: refresh certificate statuses, then in-app notifications
  * and each staff member's morning email (see lib/notifications/digest.ts), then
- * tenant arrears reminders when the agency has them switched on.
+ * tenant arrears reminders when the agency has them switched on, then
+ * day-before reminders for viewings.
  */
 export async function GET(request: Request) {
   if (!verifyCronAuth(request)) {
@@ -36,8 +38,16 @@ export async function GET(request: Request) {
           console.error(`[cron/compliance] ${slug} arrears reminders failed`, err);
           arrearsReminders = { error: err instanceof Error ? err.message : String(err) };
         }
+        let viewingReminders: unknown = null;
+        try {
+          viewingReminders = await sendViewingReminders(branch.id);
+        } catch (err) {
+          console.error(`[cron/compliance] ${slug} viewing reminders failed`, err);
+          viewingReminders = { error: err instanceof Error ? err.message : String(err) };
+        }
         return {
           arrearsReminders,
+          viewingReminders,
           updated: refreshed.updated,
           tasksCreated: refreshed.tasksCreated,
           ...notifications,
