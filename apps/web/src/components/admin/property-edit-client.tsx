@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { PropertyForm } from "@/components/admin/property-form";
 import { PropertyImageUpload } from "@/components/admin/property-image-upload";
 import { Button } from "@/components/ui/button";
@@ -11,40 +12,51 @@ interface PropertyEditClientProps {
   property: Property;
 }
 
-export function PropertyEditClient({ property }: PropertyEditClientProps) {
+/** Sync and "View on site" buttons for the property page header. */
+export function PropertyHeaderActions({ property }: { property: Pick<Property, "id" | "slug" | "status"> }) {
   const router = useRouter();
+  const [syncing, setSyncing] = useState(false);
 
   async function syncToPortals() {
-    const res = await fetch(`/api/admin/properties/${property.id}/sync`, { method: "POST" });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      const hits = Array.isArray(data.hits)
-        ? data.hits.map((h: { phrase: string }) => h.phrase).join(", ")
-        : "";
-      window.alert(data.message ? `${data.message}${hits ? `\n${hits}` : ""}` : "Sync failed");
-      return;
+    setSyncing(true);
+    try {
+      const res = await fetch(`/api/admin/properties/${property.id}/sync`, { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const hits = Array.isArray(data.hits)
+          ? data.hits.map((h: { phrase: string }) => h.phrase).join(", ")
+          : "";
+        window.alert(data.message ? `${data.message}${hits ? `\n${hits}` : ""}` : "Sync failed");
+        return;
+      }
+      router.refresh();
+    } finally {
+      setSyncing(false);
     }
-    router.refresh();
   }
 
   return (
-    <div>
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <h1 className="text-3xl font-bold">Edit property</h1>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={syncToPortals}>
-            Sync to portals
-          </Button>
-          {property.status === "available" && (
-            <Button asChild variant="outline">
-              <Link href={`/properties/${property.slug}`} target="_blank">
-                View on site
-              </Link>
-            </Button>
-          )}
-        </div>
-      </div>
+    <>
+      <Button variant="outline" size="sm" onClick={syncToPortals} disabled={syncing}>
+        {syncing ? "Syncing…" : "Sync to portals"}
+      </Button>
+      {property.status === "available" && (
+        <Button asChild variant="outline" size="sm">
+          <Link href={`/properties/${property.slug}`} target="_blank">
+            View on site
+          </Link>
+        </Button>
+      )}
+    </>
+  );
+}
 
+/** The listing form, photos and portal sync state (the "Listing" tab). */
+export function PropertyEditClient({ property }: PropertyEditClientProps) {
+  const router = useRouter();
+
+  return (
+    <div>
       <PropertyForm
         property={property}
         imageCount={property.images?.length ?? 0}
@@ -53,13 +65,13 @@ export function PropertyEditClient({ property }: PropertyEditClientProps) {
       <PropertyImageUpload propertyId={property.id} images={property.images ?? []} />
 
       {Object.keys(property.portal_sync).length > 0 && (
-        <div className="mt-8 rounded-xl border p-4">
+        <div className="mt-8 max-w-2xl rounded-xl border bg-card p-4">
           <h2 className="font-semibold">Portal sync status</h2>
           <dl className="mt-2 space-y-2 text-sm">
             {Object.entries(property.portal_sync).map(([portal, state]) => (
-              <div key={portal} className="flex gap-4">
+              <div key={portal} className="flex flex-wrap gap-x-4">
                 <dt className="w-32 font-medium capitalize">{portal}</dt>
-                <dd className="text-muted-foreground">
+                <dd className="min-w-0 text-muted-foreground">
                   {state.status ?? "unknown"}
                   {state.last_synced_at && ` — ${new Date(state.last_synced_at).toLocaleString("en-GB")}`}
                   {state.error && ` — ${state.error}`}
