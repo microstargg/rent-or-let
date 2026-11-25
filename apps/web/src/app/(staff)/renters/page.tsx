@@ -21,6 +21,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { displayPersonName } from "@/lib/person-name";
 
+function rtrSummary(checkedAt: string | null, expiresAt: string | null, today: string) {
+  if (!checkedAt) return <span className="text-amber-600">Not checked</span>;
+  if (expiresAt && expiresAt < today) return <span className="text-red-600">Follow-up overdue</span>;
+  if (expiresAt) return `Follow-up ${new Date(`${expiresAt}T00:00:00Z`).toLocaleDateString("en-GB", { timeZone: "UTC" })}`;
+  return "Checked";
+}
+
 export default async function AdminRentersPage({
   searchParams,
 }: {
@@ -30,6 +37,7 @@ export default async function AdminRentersPage({
   const q = params.q?.trim() ?? "";
   const sort = params.sort === "name" ? "name" : "newest";
   const page = Math.max(1, Number(params.page) || 1);
+  const today = new Date().toISOString().slice(0, 10);
   const hasFilters = Boolean(q) || sort !== "newest" || page > 1;
 
   const [{ rows, total }, totalAll] = await Promise.all([
@@ -46,7 +54,7 @@ export default async function AdminRentersPage({
     <div>
       <AdminPageHeader
         title="Renters"
-        description="Find tenants, invite them to the portal, or add a new renter."
+        description="Find tenants, open their profile for Right to Rent and documents, or add a new renter."
         actions={
           <AdminEntityDialog
             triggerLabel="Add renter"
@@ -84,11 +92,13 @@ export default async function AdminRentersPage({
       <AdminSection title="Renters">
         {rows.length ? (
           <>
-            <AdminTable headers={["Name", "Email", "Phone", "Notes", "Actions"]}>
+            <AdminTable headers={["Name", "Email", "Phone", "Right to Rent", "Actions"]}>
               {rows.map((renter) => (
                 <tr key={renter.id}>
                   <td className="px-4 py-3 font-medium">
-                    {displayPersonName(renter.firstName, renter.lastName)}
+                    <Link href={`/renters/${renter.id}`} className="text-primary hover:underline">
+                      {displayPersonName(renter.firstName, renter.lastName)}
+                    </Link>
                   </td>
                   <td className="px-4 py-3">
                     {renter.email ? (
@@ -104,11 +114,14 @@ export default async function AdminRentersPage({
                       <span className="text-muted-foreground">—</span>
                     )}
                   </td>
-                  <td className="max-w-[12rem] truncate px-4 py-3 text-muted-foreground">
-                    {renter.notes || "—"}
+                  <td className="px-4 py-3 text-muted-foreground">
+                    {rtrSummary(renter.rtrCheckedAt, renter.rtrExpiresAt, today)}
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex flex-wrap items-center justify-end gap-2">
+                      <Button asChild variant="outline" size="sm">
+                        <Link href={`/renters/${renter.id}`}>Profile</Link>
+                      </Button>
                       <AdminEntityDialog
                         triggerLabel="Edit"
                         title="Edit renter"

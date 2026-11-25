@@ -14,6 +14,7 @@ import {
 import { displayPersonName } from "@/lib/person-name";
 import { formatCurrency } from "@/lib/utils";
 import { SECTION_8_GROUNDS } from "@/lib/tenancy/section8";
+import { AGREEMENT_EVENT_LABELS } from "@/lib/tenancy/agreement";
 import { planProgress } from "@/lib/finance/arrears";
 import { listActivity } from "@/lib/db/queries/activity";
 import { getInspectionMeters } from "@/lib/db/queries/tenancy";
@@ -114,21 +115,32 @@ export default async function TenancyDetailPage({ params }: { params: Promise<{ 
         />
       </AdminSection>
 
-      <AdminSection title="Tenancy agreement" description="Sends a written statement of terms for everyone to sign online.">
+      <AdminSection title="Tenancy agreement" description="Sends a written statement of terms for everyone to sign online. Signers confirm a code sent to their email, and everyone gets the signed copy with its audit trail.">
         <TenancyAgreementPanel
           tenancyId={tenancy.id}
-          agreements={detail.agreements.map(({ agreement, signatures }) => ({
+          agreements={detail.agreements.map(({ agreement, signatures, events }) => ({
             id: agreement.id,
             status: agreement.status,
             createdAt: agreement.createdAt.toISOString(),
             completedAt: agreement.completedAt?.toISOString() ?? null,
+            signedPdfSha256: agreement.signedPdfSha256,
             signatures: signatures.map((s) => ({
               id: s.id,
               role: s.role,
               name: s.fullName,
+              hasEmail: Boolean(s.email),
               signedAt: s.signedAt?.toISOString() ?? null,
+              verifiedBy: s.verifiedBy,
+            })),
+            events: events.map((e) => ({
+              id: e.id,
+              event: e.event,
+              who: e.who ?? ((e.detail as { who?: string } | null)?.who || null),
+              ip: e.ip,
+              at: e.createdAt.toISOString(),
             })),
           }))}
+          eventLabels={AGREEMENT_EVENT_LABELS}
         />
       </AdminSection>
 

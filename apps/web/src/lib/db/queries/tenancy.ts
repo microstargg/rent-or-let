@@ -1,8 +1,9 @@
-import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import { getTenant } from "@repo/config/server";
 import { db } from "../index";
 import { agencyEq, currentAgencyId, ensureAgency } from "../agency-scope";
 import {
+  agreementEvents,
   agreementSignatures,
   branches,
   invoices,
@@ -17,7 +18,8 @@ import {
   documents,
   inspections,
 } from "../schema";
-import { createComplianceItem, createDocument } from "./compliance";
+import { logAgreementEvent } from "./agreement-events";
+import { recordRenterRightToRent } from "./renter-documents";
 import { createTask } from "./finance";
 import { parseBranchSettings, getClientAccountDetails } from "@/lib/branch-settings";
 import { getPaymentRefFromMetadata } from "@/lib/payment-ref";
@@ -92,6 +94,22 @@ export async function getTenancyDetail(id: string) {
         )
         .orderBy(asc(agreementSignatures.createdAt))
     : [];
+  const eventRows = agreementIds.length
+    ? await db
+        .select({
+          id: agreementEvents.id,
+          agreementId: agreementEvents.agreementId,
+          event: agreementEvents.event,
+          ip: agreementEvents.ip,
+          detail: agreementEvents.detail,
+          createdAt: agreementEvents.createdAt,
+          who: agreementSignatures.fullName,
+        })
+        .from(agreementEvents)
+        .leftJoin(agreementSignatures, eq(agreementEvents.signatureId, agreementSignatures.id))
+        .where(and(inArray(agreementEvents.agreementId, agreementIds), agencyEq(agreementEvents.agencyId)))
+        .orderBy(asc(agreementEvents.createdAt))
+    : [];
 
   return {
     ...row,
@@ -103,6 +121,7 @@ export async function getTenancyDetail(id: string) {
     agreements: agreementRows.map((a) => ({
       agreement: a,
       signatures: signatureRows.filter((s) => s.agreementId === a.id),
+      events: eventRows.filter((e) => e.agreementId === a.id),
     })),
     notices: noticeRows,
     overdue,
@@ -202,36 +221,16 @@ export async function removeTenancyParty(tenancyId: string, partyId: string) {
   return row ?? null;
 }
 
-/**
- * Record a Right to Rent check. Time-limited permission gets a compliance item
- * that expires on the follow-up date, so the existing certificate reminders chase it.
- */
+/** Record a Right to Rent check from the tenancy page. See recordRenterRightToRent. */
 export async function recordRightToRent(
   tenancyId: string,
   renterId: string,
-  data: { checkedAt: string; method: string; expiresAt?: string | null }
+  data: { checkedAt: string; method: string; expiresAt?: string | null; shareCode?: string | null }
 ) {
   await ensureAgency();
   const t = await requireTenancy(tenancyId);
   if (!t) return null;
-  const [updated] = await db
-    .update(renters)
-    .set({ rtrCheckedAt: data.checkedAt, rtrMethod: data.method, rtrExpiresAt: data.expiresAt ?? null })
-    .where(and(eq(renters.id, renterId), agencyEq(renters.agencyId)))
-    .returning();
-  if (!updated) return null;
-  await createComplianceItem({
-    branchId: t.branchId,
-    propertyId: t.propertyId,
-    tenancyId: t.id,
-    type: "right_to_rent",
-    issuedAt: data.checkedAt,
-    expiresAt: data.expiresAt ?? null,
-    reference: `${displayPersonName(updated.firstName, updated.lastName)} (${data.method})`,
-    // Time-limited permission gets expiring/expired from the date, like a certificate.
-    status: data.expiresAt ? undefined : "valid",
-  });
-  return updated;
+  return recordRenterRightToRent(renterId, data, t.id);
 }
 
 export async function saveDepositReturn(
@@ -377,7 +376,7 @@ export async function createTenancyAgreement(
   const terms = await buildAgreementTerms(tenancyId, opts.additionalTerms ?? null);
   if (!terms) return { error: "Tenancy not found" };
 
-  await db
+  const replaced = await db
     .update(tenancyAgreements)
     .set({ status: "cancelled" })
     .where(
@@ -386,7 +385,11 @@ export async function createTenancyAgreement(
         eq(tenancyAgreements.status, "sent"),
         agencyEq(tenancyAgreements.agencyId)
       )
-    );
+    )
+    .returning({ id: tenancyAgreements.id });
+  for (const r of replaced) {
+    await logAgreementEvent({ agreementId: r.id, event: "cancelled", detail: { who: opts.agentName } });
+  }
 
   const hash = hashTerms(terms);
   const [agreement] = await db
@@ -400,6 +403,8 @@ export async function createTenancyAgreement(
       termsHash: hash,
     })
     .returning();
+
+  await logAgreementEvent({ agreementId: agreement.id, event: "created", detail: { who: opts.agentName } });
 
   const people: { role: string; fullName: string; email: string | null }[] = [
     {
@@ -449,44 +454,6 @@ export async function getSignatureByToken(token: string) {
     .where(and(eq(agreementSignatures.agreementId, row.agreement.id), agencyEq(agreementSignatures.agencyId)))
     .orderBy(asc(agreementSignatures.createdAt));
   return { ...row, signatures: all };
-}
-
-export async function signAgreement(
-  token: string,
-  data: { signedName: string; ip: string | null; userAgent: string | null }
-): Promise<{ error: string } | { completed: boolean }> {
-  const found = await getSignatureByToken(token);
-  if (!found) return { error: "This signing link isn't valid." };
-  if (found.agreement.status === "cancelled") return { error: "This agreement was replaced. Ask the agent for a new link." };
-  if (found.signature.signedAt) return { error: "Already signed." };
-
-  await db
-    .update(agreementSignatures)
-    .set({
-      signedName: data.signedName,
-      signedAt: new Date(),
-      signedIp: data.ip,
-      signedUserAgent: data.userAgent?.slice(0, 300) ?? null,
-    })
-    .where(and(eq(agreementSignatures.id, found.signature.id), isNull(agreementSignatures.signedAt)));
-
-  const remaining = found.signatures.filter((s) => !s.signedAt && s.id !== found.signature.id).length;
-  if (remaining > 0) return { completed: false };
-
-  const doc = await createDocument({
-    branchId: found.agreement.branchId,
-    entityType: "tenancy",
-    entityId: found.agreement.tenancyId,
-    kind: "tenancy_agreement",
-    url: `/api/agreements/${found.agreement.id}/pdf`,
-    filename: "tenancy-agreement.pdf",
-    meta: { termsHash: found.agreement.termsHash },
-  });
-  await db
-    .update(tenancyAgreements)
-    .set({ status: "signed", completedAt: new Date(), documentId: doc.id })
-    .where(and(eq(tenancyAgreements.id, found.agreement.id), agencyEq(tenancyAgreements.agencyId)));
-  return { completed: true };
 }
 
 export async function getAgreementWithSignatures(agreementId: string) {

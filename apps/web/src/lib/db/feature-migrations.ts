@@ -156,6 +156,64 @@ export const FEATURE_MIGRATIONS: FeatureMigration[] = [
       `ALTER TABLE landlords ADD COLUMN IF NOT EXISTS prs_renewal_date date`,
     ],
   },
+  {
+    // drizzle/0020_renter_documents.sql
+    name: "renter_documents",
+    probe: `SELECT (to_regclass('public.renter_documents') IS NOT NULL AND to_regclass('public.private_files') IS NOT NULL AND ${col("renters", "rtr_share_code")}) AS ok`,
+    statements: [
+      `ALTER TABLE renters ADD COLUMN IF NOT EXISTS rtr_share_code text`,
+      `CREATE TABLE IF NOT EXISTS private_files (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  agency_id text NOT NULL REFERENCES agencies(slug),
+  content_type text NOT NULL,
+  size_bytes integer NOT NULL,
+  data_base64 text NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+)`,
+      `CREATE TABLE IF NOT EXISTS renter_documents (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  agency_id text NOT NULL REFERENCES agencies(slug),
+  branch_id uuid NOT NULL REFERENCES branches(id),
+  renter_id uuid NOT NULL REFERENCES renters(id) ON DELETE CASCADE,
+  kind text NOT NULL,
+  label text,
+  storage_key text NOT NULL,
+  filename text NOT NULL,
+  content_type text NOT NULL,
+  size_bytes integer NOT NULL,
+  sha256 text NOT NULL,
+  uploaded_by text,
+  created_at timestamptz NOT NULL DEFAULT now()
+)`,
+      `CREATE INDEX IF NOT EXISTS idx_renter_documents_renter ON renter_documents(renter_id)`,
+    ],
+  },
+  {
+    // drizzle/0021_signing_audit.sql
+    name: "signing_audit",
+    probe: `SELECT (to_regclass('public.agreement_events') IS NOT NULL AND ${col("agreement_signatures", "verified_by")} AND ${col("tenancy_agreements", "signed_pdf_sha256")}) AS ok`,
+    statements: [
+      `ALTER TABLE agreement_signatures ADD COLUMN IF NOT EXISTS otp_hash text`,
+      `ALTER TABLE agreement_signatures ADD COLUMN IF NOT EXISTS otp_expires_at timestamptz`,
+      `ALTER TABLE agreement_signatures ADD COLUMN IF NOT EXISTS otp_attempts integer NOT NULL DEFAULT 0`,
+      `ALTER TABLE agreement_signatures ADD COLUMN IF NOT EXISTS otp_sent_at timestamptz`,
+      `ALTER TABLE agreement_signatures ADD COLUMN IF NOT EXISTS verified_by text`,
+      `ALTER TABLE tenancy_agreements ADD COLUMN IF NOT EXISTS signed_pdf_key text`,
+      `ALTER TABLE tenancy_agreements ADD COLUMN IF NOT EXISTS signed_pdf_sha256 text`,
+      `CREATE TABLE IF NOT EXISTS agreement_events (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  agency_id text NOT NULL REFERENCES agencies(slug),
+  agreement_id uuid NOT NULL REFERENCES tenancy_agreements(id) ON DELETE CASCADE,
+  signature_id uuid REFERENCES agreement_signatures(id) ON DELETE SET NULL,
+  event text NOT NULL,
+  ip text,
+  user_agent text,
+  detail jsonb NOT NULL DEFAULT '{}',
+  created_at timestamptz NOT NULL DEFAULT now()
+)`,
+      `CREATE INDEX IF NOT EXISTS idx_agreement_events_agreement ON agreement_events(agreement_id, created_at)`,
+    ],
+  },
 ];
 
 const pendingByUrl = new Map<string, Promise<void>>();

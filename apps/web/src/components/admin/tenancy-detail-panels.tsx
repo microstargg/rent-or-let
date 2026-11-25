@@ -76,7 +76,7 @@ export function TenancyPeoplePanel({
   const { run, busy, message } = useTenancyAction(tenancyId);
   const [renterId, setRenterId] = useState("");
   const [rtrFor, setRtrFor] = useState<string | null>(null);
-  const [rtr, setRtr] = useState({ checked_at: today(), method: "share_code", expires_at: "" });
+  const [rtr, setRtr] = useState({ checked_at: today(), method: "share_code", share_code: "", expires_at: "" });
   const [showGuarantor, setShowGuarantor] = useState(false);
   const [g, setG] = useState({ full_name: "", email: "", phone: "", address: "", guarantees_renter_id: "" });
 
@@ -91,7 +91,9 @@ export function TenancyPeoplePanel({
               <li key={t.renterId} className="py-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="font-medium">
-                    {t.name}
+                    <a href={`/renters/${t.renterId}`} className="hover:underline">
+                      {t.name}
+                    </a>
                     {!t.partyId && <span className="ml-2 text-xs text-muted-foreground">lead tenant</span>}
                   </span>
                   {t.partyId && (
@@ -130,11 +132,25 @@ export function TenancyPeoplePanel({
                         ))}
                       </select>
                     </div>
+                    {rtr.method === "share_code" && (
+                      <div>
+                        <Label className="text-xs">Share code</Label>
+                        <Input
+                          className="font-mono uppercase"
+                          maxLength={20}
+                          value={rtr.share_code}
+                          onChange={(e) => setRtr({ ...rtr, share_code: e.target.value.toUpperCase() })}
+                        />
+                      </div>
+                    )}
                     <div>
                       <Label className="text-xs">Permission ends (if time-limited)</Label>
                       <Input type="date" value={rtr.expires_at} onChange={(e) => setRtr({ ...rtr, expires_at: e.target.value })} />
                     </div>
                     <div className="sm:col-span-3">
+                      <p className="mb-2 text-xs text-muted-foreground">
+                        Upload the check result or document copies on the renter&apos;s profile.
+                      </p>
                       <Button
                         size="sm"
                         disabled={busy !== null}
@@ -144,6 +160,7 @@ export function TenancyPeoplePanel({
                             renter_id: t.renterId,
                             checked_at: rtr.checked_at,
                             method: rtr.method,
+                            share_code: rtr.share_code || null,
                             expires_at: rtr.expires_at || null,
                           });
                           if (r.ok) setRtrFor(null);
@@ -280,6 +297,7 @@ export function TenancyPeoplePanel({
 export function TenancyAgreementPanel({
   tenancyId,
   agreements,
+  eventLabels,
 }: {
   tenancyId: string;
   agreements: {
@@ -287,8 +305,18 @@ export function TenancyAgreementPanel({
     status: string;
     createdAt: string;
     completedAt: string | null;
-    signatures: { id: string; role: string; name: string; signedAt: string | null }[];
+    signedPdfSha256: string | null;
+    signatures: {
+      id: string;
+      role: string;
+      name: string;
+      hasEmail: boolean;
+      signedAt: string | null;
+      verifiedBy: string | null;
+    }[];
+    events: { id: string; event: string; who: string | null; ip: string | null; at: string }[];
   }[];
+  eventLabels: Record<string, string>;
 }) {
   const { run, busy, message } = useTenancyAction(tenancyId);
   const [open, setOpen] = useState(false);
@@ -320,11 +348,35 @@ export function TenancyAgreementPanel({
                   {s.name} <span className="text-xs text-muted-foreground">{s.role}</span>
                 </span>
                 <span className={s.signedAt ? "text-emerald-600" : "text-muted-foreground"}>
-                  {s.signedAt ? `Signed ${ukDate(s.signedAt)}` : "Waiting"}
+                  {s.signedAt
+                    ? `Signed ${ukDate(s.signedAt)}${s.verifiedBy === "email_code" ? ", email code confirmed" : s.verifiedBy === "link_only" ? ", link only" : ""}`
+                    : s.hasEmail
+                      ? "Waiting"
+                      : "Waiting (no email, so no code check)"}
                 </span>
               </li>
             ))}
           </ul>
+          {current.signedPdfSha256 && (
+            <p className="mt-2 text-xs text-muted-foreground">
+              Signed copy stored privately and emailed to everyone. Fingerprint {current.signedPdfSha256.slice(0, 16)}…
+            </p>
+          )}
+          {current.events.length > 0 && (
+            <details className="mt-3 text-sm">
+              <summary className="cursor-pointer text-primary">Audit trail ({current.events.length})</summary>
+              <ol className="mt-2 space-y-1 text-xs text-muted-foreground">
+                {current.events.map((e) => (
+                  <li key={e.id}>
+                    {new Date(e.at).toLocaleString("en-GB", { timeZone: "Europe/London" })}:{" "}
+                    {eventLabels[e.event] ?? e.event}
+                    {e.who ? `, ${e.who}` : ""}
+                    {e.ip ? ` (IP ${e.ip})` : ""}
+                  </li>
+                ))}
+              </ol>
+            </details>
+          )}
         </div>
       ) : (
         <p className="text-sm text-muted-foreground">No agreement sent yet.</p>

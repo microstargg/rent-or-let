@@ -2,6 +2,7 @@ import { and, count, eq, isNotNull, lt } from "drizzle-orm";
 import { db } from "../index";
 import { agencyEq, ensureAgency } from "../agency-scope";
 import { complaints, cookieConsents, enquiries, tenantApplications } from "../schema";
+import { listRenterDocumentsDueForDeletion, removeRenterDocument } from "./renter-documents";
 
 /**
  * Default retention periods, matching the agency privacy notice and
@@ -60,11 +61,12 @@ function conditions(key: RetentionKey, cutoff: Date) {
 export async function applyRetention(opts: { dryRun: boolean; now?: Date }) {
   await ensureAgency();
   const now = opts.now ?? new Date();
-  const results: Record<RetentionKey, number> = {
+  const results: Record<RetentionKey | "renterDocuments", number> = {
     enquiries: 0,
     rejectedApplications: 0,
     closedComplaints: 0,
     cookieConsents: 0,
+    renterDocuments: 0,
   };
 
   for (const rule of RETENTION_RULES) {
@@ -75,6 +77,17 @@ export async function applyRetention(opts: { dryRun: boolean; now?: Date }) {
     } else {
       const deleted = await db.delete(table).where(where).returning({ id: table.id });
       results[rule.key] = deleted.length;
+    }
+  }
+
+  // Renter documents (Right to Rent evidence, ID, references): periods run from
+  // the end of the renter's last tenancy. See RENTER_DOCUMENT_RETENTION.
+  const dueDocs = await listRenterDocumentsDueForDeletion(now);
+  if (opts.dryRun) {
+    results.renterDocuments = dueDocs.length;
+  } else {
+    for (const doc of dueDocs) {
+      if (await removeRenterDocument(doc.id)) results.renterDocuments += 1;
     }
   }
 

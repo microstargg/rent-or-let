@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { getSignatureByToken } from "@/lib/db/queries/tenancy";
-import { STANDARD_CLAUSES, type AgreementTerms } from "@/lib/tenancy/agreement";
+import { recordAgreementView } from "@/lib/db/queries/agreement-signing";
+import { maskEmail, STANDARD_CLAUSES, type AgreementTerms } from "@/lib/tenancy/agreement";
 import { SignAgreementForm } from "@/components/portal/sign-agreement-form";
 import { formatCurrency } from "@/lib/utils";
 
@@ -32,6 +34,13 @@ export default async function SignAgreementPage({ params }: { params: Promise<{ 
 
   const terms = found.agreement.terms as AgreementTerms;
   const me = found.signature;
+  if (!me.signedAt) {
+    const h = await headers();
+    await recordAgreementView(token, {
+      ip: h.get("x-forwarded-for")?.split(",")[0]?.trim() || h.get("x-real-ip") || null,
+      userAgent: h.get("user-agent"),
+    }).catch((err) => console.error("[sign] view log failed", err));
+  }
   const pdfHref = `/api/agreements/${found.agreement.id}/pdf?token=${encodeURIComponent(token)}`;
 
   return (
@@ -96,12 +105,18 @@ export default async function SignAgreementPage({ params }: { params: Promise<{ 
         {me.signedAt ? (
           <p className="mt-4 text-sm">You signed this on {new Date(me.signedAt).toLocaleString("en-GB")}. Thank you.</p>
         ) : (
-          <SignAgreementForm token={token} fullName={me.fullName} role={me.role} />
+          <SignAgreementForm
+            token={token}
+            fullName={me.fullName}
+            role={me.role}
+            maskedEmail={me.email ? maskEmail(me.email) : null}
+          />
         )}
       </div>
       <p className="mt-4 text-xs text-muted-foreground">
-        Document fingerprint {found.agreement.termsHash.slice(0, 16)}…. Your name, the time and your IP address are
-        recorded with your signature.
+        Document fingerprint {found.agreement.termsHash.slice(0, 16)}…. Your name, the time, your IP address and the
+        email code check are recorded with your signature. When everyone has signed, each person is emailed the signed
+        copy with its audit trail.
       </p>
     </main>
   );
