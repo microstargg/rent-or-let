@@ -7,7 +7,7 @@ import { FinanceSubnav } from "@/components/admin/finance-subnav";
 import { StatementCsvImport } from "@/components/admin/statement-csv-import";
 import { OpenBankingConnect } from "@/components/admin/open-banking-connect";
 import { ensureAgency } from "@/lib/db/agency-scope";
-import { getEnableBankingConfig } from "@/lib/bank-feed/enable-banking";
+import { getEnableBankingSetupStatus } from "@/lib/bank-feed/enable-banking-credentials";
 import { listEnableBankingConnections } from "@/lib/bank-feed/enable-banking-sync";
 import { LandlordPayoutButton } from "@/components/admin/landlord-payout-button";
 import {
@@ -90,7 +90,8 @@ export default async function MonthEndPage({
   }
   const data = await getMonthEndOverview(branch.id, period);
   const account = await getClientAccountCheck(branch.id, period);
-  const openBankingEnabled = getEnableBankingConfig(await ensureAgency()) != null;
+  const openBankingEnabled =
+    (await getEnableBankingSetupStatus(await ensureAgency(), branch.id)).source != null;
   const bankConnections = openBankingEnabled
     ? (await listEnableBankingConnections(branch.id))
         .filter((c) => c.status !== "revoked")
@@ -183,7 +184,7 @@ export default async function MonthEndPage({
             ? `Bank lines imported up to ${formatDate(lastBookedIso)}${imported ? "." : ` — import up to ${formatDate(coverTo)} to cover this month.`}`
             : "No bank statement imported yet."}
         </p>
-        {openBankingEnabled && (
+        {openBankingEnabled ? (
           <div className="mb-3">
             <OpenBankingConnect
               connections={bankConnections}
@@ -191,6 +192,14 @@ export default async function MonthEndPage({
               noticeError={params.bank_error ?? null}
             />
           </div>
+        ) : (
+          <p className="mb-3 text-sm text-muted-foreground">
+            Tired of downloading statements?{" "}
+            <Link href="/settings/bank-feed" className="text-primary underline">
+              Set up a live bank feed
+            </Link>{" "}
+            and pull transactions straight from your bank.
+          </p>
         )}
         <StatementCsvImport
           title={openBankingEnabled ? "Or upload a bank statement" : "Upload bank statement"}

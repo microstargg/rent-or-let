@@ -31,6 +31,15 @@ export default async function AdminSettingsPage() {
           </p>
         </Link>
         <StaffTeamClient staff={staff} invites={invites} />
+        <div className="rounded-xl border bg-card p-4 shadow-sm">
+          <h2 className="font-semibold">Bank feed</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Pull client account transactions into Month end through open banking, instead of uploading statements.
+          </p>
+          <Link href="/settings/bank-feed" className="mt-2 inline-block text-sm text-primary underline">
+            Set up bank feed
+          </Link>
+        </div>
         <AgencySettingsClient
           maintenanceInbox={
             full?.settings.maintenance_inbox_token && inboundDomain

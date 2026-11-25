@@ -8,11 +8,11 @@ import {
   EB_STATE_COOKIE,
   EnableBankingError,
   enableBankingRedirectUrl,
-  getEnableBankingConfig,
   listAspsps,
   listBanksForPicker,
   startAuthorisation,
 } from "@/lib/bank-feed/enable-banking";
+import { resolveEnableBankingConfig } from "@/lib/bank-feed/enable-banking-credentials";
 import {
   disconnectEnableBanking,
   syncEnableBankingForBranch,
@@ -31,7 +31,10 @@ function errorResponse(err: unknown) {
 export async function GET() {
   const { error } = await requireAdminApi();
   if (error) return error;
-  const config = getEnableBankingConfig(await ensureAgency());
+  const slug = await ensureAgency();
+  const branch = await getDefaultBranch();
+  if (!branch) return NextResponse.json({ error: "No branch" }, { status: 400 });
+  const config = await resolveEnableBankingConfig(slug, branch.id);
   if (!config) return NextResponse.json({ error: "Open banking is not set up" }, { status: 404 });
   try {
     const banks = await listBanksForPicker(config);
@@ -54,10 +57,11 @@ export async function GET() {
 export async function POST(request: Request) {
   const { error } = await requireAdminApi();
   if (error) return error;
-  const config = getEnableBankingConfig(await ensureAgency());
-  if (!config) return NextResponse.json({ error: "Open banking is not set up" }, { status: 404 });
+  const slug = await ensureAgency();
   const branch = await getDefaultBranch();
   if (!branch) return NextResponse.json({ error: "No branch" }, { status: 400 });
+  const config = await resolveEnableBankingConfig(slug, branch.id);
+  if (!config) return NextResponse.json({ error: "Open banking is not set up" }, { status: 404 });
 
   const body = (await request.json().catch(() => ({}))) as {
     action?: string;
