@@ -786,3 +786,164 @@ export function TenancyArrearsPanel({
     </div>
   );
 }
+
+export function TenancyCreditPanel({
+  tenancyId,
+  credit,
+  rent,
+  nextDue,
+  ended,
+  opening,
+}: {
+  tenancyId: string;
+  credit: number;
+  rent: number;
+  nextDue: string | null;
+  ended: boolean;
+  opening: { kind: "arrears" | "credit"; amount: number; asOf: string; note: string | null } | null;
+}) {
+  const { run, busy, message } = useTenancyAction(tenancyId);
+  const [mode, setMode] = useState<"refund" | "opening" | null>(null);
+  const [amount, setAmount] = useState("");
+  const [date, setDate] = useState(today());
+  const [reference, setReference] = useState("");
+  const [kind, setKind] = useState<"arrears" | "credit">(opening?.kind ?? "arrears");
+  const [openingAmount, setOpeningAmount] = useState(opening ? String(opening.amount) : "");
+  const [asOf, setAsOf] = useState(opening?.asOf ?? today());
+  const [note, setNote] = useState(opening?.note ?? "");
+  const months = rent > 0 ? credit / rent : 0;
+
+  return (
+    <div className={card}>
+      <p className="text-sm">
+        Credit held for the tenant:{" "}
+        <span className={`font-medium tabular-nums ${credit > 0 ? "text-emerald-700" : ""}`}>£{credit.toFixed(2)}</span>
+        {credit > 0 && months >= 0.95 && (
+          <span className="text-muted-foreground"> · about {months.toFixed(1)} months&apos; rent</span>
+        )}
+      </p>
+      {credit > 0 ? (
+        <p className="mt-1 text-sm text-muted-foreground">
+          {ended
+            ? "The tenancy has ended. Use the credit against any final charges, or refund it to the tenant alongside the deposit return. It can't go into the deposit, because the scheme holds that."
+            : `Used automatically against rent on its due date${nextDue ? ` (next due ${ukDate(nextDue)})` : ""}. It stays in the client account, held for the tenant, until then.`}
+        </p>
+      ) : (
+        <p className="mt-1 text-sm text-muted-foreground">
+          Overpayments and rent paid ahead are kept here as credit and used on the next due date.
+        </p>
+      )}
+
+      <div className="mt-3 flex flex-wrap gap-2">
+        {credit > 0 && (
+          <>
+            <Button size="sm" variant="outline" disabled={busy !== null} onClick={() => run({ action: "apply_credit" })}>
+              {busy === "apply_credit" ? "Applying…" : "Use against rent now"}
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => { setAmount(credit.toFixed(2)); setMode(mode === "refund" ? null : "refund"); }}>
+              Refund credit
+            </Button>
+          </>
+        )}
+        <Button size="sm" variant="ghost" onClick={() => setMode(mode === "opening" ? null : "opening")}>
+          {opening ? "Change opening balance" : "Set opening balance"}
+        </Button>
+      </div>
+
+      {mode === "refund" && (
+        <div className="mt-3 grid gap-2 sm:grid-cols-3">
+          <div>
+            <Label className="text-xs">Amount refunded (£)</Label>
+            <Input type="number" min="0.01" step="0.01" max={credit} value={amount} onChange={(e) => setAmount(e.target.value)} />
+          </div>
+          <div>
+            <Label className="text-xs">Paid on</Label>
+            <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+          </div>
+          <div>
+            <Label className="text-xs">Bank reference</Label>
+            <Input value={reference} onChange={(e) => setReference(e.target.value)} />
+          </div>
+          <div className="flex gap-2 sm:col-span-3">
+            <Button
+              size="sm"
+              disabled={!(Number(amount) > 0) || busy !== null}
+              onClick={async () => {
+                const r = await run({ action: "refund_credit", amount: Number(amount), paid_on: date, reference: reference || null });
+                if (r.ok) setMode(null);
+              }}
+            >
+              Record refund
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setMode(null)}>Cancel</Button>
+          </div>
+          <p className="text-xs text-muted-foreground sm:col-span-3">
+            Pay the tenant from the client account, then record it here. The bank line is matched to it on Month end.
+          </p>
+        </div>
+      )}
+
+      {opening && mode !== "opening" && (
+        <p className="mt-3 text-sm text-muted-foreground">
+          Opening balance brought over: {opening.kind === "arrears" ? "owed" : "in credit"} £{opening.amount.toFixed(2)} as of{" "}
+          {ukDate(opening.asOf)}
+          {opening.note ? ` · ${opening.note}` : ""}
+        </p>
+      )}
+
+      {mode === "opening" && (
+        <div className="mt-3 grid gap-2 sm:grid-cols-4">
+          <div>
+            <Label className="text-xs">Balance</Label>
+            <select className={selectClass} value={kind} onChange={(e) => setKind(e.target.value as "arrears" | "credit")}>
+              <option value="arrears">Tenant owes (arrears)</option>
+              <option value="credit">Tenant in credit</option>
+            </select>
+          </div>
+          <div>
+            <Label className="text-xs">Amount (£)</Label>
+            <Input type="number" min="0" step="0.01" value={openingAmount} onChange={(e) => setOpeningAmount(e.target.value)} />
+          </div>
+          <div>
+            <Label className="text-xs">Correct as of</Label>
+            <Input type="date" value={asOf} onChange={(e) => setAsOf(e.target.value)} />
+          </div>
+          <div>
+            <Label className="text-xs">Note</Label>
+            <Input value={note} placeholder="e.g. from previous agent" onChange={(e) => setNote(e.target.value)} />
+          </div>
+          <div className="flex flex-wrap gap-2 sm:col-span-4">
+            <Button
+              size="sm"
+              disabled={!(Number(openingAmount) > 0) || busy !== null}
+              onClick={async () => {
+                const r = await run({ action: "opening_balance", kind, amount: Number(openingAmount), as_of: asOf, note: note || null });
+                if (r.ok) setMode(null);
+              }}
+            >
+              Save opening balance
+            </Button>
+            {opening && (
+              <Button
+                size="sm"
+                variant="ghost"
+                disabled={busy !== null}
+                onClick={async () => {
+                  const r = await run({ action: "opening_balance", kind: null });
+                  if (r.ok) setMode(null);
+                }}
+              >
+                Remove
+              </Button>
+            )}
+            <Button size="sm" variant="ghost" onClick={() => setMode(null)}>Cancel</Button>
+          </div>
+          <p className="text-xs text-muted-foreground sm:col-span-4">
+            For tenancies taken on from another agent or system. Arrears are added as an opening charge on that date; credit is held and used on the next rent due dates. It can be changed until a payment has gone against it.
+          </p>
+        </div>
+      )}
+      {message && <p className="mt-2 text-sm text-red-600">{message}</p>}
+    </div>
+  );
+}

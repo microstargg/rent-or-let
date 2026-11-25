@@ -251,6 +251,22 @@ export default async function MonthEndPage({
         ) : (
           <p className="text-sm text-muted-foreground">Nothing waiting.</p>
         )}
+        {data.tenantCredit.count > 0 && (
+          <p className="mt-3 text-sm text-muted-foreground">
+            {formatCurrency(data.tenantCredit.total)} is held as credit for {data.tenantCredit.count} tenant
+            {data.tenantCredit.count === 1 ? "" : "s"} (overpaid or paid ahead). It isn&apos;t the landlords&apos; until
+            the rent it covers falls due.
+            {data.tenantCredit.endedCount > 0 && (
+              <span className="font-medium text-amber-700">
+                {" "}
+                {data.tenantCredit.endedCount} ended tenanc{data.tenantCredit.endedCount === 1 ? "y has" : "ies have"} credit to refund.
+              </span>
+            )}{" "}
+            <Link href="/finance/arrears?tab=credit" className="text-primary underline">
+              See who&apos;s in credit
+            </Link>
+          </p>
+        )}
       </Step>
 
       <Step

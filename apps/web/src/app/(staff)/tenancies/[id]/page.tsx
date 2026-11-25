@@ -6,6 +6,7 @@ import { AdminPageHeader, AdminSection, StatPill, StatusBadge } from "@/componen
 import { TenancyEndButton } from "@/components/admin/tenancy-end-button";
 import {
   TenancyArrearsPanel,
+  TenancyCreditPanel,
   TenancyAgreementPanel,
   TenancyDepositPanel,
   TenancyNoticesPanel,
@@ -21,18 +22,23 @@ import { getInspectionMeters } from "@/lib/db/queries/tenancy";
 import { UtilityNoticePanel } from "@/components/admin/utility-notice-panel";
 import { parseUtilityContacts, parseUtilityNotices } from "@/lib/tenancy/utility-notices";
 import { ActivityList } from "@/components/admin/activity-list";
+import { getOpeningBalance, getTenancyCredit } from "@/lib/db/queries/tenant-credit";
+import { listOpenTenancyInvoices } from "@/lib/db/queries/finance";
 
 export default async function TenancyDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const detail = await getTenancyDetail(id);
   if (!detail) notFound();
   const branch = await getDefaultBranch();
-  const [renters, activity, moveIn, moveOut, branchSettings] = await Promise.all([
+  const [renters, activity, moveIn, moveOut, branchSettings, credit, opening, openInvoices] = await Promise.all([
     listRenters(branch?.id),
     listActivity({ tenancyId: id }, 40),
     getInspectionMeters(id, "move_in"),
     getInspectionMeters(id, "move_out"),
     branch ? getBranchWithSettings(branch.id) : null,
+    getTenancyCredit(id),
+    getOpeningBalance(id),
+    listOpenTenancyInvoices(id),
   ]);
   const { tenancy, property, renter, landlord } = detail;
 
@@ -65,12 +71,18 @@ export default async function TenancyDetailPage({ params }: { params: Promise<{ 
         }
       />
 
-      <div className="mt-6 grid gap-3 sm:grid-cols-4">
+      <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <StatPill label="Rent" value={formatCurrency(Number(tenancy.rentAmount))} />
         <StatPill
           label="Overdue"
           value={formatCurrency(detail.overdue)}
           tone={detail.overdue > 0 ? "danger" : "success"}
+        />
+        <StatPill
+          label="Credit"
+          value={formatCurrency(credit)}
+          tone={credit > 0 ? "info" : "neutral"}
+          hint={credit > 0 ? "Held for the tenant" : undefined}
         />
         <StatPill
           label="Deposit"
@@ -112,6 +124,20 @@ export default async function TenancyDetailPage({ params }: { params: Promise<{ 
           plan={detail.paymentPlan}
           progress={detail.paymentPlan ? planProgress(detail.paymentPlan, detail.overdue, new Date()) : null}
           reminders={(tenancy.arrearsReminders as { sent: number[]; lastSentAt?: string } | null) ?? null}
+        />
+      </AdminSection>
+
+      <AdminSection
+        title="Credit and opening balance"
+        description="Overpayments and rent paid ahead, held for the tenant. Set an opening balance for a tenancy taken on from another agent."
+      >
+        <TenancyCreditPanel
+          tenancyId={tenancy.id}
+          credit={credit}
+          rent={Number(tenancy.rentAmount)}
+          nextDue={openInvoices[0]?.dueDate ?? null}
+          ended={tenancy.status === "ended"}
+          opening={opening}
         />
       </AdminSection>
 

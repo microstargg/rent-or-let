@@ -18,6 +18,7 @@ import {
   workOrders,
 } from "../schema";
 import { listLandlordBalances } from "./landlord-finance";
+import { listTenantCredits } from "./tenant-credit";
 import { listExpectedOutgoings } from "@/lib/bank-feed/match-outgoing";
 import { workOrderContractorCost } from "@/lib/operations/maintenance/work-order-invoice";
 import { ensureJobInvoiceSchema } from "@/lib/db/ensure-schema";
@@ -86,7 +87,9 @@ export async function getMonthEndOverview(branchId: string, period: MonthPeriod)
         agencyEq(invoices.agencyId),
         inArray(invoices.type, ["rent", "late_fee"]),
         gte(invoices.dueDate, period.from),
-        lte(invoices.dueDate, period.to)
+        lte(invoices.dueDate, period.to),
+        // Opening arrears brought over from a previous agent aren't this month's rent.
+        sql`coalesce(${invoices.meta}->>'opening_balance', '') <> 'true'`
       )
     )
     .orderBy(invoices.dueDate);
@@ -206,6 +209,7 @@ export async function getMonthEndOverview(branchId: string, period: MonthPeriod)
     outgoingLines,
     expectedOutgoings,
     statements,
+    tenantCreditRows,
   ] = await Promise.all([
     rentRowsQ,
     coverageQ,
@@ -216,6 +220,7 @@ export async function getMonthEndOverview(branchId: string, period: MonthPeriod)
     outgoingLinesQ,
     linkableQ,
     statementsQ,
+    listTenantCredits(branchId),
   ]);
 
   const rent = rentRows.map((r) => {
@@ -272,5 +277,10 @@ export async function getMonthEndOverview(branchId: string, period: MonthPeriod)
     markedExpected: markedExpected.map((t) => ({ ...t, amount: Number(t.amount) })),
     linkable,
     statementCount: statements.length,
+    tenantCredit: {
+      count: tenantCreditRows.length,
+      total: Math.round(tenantCreditRows.reduce((s, c) => s + c.credit, 0) * 100) / 100,
+      endedCount: tenantCreditRows.filter((c) => c.status === "ended").length,
+    },
   };
 }

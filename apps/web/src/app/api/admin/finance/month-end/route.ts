@@ -41,8 +41,8 @@ export async function POST(request: Request) {
   }
 
   if (body.action === "link_outgoing" && body.link_id) {
-    if (body.link_kind !== "payout" && body.link_kind !== "contractor") {
-      return NextResponse.json({ error: "link_kind must be payout or contractor" }, { status: 400 });
+    if (body.link_kind !== "payout" && body.link_kind !== "contractor" && body.link_kind !== "refund") {
+      return NextResponse.json({ error: "link_kind must be payout, contractor or refund" }, { status: 400 });
     }
     const row = await resolveOutgoingTransaction(branch.id, body.transaction_id, {
       kind: body.link_kind,

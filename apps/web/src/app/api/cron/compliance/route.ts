@@ -3,6 +3,7 @@ import { verifyCronAuth } from "@/lib/api-auth";
 import { getDefaultBranch, refreshComplianceStatuses } from "@/lib/db/queries";
 import { runDailyNotifications } from "@/lib/notifications/digest";
 import { sendArrearsReminders } from "@/lib/finance/arrears-reminders";
+import { applyDueCreditsForBranch } from "@/lib/db/queries/tenant-credit";
 import { sendViewingReminders } from "@/lib/lettings/viewing-messages";
 import { sendLandlordComplianceReminders } from "@/lib/compliance/landlord-reminders";
 import {
@@ -12,7 +13,8 @@ import {
 } from "@repo/config/server";
 
 /**
- * Daily at 07:00 UTC: refresh certificate statuses, then in-app notifications
+ * Daily at 07:00 UTC: use tenant credit against rent falling due today (so tenants who
+ * paid ahead are never chased), refresh certificate statuses, then in-app notifications
  * and each staff member's morning email (see lib/notifications/digest.ts), then
  * tenant arrears reminders when the agency has them switched on, then
  * day-before reminders for viewings, then landlord compliance emails when the
@@ -31,6 +33,13 @@ export async function GET(request: Request) {
       const result = await runWithAgencyAsync(agency, async () => {
         const branch = await getDefaultBranch();
         if (!branch) return { error: "No branch" as const };
+        let creditApplied: unknown = null;
+        try {
+          creditApplied = await applyDueCreditsForBranch(branch.id);
+        } catch (err) {
+          console.error(`[cron/compliance] ${slug} tenant credit failed`, err);
+          creditApplied = { error: err instanceof Error ? err.message : String(err) };
+        }
         const refreshed = await refreshComplianceStatuses(branch.id);
         const notifications = await runDailyNotifications(branch.id, refreshed.changed);
         let arrearsReminders: unknown = null;
@@ -55,6 +64,7 @@ export async function GET(request: Request) {
           landlordReminders = { error: err instanceof Error ? err.message : String(err) };
         }
         return {
+          creditApplied,
           arrearsReminders,
           landlordReminders,
           viewingReminders,

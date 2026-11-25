@@ -21,6 +21,7 @@ const bodySchema = z.object({
   exceptionId: z.string().uuid().optional(),
   invoiceId: z.string().uuid().optional(),
   landlordId: z.string().uuid().optional(),
+  tenancyId: z.string().uuid().optional(),
 });
 
 export async function POST(request: Request) {
@@ -140,6 +141,49 @@ export async function POST(request: Request) {
     await resolvePaymentException(exception.id);
 
     return NextResponse.json({ ok: true, payment: posted.payment, invoice: posted.invoice });
+  }
+
+  // Money from a tenant with nothing due yet (paying ahead): hold it as their credit.
+  if (body.action === "credit_unmatched" && body.exceptionId && body.tenancyId) {
+    const exception = await getPaymentExceptionById(body.exceptionId);
+    if (!exception || exception.branchId !== branch.id || exception.status !== "open" || exception.kind !== "unmatched") {
+      return NextResponse.json({ error: "Exception not found" }, { status: 404 });
+    }
+    const bankTxnId = (exception.meta as { bankTransactionId?: string } | null)?.bankTransactionId;
+    const bankTxn = bankTxnId ? await getBankTransactionById(bankTxnId) : null;
+    if (!bankTxn || bankTxn.branchId !== branch.id) {
+      return NextResponse.json({ error: "Bank transaction not found" }, { status: 404 });
+    }
+    const { getTenancyById } = await import("@/lib/db/queries");
+    const tenancy = await getTenancyById(body.tenancyId);
+    if (!tenancy || tenancy.tenancy.branchId !== branch.id) {
+      return NextResponse.json({ error: "Tenancy not found" }, { status: 404 });
+    }
+    const externalRef = /^(csv|pdf|tl|eb)_/.test(bankTxn.providerTxnId)
+      ? bankTxn.providerTxnId
+      : `csv_${bankTxn.providerTxnId}`;
+    const { addTenantCredit, applyTenantCredit } = await import("@/lib/db/queries/tenant-credit");
+    const existing = await getPaymentByExternalRef(branch.id, externalRef);
+    const payment =
+      existing ??
+      (await addTenantCredit({
+        tenancyId: body.tenancyId,
+        amount: Number(exception.amount),
+        paidAt: bankTxn.bookedAt,
+        method: "bank_transfer",
+        externalRef,
+        memo: "Payment received ahead, held as credit",
+      }));
+    if (!payment) return NextResponse.json({ error: "Failed to record payment" }, { status: 400 });
+    await updateBankTransaction(bankTxn.id, {
+      matchStatus: "matched",
+      paymentId: payment.id,
+      tenancyId: body.tenancyId,
+    });
+    await resolvePaymentException(exception.id);
+    // Anything already due is paid from it straight away; the rest waits for its due date.
+    const applied = await applyTenantCredit(body.tenancyId);
+    return NextResponse.json({ ok: true, payment, applied });
   }
 
   if (body.action === "ignore_unmatched" && body.exceptionId) {

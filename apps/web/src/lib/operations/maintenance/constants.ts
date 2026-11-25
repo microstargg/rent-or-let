@@ -12,7 +12,10 @@ export function isWorksInvoiceType(type: string): boolean {
   return type === WORKS_INVOICE_TYPE;
 }
 
-export function invoiceTypeLabel(type: string): string {
+export function invoiceTypeLabel(type: string, meta?: unknown): string {
+  if (meta && typeof meta === "object" && (meta as { opening_balance?: boolean }).opening_balance) {
+    return "Opening arrears";
+  }
   if (type === WORKS_INVOICE_TYPE) return "Works";
   if (type === "late_fee") return "Late fee";
   if (type === "rent") return "Rent";

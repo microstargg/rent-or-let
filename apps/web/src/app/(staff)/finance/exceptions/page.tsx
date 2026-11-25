@@ -2,7 +2,10 @@ import {
   listPaymentExceptions,
   getDefaultBranch,
   listOpenInvoiceMatchCandidates,
+  listTenancies,
 } from "@/lib/db/queries";
+import Link from "next/link";
+import { displayPersonName } from "@/lib/person-name";
 import { ResolveExceptionButton } from "@/components/admin/resolve-exception-button";
 import { UnmatchedExceptionActions } from "@/components/admin/unmatched-exception-actions";
 import { FinanceSubnav } from "@/components/admin/finance-subnav";
@@ -19,7 +22,15 @@ import { formatDate } from "@/lib/utils";
 export default async function AdminExceptionsPage() {
   const branch = await getDefaultBranch();
   const rows = branch ? await listPaymentExceptions(branch.id) : [];
-  const openInvoices = branch ? await listOpenInvoiceMatchCandidates(branch.id) : [];
+  const [openInvoices, tenancyRows] = branch
+    ? await Promise.all([listOpenInvoiceMatchCandidates(branch.id), listTenancies(branch.id)])
+    : [[], []];
+  const tenancyOptions = tenancyRows
+    .filter((t) => t.tenancy.status !== "ended")
+    .map((t) => ({
+      id: t.tenancy.id,
+      label: `${displayPersonName(t.renterFirstName, t.renterLastName)} · ${t.propertyAddress}`,
+    }));
   const invoiceOptions = openInvoices.map((c) => ({
     id: c.invoiceId,
     label: `${c.renterName} · ${c.propertyAddress}`,
@@ -34,7 +45,7 @@ export default async function AdminExceptionsPage() {
     <div>
       <AdminPageHeader
         title="Payment exceptions"
-        description="Overpayments, underpayments, and unmatched bank receipts that need a human decision."
+        description="Bank receipts that couldn't be matched, and partial payments, that need a human decision. Overpayments are kept as tenant credit on Balances."
       />
       <FinanceSubnav />
 
@@ -51,7 +62,7 @@ export default async function AdminExceptionsPage() {
 
       <AdminSection
         title="Open queue"
-        description="Allocate unmatched bank credits, or resolve once you’ve refunded / accepted a variance"
+        description="Allocate unmatched bank credits to rent, or add them to a tenancy as credit if the tenant paid ahead"
       >
         {rows.length ? (
           <div className="space-y-2">
@@ -79,12 +90,22 @@ export default async function AdminExceptionsPage() {
                   <UnmatchedExceptionActions
                     exceptionId={exception.id}
                     invoices={invoiceOptions}
+                    tenancies={tenancyOptions}
                     suggestedInvoiceId={
                       ((exception.meta as { suggestedInvoiceId?: string } | null)?.suggestedInvoiceId ??
                         exception.invoiceId) ||
                       null
                     }
                   />
+                ) : exception.kind === "overpayment" ? (
+                  <div className="flex flex-col items-end gap-1">
+                    {exception.tenancyId && (
+                      <Link href={`/tenancies/${exception.tenancyId}`} className="text-xs text-primary hover:underline">
+                        Now held as credit on the tenancy
+                      </Link>
+                    )}
+                    <ResolveExceptionButton id={exception.id} />
+                  </div>
                 ) : (
                   <ResolveExceptionButton id={exception.id} />
                 )}
@@ -94,7 +115,7 @@ export default async function AdminExceptionsPage() {
         ) : (
           <AdminEmptyState
             title="Queue clear"
-            description="No open payment exceptions. New partials, overpays, and unmatched bank credits will appear here."
+            description="No open payment exceptions. Partial payments and unmatched bank credits will appear here."
           />
         )}
       </AdminSection>

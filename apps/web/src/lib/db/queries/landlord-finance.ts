@@ -385,6 +385,9 @@ export async function generateLandlordStatements(
     byLandlord.set(e.landlordId, list);
   }
 
+  const { tenantCreditByLandlord } = await import("./tenant-credit");
+  const heldForTenants = await tenantCreditByLandlord(branchId);
+
   const created = [];
   for (const [landlordId, landlordEntries] of byLandlord) {
     const [ll] = await db
@@ -392,7 +395,10 @@ export async function generateLandlordStatements(
       .from(landlords)
       .where(and(eq(landlords.id, landlordId), agencyEq(landlords.agencyId)))
       .limit(1);
-    const { totals, billedInvoiceIds } = await buildStatementTotalsFromLedger(landlordEntries);
+    const { totals: ledgerTotals, billedInvoiceIds } = await buildStatementTotalsFromLedger(landlordEntries);
+    const held = heldForTenants.get(landlordId) ?? 0;
+    // Shown as a note only: it is the tenants' money until the rent it covers falls due.
+    const totals = held > 0 ? { ...ledgerTotals, heldForTenants: held } : ledgerTotals;
     const billed = new Set(billedInvoiceIds);
 
     const [stmt] = await db

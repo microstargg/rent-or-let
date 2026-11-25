@@ -30,6 +30,8 @@ export interface LandlordStatementTotals {
   count?: number;
   works?: LandlordStatementWorkLine[];
   properties?: LandlordStatementPropertyTotals[];
+  /** Rent tenants paid ahead, held in the client account for them. Not included in net. */
+  heldForTenants?: number;
 }
 
 export interface LandlordStatementPdfInput {
@@ -129,6 +131,14 @@ export function renderLandlordStatementPdf(input: LandlordStatementPdfInput): Ui
   blocks.push({ kind: "spacer" });
   blocks.push({ kind: "rule" });
   blocks.push(row("Total net due to landlord", totals.net, { bold: true }));
+  if (totals.heldForTenants && totals.heldForTenants > 0) {
+    blocks.push({ kind: "spacer" });
+    blocks.push(row("Rent paid in advance, held for tenants", totals.heldForTenants));
+    blocks.push({
+      kind: "text",
+      text: "Not included above. It is passed to you when the rent it covers falls due.",
+    });
+  }
   blocks.push({ kind: "spacer" });
   blocks.push({
     kind: "text",
