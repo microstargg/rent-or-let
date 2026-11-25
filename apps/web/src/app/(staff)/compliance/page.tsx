@@ -78,7 +78,7 @@ export default async function AdminCompliancePage() {
             {(atRisk.length ? atRisk : scores).slice(0, 12).map((s) => (
               <Link
                 key={s.propertyId}
-                href={`/properties/${s.propertyId}`}
+                href={`/properties/${s.propertyId}?tab=compliance`}
                 className="block rounded-xl border bg-card p-4 shadow-sm transition-colors hover:border-primary/50 hover:bg-muted/40"
               >
                 <div className="flex items-start justify-between gap-2">
