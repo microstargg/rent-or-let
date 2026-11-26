@@ -73,10 +73,13 @@ export async function searchLandlords(opts: ListPageOpts = {}) {
   }
   const where = and(...conditions);
 
+  // Alias the inner table: Drizzle prints bare column names inside a select's
+  // sql``, so `${properties.landlordId} = ${landlords.id}` compared the property's
+  // own id and every landlord showed 0 properties.
   const propertyCount = sql<number>`(
-    select count(*)::int from ${properties}
-    where ${properties.landlordId} = ${landlords.id}
-      and ${properties.agencyId} = ${landlords.agencyId}
+    select count(*)::int from properties p
+    where p.landlord_id = ${landlords}.id
+      and p.agency_id = ${landlords}.agency_id
   )`.mapWith(Number);
 
   const orderBy =

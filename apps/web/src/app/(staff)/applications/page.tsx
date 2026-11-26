@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { listTenantApplications, listAllProperties } from "@/lib/db/queries";
 import { ApplicationStatusSelect } from "@/components/admin/application-status-select";
 import { ConvertApplicationButton } from "@/components/admin/convert-application-button";
@@ -77,8 +78,18 @@ export default async function AdminApplicationsPage() {
                         }}
                       />
                     </AdminEntityDialog>
-                    {application.propertyId && application.status !== "approved" && (
-                      <ConvertApplicationButton applicationId={application.id} />
+                    {refData.tenancyId ? (
+                      <Link
+                        href={`/tenancies/${refData.tenancyId}`}
+                        className="inline-flex h-8 items-center rounded-md px-2 text-sm font-medium text-primary underline-offset-4 hover:underline"
+                      >
+                        View tenancy
+                      </Link>
+                    ) : (
+                      application.propertyId &&
+                      application.status === "approved" && (
+                        <ConvertApplicationButton applicationId={application.id} />
+                      )
                     )}
                   </div>
                 </td>
