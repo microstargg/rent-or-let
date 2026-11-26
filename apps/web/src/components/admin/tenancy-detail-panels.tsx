@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { SearchPicker } from "@/components/admin/search-picker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -58,6 +59,7 @@ export function TenancyPeoplePanel({
   tenants,
   guarantors,
   renterOptions,
+  addRenter,
 }: {
   tenancyId: string;
   tenants: {
@@ -70,7 +72,9 @@ export function TenancyPeoplePanel({
     rtrExpiresAt: string | null;
   }[];
   guarantors: { id: string; name: string; email: string | null; phone: string | null; guarantees: string | null }[];
-  renterOptions: { id: string; label: string }[];
+  renterOptions: { id: string; label: string; hint?: string | null }[];
+  /** Opens the "add renter" form; shown under the joint tenant search. */
+  addRenter?: React.ReactNode;
 }) {
   const { run, busy, message } = useTenancyAction(tenancyId);
   const [renterId, setRenterId] = useState("");
@@ -174,33 +178,29 @@ export function TenancyPeoplePanel({
             );
           })}
         </ul>
-        {renterOptions.length > 0 && (
-          <div className="mt-3 flex flex-wrap items-end gap-2">
-            <div className="min-w-48 flex-1">
-              <Label htmlFor="joint" className="text-xs">
-                Add a joint tenant
-              </Label>
-              <select id="joint" className={selectClass} value={renterId} onChange={(e) => setRenterId(e.target.value)}>
-                <option value="">Choose a renter…</option>
-                {renterOptions.map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {r.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <Button
-              size="sm"
-              disabled={!renterId || busy !== null}
-              onClick={async () => {
-                const r = await run({ action: "add_joint_tenant", renter_id: renterId });
-                if (r.ok) setRenterId("");
-              }}
-            >
-              Add
-            </Button>
+        <div className="mt-3 flex flex-wrap items-end gap-2">
+          <div className="min-w-48 flex-1">
+            <SearchPicker
+              label="Add a joint tenant"
+              options={renterOptions}
+              value={renterId}
+              onChange={setRenterId}
+              placeholder="Search renters by name or email…"
+              emptyText="No free renters match. Renters on another tenancy aren't listed."
+            />
           </div>
-        )}
+          <Button
+            size="sm"
+            disabled={!renterId || busy !== null}
+            onClick={async () => {
+              const r = await run({ action: "add_joint_tenant", renter_id: renterId });
+              if (r.ok) setRenterId("");
+            }}
+          >
+            Add
+          </Button>
+          {addRenter}
+        </div>
         <p className="mt-2 text-xs text-muted-foreground">
           Joint tenants see the same rent, repairs and documents in the tenant portal once invited from Renters.
         </p>
@@ -570,15 +570,18 @@ export function TenancyNoticesPanel({
   grounds,
   overdue,
   rent,
+  initialOpen = false,
 }: {
   tenancyId: string;
   notices: { id: string; type: string; servedAt: string | null; effectiveAt: string | null; pdfUrl: string | null }[];
   grounds: Section8Ground[];
   overdue: number;
   rent: number;
+  /** Open the Section 8 form straight away (from the page's More menu). */
+  initialOpen?: boolean;
 }) {
   const { run, busy, message, setMessage } = useTenancyAction(tenancyId);
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(initialOpen);
   const [picked, setPicked] = useState<string[]>([]);
   const [details, setDetails] = useState("");
   const [warnings, setWarnings] = useState<string[] | null>(null);
@@ -685,8 +688,8 @@ export function TenancyNoticesPanel({
           </p>
         </div>
       ) : (
-        <Button size="sm" variant="outline" className="mt-4" onClick={() => setOpen(true)}>
-          Serve Section 8 notice
+        <Button size="sm" variant="ghost" className="mt-3 h-auto px-0 text-muted-foreground hover:text-foreground" onClick={() => setOpen(true)}>
+          Serve a possession notice (Section 8)…
         </Button>
       )}
       {message && <p className="mt-2 text-sm">{message}</p>}

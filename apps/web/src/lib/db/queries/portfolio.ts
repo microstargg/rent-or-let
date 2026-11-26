@@ -318,3 +318,23 @@ export async function getRenterActivitySummary(tenancyIds: string[]) {
     payments: payments.map((p) => ({ ...p, amount: -Number(p.amount) })),
   };
 }
+
+/** Renters who are lead or joint tenant on a current or upcoming tenancy, optionally ignoring one tenancy. */
+export async function rentersOnLiveTenancies(exceptTenancyId?: string): Promise<Set<string>> {
+  await ensureAgency();
+  const live = or(eq(tenancies.status, "active"), eq(tenancies.status, "upcoming"), eq(tenancies.status, "pending"));
+  const [lead, joint] = await Promise.all([
+    db
+      .select({ renterId: tenancies.primaryRenterId, tenancyId: tenancies.id })
+      .from(tenancies)
+      .where(and(agencyEq(tenancies.agencyId), live)),
+    db
+      .select({ renterId: tenancyParties.renterId, tenancyId: tenancies.id })
+      .from(tenancyParties)
+      .innerJoin(tenancies, eq(tenancies.id, tenancyParties.tenancyId))
+      .where(and(agencyEq(tenancies.agencyId), eq(tenancyParties.role, "tenant"), live)),
+  ]);
+  const set = new Set<string>();
+  for (const r of [...lead, ...joint]) if (r.renterId && r.tenancyId !== exceptTenancyId) set.add(r.renterId);
+  return set;
+}
