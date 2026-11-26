@@ -55,6 +55,8 @@ export interface Property {
   portal_sync: Record<string, PortalSyncState>;
   landlord_id?: string;
   is_vacant?: boolean;
+  /** Lettings details kept in metadata.listing (let type, council tax band, etc.). */
+  listing?: import("@/lib/listings/listing-details").ListingDetails;
   published_at?: string;
   created_at: string;
   updated_at: string;

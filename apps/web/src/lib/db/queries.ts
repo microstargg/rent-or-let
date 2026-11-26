@@ -18,6 +18,7 @@ import {
 } from "./schema";
 import { ensureAgencyMembershipSchema } from "@/lib/db/ensure-schema";
 import type { Property, PropertyImage } from "@/types";
+import { listingDetailsFromMetadata } from "@/lib/listings/listing-details";
 
 function mapProperty(
   row: typeof properties.$inferSelect,
@@ -53,6 +54,7 @@ function mapProperty(
     portal_sync: (row.portalSync as Property["portal_sync"]) ?? {},
     landlord_id: row.landlordId ?? undefined,
     is_vacant: row.isVacant,
+    listing: listingDetailsFromMetadata(row.metadata),
     published_at: row.publishedAt?.toISOString(),
     created_at: row.createdAt.toISOString(),
     updated_at: row.updatedAt.toISOString(),

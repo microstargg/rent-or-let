@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { listingDetailsSchema } from "@/lib/listings/listing-details";
 
 export const adminPropertySchema = z.object({
   branch_id: z.string().uuid(),
@@ -28,6 +29,7 @@ export const adminPropertySchema = z.object({
   published_at: z.string().nullable().optional(),
   landlord_id: z.string().uuid().nullable().optional(),
   is_vacant: z.boolean().optional(),
+  listing: listingDetailsSchema.optional(),
 });
 
 export type AdminPropertyInput = z.infer<typeof adminPropertySchema>;
