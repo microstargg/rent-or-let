@@ -94,7 +94,7 @@ export function MoneySettingsClient(props: {
       </label>
       <label className="mt-1 flex items-center gap-2 text-sm">
         <input type="checkbox" checked={sms} disabled={!props.smsConfigured} onChange={(e) => setSms(e.target.checked)} />
-        Text them too{!props.smsConfigured && " (needs SMS set up: TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM)"}
+        Text them too{!props.smsConfigured && " (texts aren't switched on for your agency yet: ask Let Flow support)"}
       </label>
 
       <Button type="button" className="mt-4" size="sm" onClick={save} disabled={busy}>

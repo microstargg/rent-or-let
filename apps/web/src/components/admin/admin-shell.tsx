@@ -7,6 +7,7 @@ import { AdminSignOut } from "@/components/admin/admin-sign-out";
 import { NotificationBell } from "@/components/admin/notification-bell";
 import { SidebarShell } from "@/components/layout/sidebar-shell";
 import { Button } from "@/components/ui/button";
+import { openCookieSettings } from "@/components/compliance/cookie-consent";
 
 export function AdminShell({
   email,
@@ -33,7 +34,16 @@ export function AdminShell({
       footer={
         <>
           <p className="truncate text-xs text-muted-foreground">{email}</p>
-          <AdminSignOut />
+          <div className="flex items-center gap-3" data-staff-shell>
+            <AdminSignOut />
+            <button
+              type="button"
+              onClick={openCookieSettings}
+              className="mt-1 text-xs text-muted-foreground hover:text-foreground"
+            >
+              Cookie settings
+            </button>
+          </div>
         </>
       }
       renderNav={(onNavigate) => <AdminNav onNavigate={onNavigate} />}

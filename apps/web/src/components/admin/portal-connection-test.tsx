@@ -36,10 +36,10 @@ export function PortalConnectionTest() {
     <div className="mt-4 rounded-xl border p-4">
       <h2 className="font-semibold">Connection test</h2>
       <p className="mt-1 text-sm text-muted-foreground">
-        Calls GetBranchPropertyList on each configured portal (requires credentials in Vercel).
+        Checks Let Flow can log in to each portal you&apos;ve set up and read your branch&apos;s listings.
       </p>
       <Button className="mt-3" variant="outline" onClick={runTest} disabled={loading}>
-        {loading ? "Testing…" : "Test RTDF connection"}
+        {loading ? "Testing…" : "Test connection"}
       </Button>
       {result && (
         <pre className="mt-3 whitespace-pre-wrap rounded-md bg-muted p-3 text-sm">{result}</pre>

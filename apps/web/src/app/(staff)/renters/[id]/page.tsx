@@ -14,9 +14,10 @@ import {
   RTR_METHODS,
 } from "@/lib/db/queries/renter-documents";
 import { displayPersonName } from "@/lib/person-name";
+import { formatDay } from "@/lib/utils";
 
-function ukDate(iso: string | null) {
-  return iso ? new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-GB", { timeZone: "UTC" }) : "—";
+function ukDate(iso: string | null | undefined) {
+  return formatDay(iso);
 }
 
 export default async function RenterProfilePage({ params }: { params: Promise<{ id: string }> }) {
@@ -115,7 +116,7 @@ export default async function RenterProfilePage({ params }: { params: Promise<{ 
             {applications.map((a) => (
               <li key={a.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
                 <Link href="/applications" className="text-primary hover:underline">
-                  Applied {a.createdAt.toLocaleDateString("en-GB")}
+                  Applied {formatDay(a.createdAt)}
                 </Link>
                 <span className="flex items-center gap-2 text-muted-foreground">
                   Referencing: {a.referencingStatus.replace(/_/g, " ")}

@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/dialog";
 import { AdminConfirmDialog } from "@/components/admin/admin-confirm-dialog";
 import { TicketPhotoUpload } from "@/components/admin/ticket-photo-upload";
+import { formatMoney } from "@/lib/utils";
 
 interface JobBoardActionsProps {
   ticketId: string;
@@ -169,7 +170,7 @@ export function JobBoardActions({
                 />
                 {Number(charge) > 0 && Number(cost) > 0 && (
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Margin £{(Number(charge) - Number(cost)).toFixed(2)}
+                    Margin {formatMoney((Number(charge) - Number(cost)))}
                   </p>
                 )}
               </div>

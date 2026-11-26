@@ -3,14 +3,14 @@
 import { useRouter } from "next/navigation";
 import { BookViewingForm } from "@/components/admin/viewings-panel";
 
-const STAGES = [
-  "new",
-  "viewing_booked",
-  "application",
-  "referencing",
-  "offer",
-  "closed_won",
-  "closed_lost",
+export const PIPELINE_STAGES: Array<{ value: string; label: string }> = [
+  { value: "new", label: "New" },
+  { value: "viewing_booked", label: "Viewing booked" },
+  { value: "application", label: "Applied" },
+  { value: "referencing", label: "Referencing" },
+  { value: "offer", label: "Offer" },
+  { value: "closed_won", label: "Let agreed" },
+  { value: "closed_lost", label: "Not going ahead" },
 ];
 
 export function EnquiryPipelineSelect({
@@ -40,9 +40,9 @@ export function EnquiryPipelineSelect({
         onChange={(e) => setStage(e.target.value)}
         className="rounded border px-2 py-1 text-sm"
       >
-        {STAGES.map((s) => (
-          <option key={s} value={s}>
-            {s}
+        {PIPELINE_STAGES.map((s) => (
+          <option key={s.value} value={s.value}>
+            {s.label}
           </option>
         ))}
       </select>

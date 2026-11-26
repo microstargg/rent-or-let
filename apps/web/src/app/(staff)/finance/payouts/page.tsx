@@ -13,7 +13,7 @@ import {
   AdminSection,
   StatPill,
 } from "@/components/admin/admin-page";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatCurrency, formatDate, formatMoney } from "@/lib/utils";
 import { displayPersonName } from "@/lib/person-name";
 
 export default async function AdminPayoutsPage() {
@@ -32,7 +32,7 @@ export default async function AdminPayoutsPage() {
       />
       <FinanceSubnav />
 
-      <div className="mt-6 grid gap-3 sm:grid-cols-3">
+      <div className="mt-6 grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3">
         <StatPill label="Ready to pay" value={due.length} tone={due.length ? "warning" : "success"} />
         <StatPill label="Payout total" value={formatCurrency(dueTotal)} />
         <StatPill label="Payouts recorded" value={payouts.length} />
@@ -51,7 +51,7 @@ export default async function AdminPayoutsPage() {
               >
                 <div>
                   <p className="font-semibold">{b.name}</p>
-                  <p className="text-sm text-muted-foreground">£{b.balance.toFixed(2)} due</p>
+                  <p className="text-sm text-muted-foreground">{formatMoney(b.balance)} due</p>
                 </div>
                 <LandlordPayoutButton landlordId={b.landlordId} />
               </div>
@@ -86,7 +86,7 @@ export default async function AdminPayoutsPage() {
                     {firstName} {lastName}
                   </span>
                   <span className="text-muted-foreground">
-                    £{Number(payout.amount).toFixed(2)} · {payout.method} ·{" "}
+                    {formatMoney(Number(payout.amount))} · {payout.method} ·{" "}
                     {formatDate(payout.paidAt)}
                   </span>
                 </li>

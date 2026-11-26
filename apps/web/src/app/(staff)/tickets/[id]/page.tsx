@@ -16,6 +16,7 @@ import { StatusBadge } from "@/components/admin/admin-page";
 import { Button } from "@/components/ui/button";
 import { HazardClock } from "@/components/admin/hazard-clock";
 import { hazardForTicket, hazardSchedule, parseHazard } from "@/lib/tickets/hazard";
+import { formatDateTime, humanize } from "@/lib/utils";
 
 export default async function AdminTicketDetailPage({
   params,
@@ -92,7 +93,7 @@ export default async function AdminTicketDetailPage({
             {messages.map((m) => (
               <div key={m.id} className="rounded-xl border p-3 text-sm">
                 <p className="text-xs text-muted-foreground">
-                  {m.senderType} · {new Date(m.createdAt).toLocaleString("en-GB")}
+                  {m.senderType === "renter" ? "Tenant" : humanize(m.senderType)} · {formatDateTime(m.createdAt)}
                 </p>
                 <p className="mt-1 whitespace-pre-wrap">{m.body}</p>
               </div>

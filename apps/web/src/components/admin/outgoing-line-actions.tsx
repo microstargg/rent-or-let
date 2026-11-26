@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { formatMoney, formatDay } from "@/lib/utils";
 
 interface Linkable {
   kind: "payout" | "contractor" | "refund";
@@ -70,7 +71,7 @@ export function OutgoingLineActions({
             <option value="">Link to a payout or job…</option>
             {options.map((o) => (
               <option key={`${o.kind}:${o.id}`} value={`${o.kind}:${o.id}`}>
-                {o.label} · £{o.amount.toFixed(2)} · {o.date}
+                {o.label} · {formatMoney(o.amount)} · {formatDay(o.date)}
                 {Math.abs(o.amount - paid) > 0.005 ? " (amount differs)" : ""}
               </option>
             ))}

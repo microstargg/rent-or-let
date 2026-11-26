@@ -14,7 +14,7 @@ import {
   StatusBadge,
   StatPill,
 } from "@/components/admin/admin-page";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatMoney, formatDayRange } from "@/lib/utils";
 import {
   groupStatementsWithProperties,
   statementAdminPath,
@@ -59,7 +59,7 @@ export default async function LandlordStatementsPage() {
       />
       <FinanceSubnav />
 
-      <div className="mt-6 grid gap-3 sm:grid-cols-3">
+      <div className="mt-6 grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3">
         <StatPill label="Landlords owed" value={due.length} tone={due.length ? "warning" : "success"} />
         <StatPill label="Net due" value={formatCurrency(dueTotal)} tone={dueTotal > 0 ? "warning" : "neutral"} />
         <StatPill label="Statements issued" value={grouped.length} />
@@ -76,7 +76,7 @@ export default async function LandlordStatementsPage() {
               {due.map((b) => (
                 <li key={b.landlordId} className="flex items-center justify-between px-4 py-3 text-sm">
                   <span className="font-medium">{b.name}</span>
-                  <span className="font-semibold">£{b.balance.toFixed(2)}</span>
+                  <span className="font-semibold">{formatMoney(b.balance)}</span>
                 </li>
               ))}
             </ul>
@@ -120,8 +120,8 @@ export default async function LandlordStatementsPage() {
                       </Link>
                     </p>
                     <p className="text-sm text-muted-foreground">
-                      {statement.periodFrom} → {statement.periodTo} · Net £
-                      {Number((statement.totals as { net?: number })?.net ?? 0).toFixed(2)}
+                      {formatDayRange(statement.periodFrom, statement.periodTo)} · Net{" "}
+                      {formatMoney((statement.totals as { net?: number })?.net ?? 0)}
                     </p>
                   </div>
                   <div className="flex flex-col items-end gap-2 sm:flex-row sm:items-center">
@@ -148,7 +148,7 @@ export default async function LandlordStatementsPage() {
                           </Link>
                           <span className="text-muted-foreground">
                             {" "}
-                            · Net £{Number((ps.totals as { net?: number })?.net ?? 0).toFixed(2)}
+                            · Net {formatMoney(Number((ps.totals as { net?: number })?.net ?? 0))}
                           </span>
                         </div>
                         <div className="flex items-center gap-2">

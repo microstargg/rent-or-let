@@ -158,7 +158,7 @@ export default async function MonthEndPage({
       />
       <FinanceSubnav />
 
-      <div className="mt-6 grid gap-3 sm:grid-cols-4">
+      <div className="mt-6 grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4">
         <StatPill label="Rent expected" value={formatCurrency(data.rentExpected)} />
         <StatPill
           label="Rent received"

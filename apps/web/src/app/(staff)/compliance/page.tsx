@@ -82,7 +82,7 @@ export default async function AdminCompliancePage() {
         actions={<ComplianceActions />}
       />
 
-      <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mt-6 grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4">
         <StatPill label="Properties tracked" value={scores.length} />
         <StatPill label="Expiring soon" value={expiringCount} tone={expiringCount ? "warning" : "success"} />
         <StatPill label="Expired" value={expiredCount} tone={expiredCount ? "danger" : "success"} />
@@ -212,8 +212,8 @@ export default async function AdminCompliancePage() {
               >
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
-                    <p className="font-semibold capitalize">
-                      {item.type.replaceAll("_", " ")}
+                    <p className="font-semibold">
+                      {complianceLabel(item.type)}
                     </p>
                     <StatusBadge status={item.status} />
                   </div>
