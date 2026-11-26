@@ -13,11 +13,12 @@ import {
   AdminEmptyState,
   AdminPageHeader,
   AdminSection,
+  StatGrid,
   StatusBadge,
   StatPill,
 } from "@/components/admin/admin-page";
 import { StatementCsvImport } from "@/components/admin/statement-csv-import";
-import { formatDate, formatMoney } from "@/lib/utils";
+import { formatDay, formatMoney } from "@/lib/utils";
 
 export default async function AdminExceptionsPage() {
   const branch = await getDefaultBranch();
@@ -37,7 +38,6 @@ export default async function AdminExceptionsPage() {
     remaining: c.remaining,
   }));
 
-  const over = rows.filter((r) => r.exception.kind === "overpayment").length;
   const under = rows.filter((r) => r.exception.kind === "underpayment").length;
   const unmatched = rows.filter((r) => r.exception.kind === "unmatched").length;
 
@@ -45,28 +45,26 @@ export default async function AdminExceptionsPage() {
     <div>
       <AdminPageHeader
         title="Payment exceptions"
-        description="Bank receipts that couldn't be matched, and partial payments, that need a human decision. Overpayments are kept as tenant credit on Balances."
+        description="Bank money we couldn't match to rent, and part payments, that need you to decide what happens."
       />
       <FinanceSubnav />
 
-      <div className="mt-6 grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4">
-        <StatPill label="Open exceptions" value={rows.length} tone={rows.length ? "warning" : "success"} />
-        <StatPill label="Unmatched" value={unmatched} tone={unmatched ? "warning" : "neutral"} />
-        <StatPill label="Overpayments" value={over} tone={over ? "info" : "neutral"} />
-        <StatPill label="Underpayments" value={under} tone={under ? "warning" : "neutral"} />
-      </div>
-
-      <div className="mt-6">
-        <StatementCsvImport />
-      </div>
+      <StatGrid columns={3}>
+        <StatPill label="To sort out" value={rows.length} tone={rows.length ? "warning" : "success"} />
+        <StatPill label="Not matched" value={unmatched} tone={unmatched ? "warning" : "neutral"} />
+        <StatPill label="Part payments" value={under} tone={under ? "warning" : "neutral"} />
+      </StatGrid>
 
       <AdminSection
-        title="Open queue"
-        description="Allocate unmatched bank credits to rent, or add them to a tenancy as credit if the tenant paid ahead"
+        title="To sort out"
+        description="Match bank money to a rent invoice, or hold it as credit if the tenant paid ahead."
       >
         {rows.length ? (
           <div className="space-y-2">
-            {rows.map(({ exception, propertyAddress }) => (
+            {rows.map(({ exception, propertyAddress, renterFirstName, renterLastName }) => {
+              const tenant =
+                renterFirstName || renterLastName ? displayPersonName(renterFirstName ?? "", renterLastName ?? "") : null;
+              return (
               <div
                 key={exception.id}
                 className="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-card p-4 shadow-sm"
@@ -76,15 +74,21 @@ export default async function AdminExceptionsPage() {
                     <StatusBadge status={exception.kind} />
                     <span className="font-semibold">{formatMoney(Number(exception.amount))}</span>
                   </div>
-                  <p className="mt-1 text-sm text-muted-foreground">
+                  <p className="mt-1 text-sm">
                     {exception.kind === "unmatched"
-                      ? "Unmatched bank credit"
-                      : (propertyAddress ?? "Unlinked tenancy")}
-                    {exception.note ? ` · ${exception.note}` : ""}
+                      ? "Money in the bank we couldn't match"
+                      : [tenant, propertyAddress].filter(Boolean).join(" · ") || "Tenancy not linked"}
                   </p>
                   <p className="mt-0.5 text-xs text-muted-foreground">
-                    {exception.createdAt ? formatDate(exception.createdAt) : ""}
+                    {[exception.createdAt ? formatDay(exception.createdAt) : null, exception.note]
+                      .filter(Boolean)
+                      .join(" · ")}
                   </p>
+                  {exception.kind === "underpayment" && (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      The rest stays owing on the invoice and shows on Balances.
+                    </p>
+                  )}
                 </div>
                 {exception.kind === "unmatched" ? (
                   <UnmatchedExceptionActions
@@ -97,28 +101,40 @@ export default async function AdminExceptionsPage() {
                       null
                     }
                   />
-                ) : exception.kind === "overpayment" ? (
-                  <div className="flex flex-col items-end gap-1">
+                ) : (
+                  <div className="flex flex-wrap items-center justify-end gap-2">
                     {exception.tenancyId && (
-                      <Link href={`/tenancies/${exception.tenancyId}`} className="text-xs text-primary hover:underline">
-                        Now held as credit on the tenancy
+                      <Link
+                        href={`/tenancies/${exception.tenancyId}?tab=money`}
+                        className="text-sm text-primary hover:underline"
+                      >
+                        {exception.kind === "overpayment" ? "See credit" : "See rent account"}
                       </Link>
                     )}
-                    <ResolveExceptionButton id={exception.id} />
+                    <ResolveExceptionButton
+                      id={exception.id}
+                      label={exception.kind === "overpayment" ? "Keep as credit" : "Leave the rest owing"}
+                    />
                   </div>
-                ) : (
-                  <ResolveExceptionButton id={exception.id} />
                 )}
               </div>
-            ))}
+              );
+            })}
           </div>
         ) : (
           <AdminEmptyState
-            title="Queue clear"
-            description="No open payment exceptions. Partial payments and unmatched bank credits will appear here."
+            title="Nothing to sort out"
+            description="Part payments and bank money we can't match show up here."
           />
         )}
       </AdminSection>
+
+      <details className="mt-6 rounded-xl border bg-card">
+        <summary className="cursor-pointer px-4 py-3 text-sm font-medium">Upload a bank statement</summary>
+        <div className="border-t p-4">
+          <StatementCsvImport />
+        </div>
+      </details>
     </div>
   );
 }

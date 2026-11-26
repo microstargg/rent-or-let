@@ -145,11 +145,15 @@ export function OpenBankingConnect({
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <h3 className="font-semibold">Bank feed (open banking)</h3>
+          {active.length === 0 && (
           <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
             Connect the client account once and pull transactions straight from the bank, instead of
             downloading a statement. Read-only: LetFlow can see transactions but cannot move money.
           </p>
-          <details className="mt-2 max-w-2xl text-sm" open={connections.length === 0}>
+          )}
+          {/* Folded by default: it's only needed the first time, and it pushed step 1 off screen. */}
+          {active.length === 0 && (
+          <details className="mt-2 max-w-2xl text-sm">
             <summary className="cursor-pointer font-medium text-primary">How linking your bank works</summary>
             <ol className="mt-2 list-decimal space-y-1 pl-5 text-muted-foreground">
               <li>
@@ -182,6 +186,7 @@ export function OpenBankingConnect({
               </li>
             </ul>
           </details>
+          )}
         </div>
         {active.length > 0 && (
           <Button type="button" size="sm" className="min-h-10" disabled={busy !== null} onClick={() => void sync()}>
