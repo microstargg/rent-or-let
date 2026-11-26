@@ -124,7 +124,7 @@ export default async function AdminPayoutsPage() {
         <summary className="cursor-pointer px-4 py-3 text-sm font-medium">Add a one-off credit or charge</summary>
         <div className="border-t p-4">
           <p className="mb-3 text-sm text-muted-foreground">
-            For anything that isn't rent or a repair. It goes straight onto the landlord's account.
+            For anything that isn&apos;t rent or a repair. It goes straight onto the landlord&apos;s account.
           </p>
           <LandlordAdjustmentForm
             landlords={landlords.map((l) => ({ id: l.id, name: displayPersonName(l.firstName, l.lastName) }))}
