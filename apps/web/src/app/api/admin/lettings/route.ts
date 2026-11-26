@@ -3,6 +3,7 @@ import { requireAdminApi } from "@/lib/api-auth";
 import {
   getDefaultBranch,
   updateEnquiryPipeline,
+  insertEnquiry,
   createViewing,
   convertApplicationToTenancy,
   updateApplicationReferencing,
@@ -45,7 +46,33 @@ export async function POST(request: Request) {
     holding_outcome?: HoldingDepositOutcome | null;
     holding_note?: string | null;
     landlord_id?: string;
+    name?: string;
+    email?: string | null;
+    phone?: string | null;
+    message?: string | null;
+    source?: string;
   };
+
+  if (body.action === "add_enquiry") {
+    const name = body.name?.trim();
+    const email = body.email?.trim() ?? "";
+    const phone = body.phone?.trim() || null;
+    if (!name) return NextResponse.json({ error: "Add a name" }, { status: 400 });
+    if (!email && !phone) return NextResponse.json({ error: "Add a phone number or email" }, { status: 400 });
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return NextResponse.json({ error: "That email doesn't look right" }, { status: 400 });
+    }
+    const source = ["phone", "walk_in", "email", "other"].includes(body.source ?? "") ? body.source! : "phone";
+    await insertEnquiry({
+      propertyId: body.property_id || null,
+      name,
+      email,
+      phone,
+      message: body.message?.trim() || "",
+      source,
+    });
+    return NextResponse.json({ ok: true }, { status: 201 });
+  }
 
   if (body.action === "set_pipeline" && body.enquiry_id && body.pipeline_stage) {
     const row = await updateEnquiryPipeline(body.enquiry_id, body.pipeline_stage);
