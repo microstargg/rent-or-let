@@ -9,7 +9,7 @@ import {
   AdminTable,
   StatusBadge,
 } from "@/components/admin/admin-page";
-import { formatDate } from "@/lib/utils";
+import { formatDate, humanize } from "@/lib/utils";
 
 export default async function AdminInspectionsPage() {
   const branch = await getDefaultBranch();
@@ -36,13 +36,13 @@ export default async function AdminInspectionsPage() {
         {rows.length ? (
           <AdminTable headers={["Property", "Type", "Scheduled", "Status"]}>
             {rows.map(({ inspection, propertyAddress }) => (
-              <tr key={inspection.id}>
+              <tr key={inspection.id} className="row-link">
                 <td className="px-4 py-3">
-                  <Link href={`/inspections/${inspection.id}`} className="font-medium text-primary">
+                  <Link href={`/inspections/${inspection.id}`} className="row-link-main">
                     {propertyAddress}
                   </Link>
                 </td>
-                <td className="px-4 py-3 capitalize">{inspection.type.replaceAll("_", " ")}</td>
+                <td className="px-4 py-3">{humanize(inspection.type)}</td>
                 <td className="px-4 py-3">
                   {inspection.scheduledAt ? formatDate(inspection.scheduledAt) : "—"}
                 </td>

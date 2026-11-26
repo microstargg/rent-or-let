@@ -75,7 +75,7 @@ export function PortalSettings({
             <div>
               <Label className="cursor-pointer">Sync to Rightmove</Label>
               {!rightmoveConfigured && (
-                <p className="text-xs text-amber-600">RTDF credentials not configured</p>
+                <p className="text-xs text-amber-600">Waiting for the portal to send your feed login details</p>
               )}
             </div>
           </label>
@@ -91,7 +91,7 @@ export function PortalSettings({
             <div>
               <Label className="cursor-pointer">Sync to OnTheMarket</Label>
               {!otmConfigured && (
-                <p className="text-xs text-amber-600">RTDF credentials not configured</p>
+                <p className="text-xs text-amber-600">Waiting for the portal to send your feed login details</p>
               )}
             </div>
           </label>

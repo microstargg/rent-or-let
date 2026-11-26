@@ -17,7 +17,7 @@ import {
   StatPill,
 } from "@/components/admin/admin-page";
 import { StatementCsvImport } from "@/components/admin/statement-csv-import";
-import { formatDate } from "@/lib/utils";
+import { formatDate, formatMoney } from "@/lib/utils";
 
 export default async function AdminExceptionsPage() {
   const branch = await getDefaultBranch();
@@ -49,7 +49,7 @@ export default async function AdminExceptionsPage() {
       />
       <FinanceSubnav />
 
-      <div className="mt-6 grid gap-3 sm:grid-cols-4">
+      <div className="mt-6 grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4">
         <StatPill label="Open exceptions" value={rows.length} tone={rows.length ? "warning" : "success"} />
         <StatPill label="Unmatched" value={unmatched} tone={unmatched ? "warning" : "neutral"} />
         <StatPill label="Overpayments" value={over} tone={over ? "info" : "neutral"} />
@@ -74,7 +74,7 @@ export default async function AdminExceptionsPage() {
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <StatusBadge status={exception.kind} />
-                    <span className="font-semibold">£{Number(exception.amount).toFixed(2)}</span>
+                    <span className="font-semibold">{formatMoney(Number(exception.amount))}</span>
                   </div>
                   <p className="mt-1 text-sm text-muted-foreground">
                     {exception.kind === "unmatched"

@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { periodLabel, type Section8Ground } from "@/lib/tenancy/section8";
 import type { DepositReturn } from "@/lib/tenancy/deposits";
 import type { PaymentPlan, PlanProgress } from "@/lib/finance/arrears";
+import { formatMoney, formatDay } from "@/lib/utils";
 
 const selectClass = "mt-1.5 flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm";
 const card = "rounded-xl border bg-card p-5 shadow-sm";
@@ -43,9 +44,7 @@ function today() {
 }
 
 function ukDate(iso: string | null | undefined) {
-  if (!iso) return "—";
-  const d = new Date(iso.length === 10 ? `${iso}T00:00:00Z` : iso);
-  return d.toLocaleDateString("en-GB");
+  return formatDay(iso);
 }
 
 const RTR_METHODS: Record<string, string> = {
@@ -479,7 +478,7 @@ export function TenancyDepositPanel({
   return (
     <div className={card}>
       <p className="text-sm text-muted-foreground">
-        £{deposit.toFixed(2)} {reference ? `protected with ${scheme} (${reference})` : "— not recorded as protected"}.
+        {formatMoney(deposit)} {reference ? `protected with ${scheme} (${reference})` : "— not recorded as protected"}.
         {status && (
           <span className="ml-1 font-medium text-foreground">
             Return {status}
@@ -511,8 +510,8 @@ export function TenancyDepositPanel({
           Add line
         </button>
         <p className="text-sm">
-          To landlord <span className="font-medium tabular-nums">£{total.toFixed(2)}</span>, back to tenants{" "}
-          <span className="font-medium tabular-nums">£{Math.max(0, deposit - total).toFixed(2)}</span>
+          To landlord <span className="font-medium tabular-nums">{formatMoney(total)}</span>, back to tenants{" "}
+          <span className="font-medium tabular-nums">{formatMoney(Math.max(0, deposit - total))}</span>
         </p>
       </div>
       <div className="mt-4 flex flex-wrap gap-2">
@@ -628,7 +627,7 @@ export function TenancyNoticesPanel({
       {open ? (
         <div className="mt-4 space-y-3">
           <p className="text-sm">
-            Overdue rent today: <span className="font-medium">£{overdue.toFixed(2)}</span> ({rent ? (overdue / rent).toFixed(1) : "0"} months)
+            Overdue rent today: <span className="font-medium">{formatMoney(overdue)}</span> ({rent ? (overdue / rent).toFixed(1) : "0"} months)
           </p>
           <div className="grid gap-2 sm:grid-cols-2">
             {grounds.map((g) => (
@@ -719,7 +718,7 @@ export function TenancyArrearsPanel({
   return (
     <div className={card}>
       <p className="text-sm">
-        Overdue now: <span className="font-medium tabular-nums">£{overdue.toFixed(2)}</span>
+        Overdue now: <span className="font-medium tabular-nums">{formatMoney(overdue)}</span>
         {reminders?.lastSentAt && (
           <span className="text-muted-foreground">
             {" "}
@@ -730,10 +729,10 @@ export function TenancyArrearsPanel({
       {active && progress ? (
         <div className="mt-3 rounded-lg bg-muted/40 p-3 text-sm">
           <p className="font-medium">
-            Payment plan: £{active.instalment.toFixed(2)} a month on top of rent from {ukDate(active.startDate)}
+            Payment plan: {formatMoney(active.instalment)} a month on top of rent from {ukDate(active.startDate)}
           </p>
           <p className={`mt-1 ${progress.onTrack ? "text-emerald-700" : "text-red-600"}`}>
-            {progress.onTrack ? "On track" : "Behind"}: should owe £{progress.expectedBalance.toFixed(2)} by now, owes £
+            {progress.onTrack ? "On track" : "Behind"}: should owe {formatMoney(progress.expectedBalance)} by now, owes £
             {progress.actualBalance.toFixed(2)}. {progress.monthsLeft} instalments left.
           </p>
           {active.notes && <p className="mt-1 text-muted-foreground">{active.notes}</p>}
@@ -817,7 +816,7 @@ export function TenancyCreditPanel({
     <div className={card}>
       <p className="text-sm">
         Credit held for the tenant:{" "}
-        <span className={`font-medium tabular-nums ${credit > 0 ? "text-emerald-700" : ""}`}>£{credit.toFixed(2)}</span>
+        <span className={`font-medium tabular-nums ${credit > 0 ? "text-emerald-700" : ""}`}>{formatMoney(credit)}</span>
         {credit > 0 && months >= 0.95 && (
           <span className="text-muted-foreground"> · about {months.toFixed(1)} months&apos; rent</span>
         )}
@@ -885,7 +884,7 @@ export function TenancyCreditPanel({
 
       {opening && mode !== "opening" && (
         <p className="mt-3 text-sm text-muted-foreground">
-          Opening balance brought over: {opening.kind === "arrears" ? "owed" : "in credit"} £{opening.amount.toFixed(2)} as of{" "}
+          Opening balance brought over: {opening.kind === "arrears" ? "owed" : "in credit"} {formatMoney(opening.amount)} as of{" "}
           {ukDate(opening.asOf)}
           {opening.note ? ` · ${opening.note}` : ""}
         </p>

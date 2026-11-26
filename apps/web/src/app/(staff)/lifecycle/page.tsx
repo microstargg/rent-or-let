@@ -16,7 +16,7 @@ import {
   StatPill,
 } from "@/components/admin/admin-page";
 import { displayPersonName } from "@/lib/person-name";
-import { formatDate } from "@/lib/utils";
+import { formatDate, formatMoney } from "@/lib/utils";
 
 export default async function AdminLifecyclePage() {
   const branch = await getDefaultBranch();
@@ -35,7 +35,7 @@ export default async function AdminLifecyclePage() {
         description="Protect deposits, run inspections, and keep RRA / Section 13 evidence on file."
       />
 
-      <div className="mt-6 grid gap-3 sm:grid-cols-3">
+      <div className="mt-6 grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3">
         <StatPill
           label="Unprotected deposits"
           value={unprotected}
@@ -70,7 +70,7 @@ export default async function AdminLifecyclePage() {
                     {displayPersonName(renterFirstName, renterLastName)}
                   </td>
                   <td className="px-4 py-3">
-                    £{Number(tenancy.depositAmount ?? 0).toFixed(2)}
+                    {formatMoney(Number(tenancy.depositAmount ?? 0))}
                   </td>
                   <td className="px-4 py-3 text-muted-foreground">
                     {tenancy.depositScheme ?? "—"}

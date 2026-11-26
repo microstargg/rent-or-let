@@ -58,7 +58,7 @@ export default async function AdminLandlordsPage({
         }
       />
 
-      <div className="mt-6 grid gap-3 sm:grid-cols-3">
+      <div className="mt-6 grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3">
         <StatPill label="Total landlords" value={totalAll} />
         <StatPill label="Showing" value={total} hint={q ? "Matching search" : "All records"} />
         <StatPill

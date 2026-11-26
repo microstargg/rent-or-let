@@ -5,6 +5,12 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 
 const CONSENT_KEY = "rol_cookie_consent";
+const OPEN_EVENT = "lf:cookie-settings";
+
+/** Reopens the cookie banner. Staff pages use this from the sidebar instead of the floating button. */
+export function openCookieSettings() {
+  window.dispatchEvent(new Event(OPEN_EVENT));
+}
 const BANNER_VERSION = "1.0";
 
 type Preferences = {
@@ -22,6 +28,9 @@ export function CookieConsent() {
   useEffect(() => {
     const stored = localStorage.getItem(CONSENT_KEY);
     if (!stored) setVisible(true);
+    const open = () => setVisible(true);
+    window.addEventListener(OPEN_EVENT, open);
+    return () => window.removeEventListener(OPEN_EVENT, open);
   }, []);
 
   async function saveConsent(preferences: Preferences) {
@@ -60,7 +69,7 @@ export function CookieConsent() {
       <button
         type="button"
         onClick={() => setVisible(true)}
-        className="fixed bottom-4 left-4 z-40 rounded-full border bg-background px-3 py-1.5 text-xs shadow-md hover:bg-muted"
+        className="cookie-fab fixed bottom-4 left-4 z-40 rounded-full border bg-background px-3 py-1.5 text-xs shadow-md hover:bg-muted"
       >
         Cookie settings
       </button>

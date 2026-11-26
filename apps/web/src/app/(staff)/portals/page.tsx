@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PortalSettings } from "@/components/admin/portal-settings";
 import { PortalConnectionTest } from "@/components/admin/portal-connection-test";
 import { AdminTable } from "@/components/admin/admin-page";
+import { formatDateTime } from "@/lib/utils";
 
 export default async function AdminPortalsPage() {
   const [logs, branch] = await Promise.all([
@@ -19,7 +20,7 @@ export default async function AdminPortalsPage() {
     <div>
       <h1 className="text-3xl font-bold">Portal sync</h1>
       <p className="mt-1 text-muted-foreground">
-        Rightmove and OnTheMarket RTDF integration
+        Send your available properties to Rightmove and OnTheMarket automatically.
       </p>
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2">
@@ -31,7 +32,7 @@ export default async function AdminPortalsPage() {
             <p>
               Credentials:{" "}
               <span className={rightmoveConfigured ? "text-green-600" : "text-amber-600"}>
-                {rightmoveConfigured ? "Configured" : "Awaiting RTDF credentials"}
+                {rightmoveConfigured ? "Configured" : "Waiting for login details"}
               </span>
             </p>
             <p>
@@ -53,7 +54,7 @@ export default async function AdminPortalsPage() {
             <p>
               Credentials:{" "}
               <span className={otmConfigured ? "text-green-600" : "text-amber-600"}>
-                {otmConfigured ? "Configured" : "Awaiting RTDF credentials"}
+                {otmConfigured ? "Configured" : "Waiting for login details"}
               </span>
             </p>
             <p>
@@ -103,7 +104,7 @@ export default async function AdminPortalsPage() {
                 </span>
               </td>
               <td className="px-4 py-3 text-muted-foreground">
-                {new Date(log.createdAt).toLocaleString("en-GB")}
+                {formatDateTime(log.createdAt)}
               </td>
             </tr>
           ))}
@@ -118,7 +119,7 @@ export default async function AdminPortalsPage() {
       </div>
 
       <p className="mt-4 text-sm text-muted-foreground">
-        See <code className="text-xs">docs/portal-onboarding.md</code> for RTDF setup steps.
+        To get your feed login details, ask Rightmove or OnTheMarket for a data feed account for your branch, then send them to Let Flow support.
       </p>
     </div>
   );

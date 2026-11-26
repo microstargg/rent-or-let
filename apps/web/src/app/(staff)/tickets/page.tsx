@@ -19,6 +19,7 @@ import {
   StatPill,
 } from "@/components/admin/admin-page";
 import { Button } from "@/components/ui/button";
+import { formatDateTime } from "@/lib/utils";
 
 const TICKET_STATUSES = [
   { value: "new", label: "New" },
@@ -83,7 +84,7 @@ export default async function AdminTicketsPage({
         }
       />
 
-      <div className="mt-6 grid gap-3 sm:grid-cols-3">
+      <div className="mt-6 grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3">
         <StatPill label="Open tickets" value={openCount} tone="warning" />
         <StatPill label="Showing" value={total} hint="After filters" />
         <StatPill label="On this page" value={rows.length} />
@@ -115,7 +116,7 @@ export default async function AdminTicketsPage({
                       <p className="mt-0.5 text-sm text-muted-foreground">{propertyAddress}</p>
                       <p className="mt-2 text-xs text-muted-foreground">
                         {ticket.source} ·{" "}
-                        {new Date(ticket.createdAt).toLocaleString("en-GB")}
+                        {formatDateTime(ticket.createdAt)}
                         {ticket.priority ? ` · ${ticket.priority}` : ""}
                       </p>
                     </div>

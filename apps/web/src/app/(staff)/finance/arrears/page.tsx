@@ -11,7 +11,7 @@ import {
   AdminTable,
   StatPill,
 } from "@/components/admin/admin-page";
-import { cn, formatCurrency } from "@/lib/utils";
+import { cn, formatCurrency, formatMoney, formatDay } from "@/lib/utils";
 
 const TABS = [
   { key: "owing", label: "Owing" },
@@ -20,9 +20,8 @@ const TABS = [
 ] as const;
 type Tab = (typeof TABS)[number]["key"];
 
-function ukDate(iso: string | null) {
-  if (!iso) return "—";
-  return new Date(`${iso.slice(0, 10)}T00:00:00Z`).toLocaleDateString("en-GB");
+function ukDate(iso: string | null | undefined) {
+  return formatDay(iso);
 }
 
 export default async function BalancesPage({
@@ -54,7 +53,7 @@ export default async function BalancesPage({
       />
       <FinanceSubnav />
 
-      <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mt-6 grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4">
         <StatPill label="In arrears" value={rows.length} tone={rows.length ? "warning" : "success"} />
         <StatPill
           label="Total owed"
@@ -105,7 +104,7 @@ export default async function BalancesPage({
                     </Link>
                   </td>
                   <td className="px-4 py-3">{r.renterName}</td>
-                  <td className="px-4 py-3 font-semibold text-red-700">£{r.balance.toFixed(2)}</td>
+                  <td className="px-4 py-3 font-semibold text-red-700">{formatMoney(r.balance)}</td>
                   <td className="px-4 py-3">
                     <span
                       className={
@@ -156,7 +155,7 @@ export default async function BalancesPage({
                     </Link>
                   </td>
                   <td className="px-4 py-3">{c.renterName}</td>
-                  <td className="px-4 py-3 font-semibold text-emerald-700">£{c.credit.toFixed(2)}</td>
+                  <td className="px-4 py-3 font-semibold text-emerald-700">{formatMoney(c.credit)}</td>
                   <td className="px-4 py-3 text-muted-foreground">
                     {c.rentAmount > 0 ? `${(c.credit / c.rentAmount).toFixed(1)} months` : "—"}
                   </td>

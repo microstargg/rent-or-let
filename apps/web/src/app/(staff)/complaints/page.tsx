@@ -1,5 +1,6 @@
 import { listComplaints } from "@/lib/db/queries";
 import { ComplaintStatusSelect } from "@/components/admin/complaint-status-select";
+import { formatDay, formatDateTime } from "@/lib/utils";
 
 export default async function AdminComplaintsPage() {
   const complaints = await listComplaints();
@@ -24,9 +25,9 @@ export default async function AdminComplaintsPage() {
               <span>Source: {complaint.source}</span>
               <span>Priority: {complaint.priority}</span>
               {complaint.slaDueAt && (
-                <span>SLA: {new Date(complaint.slaDueAt).toLocaleDateString("en-GB")}</span>
+                <span>SLA: {formatDay(complaint.slaDueAt)}</span>
               )}
-              <span>{new Date(complaint.createdAt).toLocaleString("en-GB")}</span>
+              <span>{formatDateTime(complaint.createdAt)}</span>
             </div>
           </div>
         ))}

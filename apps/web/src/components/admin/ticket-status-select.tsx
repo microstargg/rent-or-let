@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { humanize } from "@/lib/utils";
 
 const statuses = ["new", "triaged", "scheduled", "completed", "cancelled"];
 
@@ -21,11 +22,11 @@ export function TicketStatusSelect({ id, status }: { id: string; status: string 
       value={status}
       onChange={handleChange}
       aria-label="Ticket status"
-      className="min-h-11 rounded-md border bg-background px-3 py-2 text-sm capitalize"
+      className="min-h-11 rounded-md border bg-background px-3 py-2 text-sm"
     >
       {statuses.map((s) => (
         <option key={s} value={s}>
-          {s}
+          {humanize(s)}
         </option>
       ))}
     </select>

@@ -13,7 +13,7 @@ import {
   TenancyPeoplePanel,
 } from "@/components/admin/tenancy-detail-panels";
 import { displayPersonName } from "@/lib/person-name";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatDay } from "@/lib/utils";
 import { SECTION_8_GROUNDS } from "@/lib/tenancy/section8";
 import { AGREEMENT_EVENT_LABELS } from "@/lib/tenancy/agreement";
 import { planProgress } from "@/lib/finance/arrears";
@@ -60,7 +60,7 @@ export default async function TenancyDetailPage({ params }: { params: Promise<{ 
     <div>
       <AdminPageHeader
         title={property.displayAddress}
-        description={`${tenants.map((t) => t.name).join(", ")}. Started ${tenancy.startDate}${tenancy.endDate ? `, ends ${tenancy.endDate}` : ""}.`}
+        description={`${tenants.map((t) => t.name).join(", ")}. Started ${formatDay(tenancy.startDate)}${tenancy.endDate ? `, ends ${formatDay(tenancy.endDate)}` : ""}.`}
         actions={
           <>
             <Link href={`/properties/${property.id}`} className="text-sm text-primary hover:underline">
@@ -71,7 +71,7 @@ export default async function TenancyDetailPage({ params }: { params: Promise<{ 
         }
       />
 
-      <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="mt-6 grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-5">
         <StatPill label="Rent" value={formatCurrency(Number(tenancy.rentAmount))} />
         <StatPill
           label="Overdue"

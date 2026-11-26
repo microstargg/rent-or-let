@@ -13,6 +13,7 @@ import {
   weeklyRent,
 } from "@/lib/tenancy/deposits";
 import { REFERENCING_STATUSES } from "@/lib/tenancy/referencing";
+import { formatMoney } from "@/lib/utils";
 
 const selectClass = "mt-1.5 flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm";
 
@@ -123,7 +124,7 @@ export function ApplicationChecksForm({
               value={hold.amount}
               onChange={(e) => setHold({ ...hold, amount: e.target.value })}
             />
-            {cap != null && <p className="mt-1 text-xs text-muted-foreground">Legal maximum £{cap.toFixed(2)} (one week&apos;s rent)</p>}
+            {cap != null && <p className="mt-1 text-xs text-muted-foreground">Legal maximum {formatMoney(cap)} (one week&apos;s rent)</p>}
           </div>
           <div>
             <Label>Paid on</Label>

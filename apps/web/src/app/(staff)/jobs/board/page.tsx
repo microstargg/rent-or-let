@@ -17,7 +17,7 @@ import { TaskCardActions } from "@/components/admin/task-card-actions";
 import { listAssignableStaff, listBoardTasks } from "@/lib/db/queries/notifications";
 import { requireStaffSession } from "@/lib/auth/server";
 import { londonDateKey } from "@/lib/notifications/preferences";
-import { formatDate } from "@/lib/utils";
+import { formatDate, formatMoney, formatDay, humanize } from "@/lib/utils";
 
 function initials(name: string): string {
   return name
@@ -151,7 +151,7 @@ export default async function JobsBoardPage({
         }
       />
 
-      <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mt-6 grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4">
         <StatPill label="Mine today" value={myToday} tone={myToday ? "info" : "success"} hint="Jobs and tasks, incl. overdue" />
         <StatPill label="Open jobs" value={open} />
         <StatPill
@@ -204,7 +204,7 @@ export default async function JobsBoardPage({
             searchPlaceholder="Search address, job, or contractor…"
             statusOptions={statuses.map((s) => ({
               value: s,
-              label: s.replaceAll("_", " "),
+              label: humanize(s),
             }))}
           />
         </Suspense>
@@ -223,7 +223,7 @@ export default async function JobsBoardPage({
                   key={t}
                   href={qs ? `/jobs/board?${qs}` : "/jobs/board"}
                   active={params.trade === t}
-                  label={t}
+                  label={humanize(t)}
                 />
               );
             })}
@@ -263,7 +263,7 @@ export default async function JobsBoardPage({
                     )}
                     {invoice && (
                       <p className="mt-1 text-xs text-muted-foreground">
-                        Works invoice £{Number(invoice.amount).toFixed(2)} dated {invoice.dueDate}
+                        Works invoice {formatMoney(Number(invoice.amount))} dated {formatDay(invoice.dueDate)}
                         {invoice.status === "billed"
                           ? " · on landlord statement"
                           : " · awaiting statement"}

@@ -22,7 +22,7 @@ import {
 } from "@/components/admin/admin-page";
 import { Button } from "@/components/ui/button";
 import { displayPersonName } from "@/lib/person-name";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatDay } from "@/lib/utils";
 import { getPaymentRefFromMetadata } from "@/lib/payment-ref";
 import { CopyPaymentRef } from "@/components/admin/copy-payment-ref";
 
@@ -85,7 +85,7 @@ export default async function AdminTenanciesPage({
         }
       />
 
-      <div className="mt-6 grid gap-3 sm:grid-cols-3">
+      <div className="mt-6 grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3">
         <StatPill label="Active" value={activeCount} tone="success" />
         <StatPill label="Showing" value={total} hint="After filters" />
         <StatPill label="On this page" value={rows.length} />
@@ -121,11 +121,11 @@ export default async function AdminTenanciesPage({
                 }) => {
                   const paymentRef = getPaymentRefFromMetadata(tenancy.metadata);
                   return (
-                  <tr key={tenancy.id}>
+                  <tr key={tenancy.id} className="row-link">
                     <td className="px-4 py-3">
                       <Link
                         href={`/tenancies/${tenancy.id}`}
-                        className="font-medium text-primary hover:underline"
+                        className="row-link-main"
                       >
                         {propertyAddress}
                       </Link>
@@ -142,7 +142,7 @@ export default async function AdminTenanciesPage({
                       )}
                     </td>
                     <td className="px-4 py-3 text-sm text-muted-foreground">
-                      {tenancy.startDate} — {tenancy.endDate ?? "ongoing"}
+                      {formatDay(tenancy.startDate)} to {tenancy.endDate ? formatDay(tenancy.endDate) : "ongoing"}
                     </td>
                     <td className="px-4 py-3">
                       <StatusBadge status={tenancy.status} />

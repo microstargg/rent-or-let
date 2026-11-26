@@ -11,7 +11,7 @@ import {
   StatusBadge,
   StatPill,
 } from "@/components/admin/admin-page";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatMoney, formatDay } from "@/lib/utils";
 import {
   invoiceTypeLabel,
   isTenantPayableInvoiceType,
@@ -41,7 +41,7 @@ export default async function AdminInvoicesPage() {
       />
       <FinanceSubnav />
 
-      <div className="mt-6 grid gap-3 sm:grid-cols-3">
+      <div className="mt-6 grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3">
         <StatPill label="Total invoices" value={rows.length} />
         <StatPill
           label="Open rent"
@@ -86,14 +86,14 @@ export default async function AdminInvoicesPage() {
                     <td className="px-4 py-3">
                       <p className="font-medium">{invoiceTypeLabel(invoice.type, invoice.meta)}</p>
                       <p className="text-muted-foreground">
-                        £{Number(invoice.amount).toFixed(2)}
+                        {formatMoney(Number(invoice.amount))}
                       </p>
                     </td>
                     <td className="px-4 py-3">
                       <p>{propertyAddress ?? "—"}</p>
                       <p className="text-muted-foreground">{party}</p>
                     </td>
-                    <td className="px-4 py-3 text-muted-foreground">{invoice.dueDate}</td>
+                    <td className="px-4 py-3 text-muted-foreground">{formatDay(invoice.dueDate)}</td>
                     <td className="px-4 py-3">
                       <StatusBadge status={invoice.status} />
                     </td>

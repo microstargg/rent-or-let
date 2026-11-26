@@ -16,7 +16,7 @@ import {
   type ListingDetails,
 } from "@/lib/listings/listing-details";
 import type { Property, PropertyStatus } from "@/types";
-import { cn, formatCurrency, slugify } from "@/lib/utils";
+import { cn, formatCurrency, slugify, formatDateTime } from "@/lib/utils";
 import { ListingAssist } from "@/components/admin/listing-assist";
 import { PropertyImageUpload, RECOMMENDED_PHOTOS } from "@/components/admin/property-image-upload";
 
@@ -1030,7 +1030,7 @@ export function PropertyForm({ property, imageCount = 0, onSuccess }: PropertyFo
                   <dt className="font-medium capitalize">{portal}</dt>
                   <dd className={cn("text-xs", state.error ? "text-red-700" : "text-muted-foreground")}>
                     {pretty(state.status ?? "unknown")}
-                    {state.last_synced_at && `, ${new Date(state.last_synced_at).toLocaleString("en-GB")}`}
+                    {state.last_synced_at && `, ${formatDateTime(state.last_synced_at)}`}
                     {state.error && `. ${state.error}`}
                   </dd>
                 </div>

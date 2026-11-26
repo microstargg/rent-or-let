@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { formatMoney } from "@/lib/utils";
 
 interface OpenInvoiceOption {
   id: string;
@@ -128,7 +129,7 @@ export function UnmatchedExceptionActions({
           >
             {invoices.map((inv) => (
               <option key={inv.id} value={inv.id}>
-                {inv.label} · £{inv.remaining.toFixed(2)} due
+                {inv.label} · {formatMoney(inv.remaining)} due
               </option>
             ))}
           </select>

@@ -1,5 +1,6 @@
 import { Children, cloneElement, isValidElement } from "react";
-import { cn } from "@/lib/utils";
+import Link from "next/link";
+import { cn, humanize } from "@/lib/utils";
 
 export function AdminPageHeader({
   title,
@@ -128,11 +129,11 @@ export function StatusBadge({
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium capitalize",
+        "inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium",
         tones[resolved]
       )}
     >
-      {status.replaceAll("_", " ")}
+      {humanize(status)}
     </span>
   );
 }
@@ -142,11 +143,17 @@ export function StatPill({
   value,
   hint,
   tone,
+  href,
+  active,
 }: {
   label: string;
   value: string | number;
   hint?: string;
   tone?: "neutral" | "warning" | "danger" | "success" | "info";
+  /** Makes the card a filter link. */
+  href?: string;
+  /** Highlights the card when its filter is on. */
+  active?: boolean;
 }) {
   const tones = {
     neutral: "border-border bg-card",
@@ -155,11 +162,34 @@ export function StatPill({
     success: "border-emerald-200 bg-emerald-50/60",
     info: "border-sky-200 bg-sky-50/60",
   };
-  return (
-    <div className={cn("rounded-xl border px-4 py-3", tones[tone ?? "neutral"])}>
-      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
-      <p className="mt-1 text-2xl font-semibold tracking-tight">{value}</p>
+  const body = (
+    <>
+      <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground sm:text-xs">{label}</p>
+      <p className="mt-0.5 text-xl font-semibold tracking-tight sm:mt-1 sm:text-2xl">{value}</p>
       {hint && <p className="mt-0.5 text-xs text-muted-foreground">{hint}</p>}
+    </>
+  );
+  const className = cn(
+    "block rounded-xl border px-3 py-2.5 sm:px-4 sm:py-3",
+    tones[tone ?? "neutral"],
+    href && "transition-colors hover:border-primary/50",
+    active && "ring-2 ring-primary/60"
+  );
+  if (href) {
+    return (
+      <Link href={href} className={className} aria-current={active ? "true" : undefined}>
+        {body}
+      </Link>
+    );
+  }
+  return <div className={className}>{body}</div>;
+}
+
+/** Summary cards: two to a row on phones so they don't fill the first screen. */
+export function StatGrid({ children, columns = 4 }: { children: React.ReactNode; columns?: 3 | 4 }) {
+  return (
+    <div className={cn("mt-6 grid grid-cols-2 gap-2 sm:gap-3", columns === 3 ? "lg:grid-cols-3" : "lg:grid-cols-4")}>
+      {children}
     </div>
   );
 }

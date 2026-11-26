@@ -3,6 +3,7 @@ import { listViewingDiary, toViewingItem } from "@/lib/db/queries/viewings";
 import { EnquiryPipelineSelect } from "@/components/admin/enquiry-pipeline-select";
 import { AdminSection, AdminTable } from "@/components/admin/admin-page";
 import { ViewingsList } from "@/components/admin/viewings-panel";
+import { formatDateTime } from "@/lib/utils";
 
 export default async function AdminEnquiriesPage() {
   const branch = await getDefaultBranch();
@@ -52,7 +53,7 @@ export default async function AdminEnquiriesPage() {
                 />
               </td>
               <td className="px-4 py-3 text-muted-foreground">
-                {new Date(enquiry.createdAt).toLocaleString("en-GB")}
+                {formatDateTime(enquiry.createdAt)}
               </td>
             </tr>
           ))}

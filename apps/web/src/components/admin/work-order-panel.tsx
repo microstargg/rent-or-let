@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { StatusBadge } from "@/components/admin/admin-page";
 import { JobAssigneeSelect, type StaffOption } from "@/components/admin/assignee-select";
+import { formatMoney, formatDay } from "@/lib/utils";
 
 interface WorkOrderRow {
   workOrder: {
@@ -200,13 +201,13 @@ export function WorkOrderPanel({
                     {workOrder.costEstimate && `Est £${workOrder.costEstimate}`}
                     {workOrder.finalCost && ` · Contractor £${workOrder.finalCost}`}
                     {workOrder.clientCharge && ` · Client £${workOrder.clientCharge}`}
-                    {cost > 0 && billed !== cost && ` · Margin £${(billed - cost).toFixed(2)}`}
+                    {cost > 0 && billed !== cost && ` · Margin ${formatMoney((billed - cost))}`}
                     {workOrder.scheduledFor &&
-                      ` · ${new Date(workOrder.scheduledFor).toLocaleDateString("en-GB")}`}
+                      ` · ${formatDay(workOrder.scheduledFor)}`}
                   </p>
                   {invoice && (
                     <p className="mt-1 text-xs text-muted-foreground">
-                      Invoice £{Number(invoice.amount).toFixed(2)} · {invoice.dueDate} ·{" "}
+                      Invoice {formatMoney(Number(invoice.amount))} · {formatDay(invoice.dueDate)} ·{" "}
                       {invoice.status.replaceAll("_", " ")}
                     </p>
                   )}

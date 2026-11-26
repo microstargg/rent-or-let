@@ -9,6 +9,7 @@ import {
   AdminSection,
   AdminTable,
 } from "@/components/admin/admin-page";
+import { humanize } from "@/lib/utils";
 
 export default async function AdminContractorsPage() {
   const branch = await getDefaultBranch();
@@ -36,7 +37,7 @@ export default async function AdminContractorsPage() {
             {rows.map((contractor) => (
               <tr key={contractor.id}>
                 <td className="px-4 py-3 font-medium">{contractor.name}</td>
-                <td className="px-4 py-3 capitalize">{contractor.trade || "—"}</td>
+                <td className="px-4 py-3">{contractor.trade ? humanize(contractor.trade) : "—"}</td>
                 <td className="px-4 py-3">
                   {contractor.email ? (
                     <CopyTextButton value={contractor.email} />
