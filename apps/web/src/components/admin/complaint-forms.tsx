@@ -81,7 +81,7 @@ export function ComplaintLogForm({ properties }: { properties: { id: string; lab
         <Input id="c-subject" name="subject" required className="mt-1.5" />
       </div>
       <div className="sm:col-span-2">
-        <Label htmlFor="c-desc">What it's about</Label>
+        <Label htmlFor="c-desc">What it&apos;s about</Label>
         <textarea
           id="c-desc"
           name="description"

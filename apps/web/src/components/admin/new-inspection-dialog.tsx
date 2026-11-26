@@ -147,7 +147,7 @@ export function NewInspectionDialog({
           </div>
           {staff.length > 0 && (
             <div>
-              <Label htmlFor="new-insp-who">Who's doing it</Label>
+              <Label htmlFor="new-insp-who">Who&apos;s doing it</Label>
               <select
                 id="new-insp-who"
                 value={inspectorId}
