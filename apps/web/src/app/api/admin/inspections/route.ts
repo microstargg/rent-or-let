@@ -29,6 +29,7 @@ export async function POST(request: Request) {
     type?: string;
     scheduled_at?: string;
     notify_tenants?: boolean;
+    inspector_staff_id?: string | null;
   };
   if (!body.property_id || !body.type) {
     return NextResponse.json({ error: "property_id and type required" }, { status: 400 });
@@ -42,6 +43,7 @@ export async function POST(request: Request) {
     tenancyId: body.tenancy_id,
     type: body.type,
     scheduledAt: body.scheduled_at ? new Date(body.scheduled_at) : null,
+    inspectorStaffId: body.inspector_staff_id || null,
   });
   const label = body.type === "move_in" ? "check-in" : body.type === "move_out" ? "check-out" : "inspection";
   await logActivity(actorOf(session), {

@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { HazardClock } from "@/components/admin/hazard-clock";
 import { hazardForTicket, hazardSchedule, parseHazard } from "@/lib/tickets/hazard";
 import { formatDateTime, humanize } from "@/lib/utils";
+import { displayPersonName } from "@/lib/person-name";
 
 export default async function AdminTicketDetailPage({
   params,
@@ -36,7 +37,8 @@ export default async function AdminTicketDetailPage({
     listAssignableStaff(),
   ]);
 
-  const { ticket, propertyAddress } = ticketRow;
+  const { ticket, propertyAddress, renterFirstName, renterLastName, renterPhone, renterEmail, renterId } = ticketRow;
+  const tenantName = renterFirstName || renterLastName ? displayPersonName(renterFirstName ?? "", renterLastName ?? "") : null;
   const hazard = hazardForTicket(ticket);
   const closed = ticket.status === "completed" || ticket.status === "cancelled";
   const imageDocs = photos.filter(
@@ -57,11 +59,52 @@ export default async function AdminTicketDetailPage({
       <div className="mt-4 flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <h1 className="text-2xl font-bold tracking-tight md:text-3xl">{ticket.summary}</h1>
-          <p className="mt-1 text-muted-foreground">{propertyAddress}</p>
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            <StatusBadge status={ticket.status} />
-            {ticket.priority && <StatusBadge status={ticket.priority} tone="info" />}
-          </div>
+          <p className="mt-1 text-muted-foreground">
+            <Link href={`/properties/${ticket.propertyId}?tab=repairs`} className="hover:underline">
+              {propertyAddress}
+            </Link>
+            {ticket.tenancyId && (
+              <>
+                {" · "}
+                <Link href={`/tenancies/${ticket.tenancyId}`} className="hover:underline">
+                  Tenancy
+                </Link>
+              </>
+            )}
+          </p>
+          {tenantName && (
+            <p className="mt-1 text-sm">
+              <span className="text-muted-foreground">Tenant: </span>
+              {renterId ? (
+                <Link href={`/renters/${renterId}`} className="font-medium hover:underline">
+                  {tenantName}
+                </Link>
+              ) : (
+                tenantName
+              )}
+              {renterPhone && (
+                <>
+                  {" · "}
+                  <a href={`tel:${renterPhone}`} className="text-primary hover:underline">
+                    {renterPhone}
+                  </a>
+                </>
+              )}
+              {!renterPhone && renterEmail && (
+                <>
+                  {" · "}
+                  <a href={`mailto:${renterEmail}`} className="text-primary hover:underline">
+                    {renterEmail}
+                  </a>
+                </>
+              )}
+            </p>
+          )}
+          {ticket.priority && (
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <StatusBadge status={ticket.priority} tone="info" />
+            </div>
+          )}
         </div>
         <TicketStatusSelect id={ticket.id} status={ticket.status} />
       </div>
@@ -87,13 +130,29 @@ export default async function AdminTicketDetailPage({
       )}
 
       <div className="mt-8 grid gap-8 lg:grid-cols-2">
+        <WorkOrderPanel
+          ticketId={ticket.id}
+          workOrders={workOrders}
+          contractors={contractors.map((c) => ({ id: c.id, name: c.name }))}
+          staff={staff}
+        />
+
         <div>
           <h2 className="font-semibold">Updates</h2>
           <div className="mt-3 space-y-2">
             {messages.map((m) => (
               <div key={m.id} className="rounded-xl border p-3 text-sm">
-                <p className="text-xs text-muted-foreground">
-                  {m.senderType === "renter" ? "Tenant" : humanize(m.senderType)} · {formatDateTime(m.createdAt)}
+                <p className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                  <span>
+                    {m.senderType === "renter" || m.senderType === "tenant" ? "From tenant" : humanize(m.senderType)} ·{" "}
+                    {formatDateTime(m.createdAt)}
+                  </span>
+                  {m.senderType === "staff" &&
+                    (m.channel === "internal" ? (
+                      <span className="rounded bg-amber-100 px-1.5 py-0.5 font-medium text-amber-900">Internal note</span>
+                    ) : (
+                      <span className="rounded bg-sky-100 px-1.5 py-0.5 font-medium text-sky-900">Sent to tenant</span>
+                    ))}
                 </p>
                 <p className="mt-1 whitespace-pre-wrap">{m.body}</p>
               </div>
@@ -132,12 +191,6 @@ export default async function AdminTicketDetailPage({
           </div>
         </div>
 
-        <WorkOrderPanel
-          ticketId={ticket.id}
-          workOrders={workOrders}
-          contractors={contractors.map((c) => ({ id: c.id, name: c.name }))}
-          staff={staff}
-        />
       </div>
     </div>
   );

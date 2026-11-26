@@ -1,4 +1,4 @@
-import { eq, and, desc, count, notInArray, or, ilike, isNotNull, type SQL } from "drizzle-orm";
+import { eq, and, desc, count, notInArray, or, ilike, isNotNull, sql, type SQL } from "drizzle-orm";
 import { db } from "../index";
 import { renterOnTenancy } from "../renter-tenancy";
 import { agencyEq, currentAgencyId, ensureAgency } from "../agency-scope";
@@ -9,6 +9,7 @@ import {
   contractors,
   properties,
   tenancies,
+  renters,
   branches,
   invoices,
 } from "../schema";
@@ -62,7 +63,9 @@ export async function searchTickets(opts: {
   const conditions: SQL[] = [agencyEq(tickets.agencyId)];
 
   if (opts.branchId) conditions.push(eq(tickets.branchId, opts.branchId));
-  if (opts.status && opts.status !== "all") {
+  if (opts.status === "open") {
+    conditions.push(notInArray(tickets.status, ["completed", "cancelled"]));
+  } else if (opts.status && opts.status !== "all") {
     conditions.push(eq(tickets.status, opts.status));
   }
   if (opts.q?.trim()) {
@@ -83,9 +86,15 @@ export async function searchTickets(opts: {
       .select({
         ticket: tickets,
         propertyAddress: properties.displayAddress,
+        renterFirstName: renters.firstName,
+        renterLastName: renters.lastName,
+        // Raw names: Drizzle leaves columns unqualified inside sql`` in a select list.
+        contractorName: sql<string | null>`(select c.name from work_orders w join contractors c on c.id = w.contractor_id where w.ticket_id = "tickets"."id" order by w.created_at desc limit 1)`,
       })
       .from(tickets)
       .innerJoin(properties, eq(tickets.propertyId, properties.id))
+      .leftJoin(tenancies, eq(tickets.tenancyId, tenancies.id))
+      .leftJoin(renters, eq(tenancies.primaryRenterId, renters.id))
       .where(where)
       .orderBy(desc(tickets.createdAt))
       .limit(pageSize)
@@ -120,9 +129,16 @@ export async function getTicketById(id: string) {
     .select({
       ticket: tickets,
       propertyAddress: properties.displayAddress,
+      renterId: renters.id,
+      renterFirstName: renters.firstName,
+      renterLastName: renters.lastName,
+      renterPhone: renters.phone,
+      renterEmail: renters.email,
     })
     .from(tickets)
     .innerJoin(properties, eq(tickets.propertyId, properties.id))
+    .leftJoin(tenancies, eq(tickets.tenancyId, tenancies.id))
+    .leftJoin(renters, eq(tenancies.primaryRenterId, renters.id))
     .where(and(eq(tickets.id, id), agencyEq(tickets.agencyId)))
     .limit(1);
   return row ?? null;
@@ -244,12 +260,14 @@ export async function updateTicketTriage(
   return row ?? null;
 }
 
-export async function listTicketMessages(ticketId: string) {
+export async function listTicketMessages(ticketId: string, opts: { tenantView?: boolean } = {}) {
   await ensureAgency();
+  const conditions: SQL[] = [eq(ticketMessages.ticketId, ticketId), agencyEq(ticketMessages.agencyId)];
+  if (opts.tenantView) conditions.push(sql`${ticketMessages.channel} <> 'internal'`);
   return db
     .select()
     .from(ticketMessages)
-    .where(and(eq(ticketMessages.ticketId, ticketId), agencyEq(ticketMessages.agencyId)))
+    .where(and(...conditions))
     .orderBy(ticketMessages.createdAt);
 }
 

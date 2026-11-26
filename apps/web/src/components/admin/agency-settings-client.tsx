@@ -14,6 +14,8 @@ interface AgencySettingsClientProps {
   clientAccountName: string | null;
   clientAccountSortCode: string | null;
   clientAccountNumber: string | null;
+  /** Which parts to show; all when left out. */
+  only?: Array<"payments" | "inbox" | "stripe" | "alert">;
 }
 
 export function AgencySettingsClient({
@@ -25,7 +27,9 @@ export function AgencySettingsClient({
   clientAccountName: initialAccountName,
   clientAccountSortCode: initialSortCode,
   clientAccountNumber: initialAccountNumber,
+  only,
 }: AgencySettingsClientProps) {
+  const show = (part: "payments" | "inbox" | "stripe" | "alert") => !only || only.includes(part);
   const [alertEmail, setAlertEmail] = useState(initialAlertEmail ?? "");
   const [accountName, setAccountName] = useState(initialAccountName ?? "");
   const [sortCode, setSortCode] = useState(initialSortCode ?? "");
@@ -80,6 +84,7 @@ export function AgencySettingsClient({
 
   return (
     <div className="space-y-6">
+      {show("payments") && (
       <section className="rounded-xl border p-4">
         <h2 className="font-semibold">How tenants pay rent</h2>
         <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm text-muted-foreground">
@@ -98,7 +103,9 @@ export function AgencySettingsClient({
           </li>
         </ol>
       </section>
+      )}
 
+      {show("payments") && (
       <section className="rounded-xl border p-4">
         <h2 className="font-semibold">Client money pay-in details</h2>
         <p className="mt-1 text-sm text-muted-foreground">
@@ -146,7 +153,9 @@ export function AgencySettingsClient({
         {saveMsg && <p className="mt-2 text-sm text-muted-foreground">{saveMsg}</p>}
         {refMsg && <p className="mt-2 text-sm text-muted-foreground">{refMsg}</p>}
       </section>
+      )}
 
+      {show("inbox") && (
       <section className="rounded-xl border p-4">
         <h2 className="font-semibold">Maintenance inbox</h2>
         <p className="mt-1 text-sm text-muted-foreground">
@@ -161,7 +170,9 @@ export function AgencySettingsClient({
           </Button>
         )}
       </section>
+      )}
 
+      {show("stripe") && (
       <section className="rounded-xl border p-4">
         <h2 className="font-semibold">Stripe Connect (optional)</h2>
         <p className="mt-1 text-sm text-muted-foreground">
@@ -177,7 +188,9 @@ export function AgencySettingsClient({
         )}
         {stripeMsg && <p className="mt-2 text-sm text-red-600">{stripeMsg}</p>}
       </section>
+      )}
 
+      {show("alert") && (
       <section className="rounded-xl border p-4">
         <h2 className="font-semibold">Alert email</h2>
         <div className="mt-2">
@@ -198,6 +211,7 @@ export function AgencySettingsClient({
         </Button>
         {saveMsg && <p className="mt-2 text-sm text-muted-foreground">{saveMsg}</p>}
       </section>
+      )}
     </div>
   );
 }

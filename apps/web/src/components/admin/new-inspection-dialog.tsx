@@ -30,9 +30,14 @@ const TYPES = [
 export function NewInspectionDialog({
   tenancies,
   defaultTenancyId,
+  staff = [],
+  currentStaffId,
 }: {
   tenancies: TenancyOption[];
   defaultTenancyId?: string;
+  /** Who can do the visit. Leave empty to hide the picker. */
+  staff?: { id: string; name: string }[];
+  currentStaffId?: string | null;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -41,6 +46,9 @@ export function NewInspectionDialog({
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [time, setTime] = useState("10:00");
   const [notify, setNotify] = useState(false);
+  const [inspectorId, setInspectorId] = useState(
+    currentStaffId && staff.some((s) => s.id === currentStaffId) ? currentStaffId : ""
+  );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -60,6 +68,7 @@ export function NewInspectionDialog({
           type,
           scheduled_at: date ? new Date(`${date}T${time || "10:00"}:00`).toISOString() : null,
           notify_tenants: notify && Boolean(date),
+          inspector_staff_id: inspectorId || null,
         }),
       });
       const row = await res.json().catch(() => ({}));
@@ -136,6 +145,24 @@ export function NewInspectionDialog({
               ))}
             </select>
           </div>
+          {staff.length > 0 && (
+            <div>
+              <Label htmlFor="new-insp-who">Who&apos;s doing it</Label>
+              <select
+                id="new-insp-who"
+                value={inspectorId}
+                onChange={(e) => setInspectorId(e.target.value)}
+                className="mt-1.5 flex min-h-11 w-full rounded-md border border-input bg-background px-3 text-sm"
+              >
+                <option value="">Not decided</option>
+                {staff.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.id === currentStaffId ? `${s.name} (you)` : s.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label htmlFor="new-insp-date">Date</Label>

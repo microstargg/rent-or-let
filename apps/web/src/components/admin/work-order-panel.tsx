@@ -41,6 +41,7 @@ export function WorkOrderPanel({
   staff?: StaffOption[];
 }) {
   const router = useRouter();
+  const [showForm, setShowForm] = useState(false);
   const [contractorId, setContractorId] = useState(contractors[0]?.id ?? "");
   const [assigneeId, setAssigneeId] = useState("");
   const [estimate, setEstimate] = useState("");
@@ -68,118 +69,14 @@ export function WorkOrderPanel({
     <div>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="font-semibold">Jobs</h2>
+        {!showForm && (
+          <Button type="button" size="sm" variant="outline" onClick={() => setShowForm(true)}>
+            Add job
+          </Button>
+        )}
       </div>
 
-      <div className="mt-3 space-y-3 rounded-xl border p-4">
-        <p className="text-sm font-medium">Add job</p>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div className="sm:col-span-2">
-            <Label htmlFor="wo_contractor">Contractor</Label>
-            <select
-              id="wo_contractor"
-              value={contractorId}
-              onChange={(e) => setContractorId(e.target.value)}
-              className="mt-1 min-h-11 w-full rounded-md border px-3 py-2 text-sm"
-            >
-              <option value="">Unassigned</option>
-              {contractors.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Missing someone?{" "}
-              <Link href="/contractors" className="underline">
-                Add contractors
-              </Link>
-            </p>
-          </div>
-          {staff.length > 0 && (
-            <div className="sm:col-span-2">
-              <Label htmlFor="wo_assignee">Staff member responsible</Label>
-              <select
-                id="wo_assignee"
-                value={assigneeId}
-                onChange={(e) => setAssigneeId(e.target.value)}
-                className="mt-1 min-h-11 w-full rounded-md border px-3 py-2 text-sm"
-              >
-                <option value="">Nobody yet</option>
-                {staff.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
-                ))}
-              </select>
-              <p className="mt-1 text-xs text-muted-foreground">
-                They get a notification and see it in My jobs and their morning email.
-              </p>
-            </div>
-          )}
-          <div>
-            <Label htmlFor="wo_estimate">Contractor estimate (£)</Label>
-            <Input
-              id="wo_estimate"
-              type="number"
-              step="0.01"
-              inputMode="decimal"
-              className="mt-1 min-h-11"
-              placeholder="0.00"
-              value={estimate}
-              onChange={(e) => setEstimate(e.target.value)}
-            />
-          </div>
-          <div>
-            <Label htmlFor="wo_charge">Charge client (£)</Label>
-            <Input
-              id="wo_charge"
-              type="number"
-              step="0.01"
-              inputMode="decimal"
-              className="mt-1 min-h-11"
-              placeholder="Same as cost"
-              value={charge}
-              onChange={(e) => setCharge(e.target.value)}
-            />
-          </div>
-          <div>
-            <Label htmlFor="wo_schedule">Schedule</Label>
-            <Input
-              id="wo_schedule"
-              type="date"
-              className="mt-1 min-h-11"
-              value={scheduledFor}
-              onChange={(e) => setScheduledFor(e.target.value)}
-            />
-          </div>
-        </div>
-        <Button
-          type="button"
-          className="min-h-11 w-full sm:w-auto"
-          disabled={loading}
-          onClick={() => {
-            void patch({
-              work_order: {
-                action: "create",
-                contractor_id: contractorId || null,
-                assignee_staff_id: assigneeId || null,
-                cost_estimate: estimate ? Number(estimate) : null,
-                client_charge: charge ? Number(charge) : null,
-                scheduled_for: scheduledFor || null,
-              },
-            }).then(() => {
-              setEstimate("");
-              setCharge("");
-              setScheduledFor("");
-              setAssigneeId("");
-            });
-          }}
-        >
-          Add job
-        </Button>
-      </div>
-
-      <div className="mt-4 space-y-3">
+      <div className="mt-3 space-y-3">
         {workOrders.map(({ workOrder, contractorName, invoice }) => {
           const costValue =
             finalCosts[workOrder.id] ??
@@ -303,6 +200,121 @@ export function WorkOrderPanel({
           <p className="text-sm text-muted-foreground">No jobs yet</p>
         )}
       </div>
+
+      {showForm && (
+      <div className="mt-3 space-y-3 rounded-xl border p-4">
+          <p className="text-sm font-medium">New job</p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="sm:col-span-2">
+              <Label htmlFor="wo_contractor">Contractor</Label>
+              <select
+                id="wo_contractor"
+                value={contractorId}
+                onChange={(e) => setContractorId(e.target.value)}
+                className="mt-1 min-h-11 w-full rounded-md border px-3 py-2 text-sm"
+              >
+                <option value="">Unassigned</option>
+                {contractors.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Missing someone?{" "}
+                <Link href="/contractors" className="underline">
+                  Add contractors
+                </Link>
+              </p>
+            </div>
+            {staff.length > 0 && (
+              <div className="sm:col-span-2">
+                <Label htmlFor="wo_assignee">Staff member responsible</Label>
+                <select
+                  id="wo_assignee"
+                  value={assigneeId}
+                  onChange={(e) => setAssigneeId(e.target.value)}
+                  className="mt-1 min-h-11 w-full rounded-md border px-3 py-2 text-sm"
+                >
+                  <option value="">Nobody yet</option>
+                  {staff.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  They get a notification and see it in My jobs and their morning email.
+                </p>
+              </div>
+            )}
+            <div>
+              <Label htmlFor="wo_estimate">Contractor estimate (£)</Label>
+              <Input
+                id="wo_estimate"
+                type="number"
+                step="0.01"
+                inputMode="decimal"
+                className="mt-1 min-h-11"
+                placeholder="0.00"
+                value={estimate}
+                onChange={(e) => setEstimate(e.target.value)}
+              />
+            </div>
+            <div>
+              <Label htmlFor="wo_charge">Charge client (£)</Label>
+              <Input
+                id="wo_charge"
+                type="number"
+                step="0.01"
+                inputMode="decimal"
+                className="mt-1 min-h-11"
+                placeholder="Same as cost"
+                value={charge}
+                onChange={(e) => setCharge(e.target.value)}
+              />
+            </div>
+            <div>
+              <Label htmlFor="wo_schedule">Schedule</Label>
+              <Input
+                id="wo_schedule"
+                type="date"
+                className="mt-1 min-h-11"
+                value={scheduledFor}
+                onChange={(e) => setScheduledFor(e.target.value)}
+              />
+            </div>
+          </div>
+          <Button
+            type="button"
+            className="min-h-11 w-full sm:w-auto"
+            disabled={loading}
+            onClick={() => {
+              void patch({
+                work_order: {
+                  action: "create",
+                  contractor_id: contractorId || null,
+                  assignee_staff_id: assigneeId || null,
+                  cost_estimate: estimate ? Number(estimate) : null,
+                  client_charge: charge ? Number(charge) : null,
+                  scheduled_for: scheduledFor || null,
+                },
+              }).then(() => {
+                setEstimate("");
+                setCharge("");
+                setScheduledFor("");
+                setAssigneeId("");
+                setShowForm(false);
+              });
+            }}
+          >
+            Save job
+          </Button>
+          <Button type="button" variant="ghost" className="min-h-11" onClick={() => setShowForm(false)}>
+            Cancel
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
