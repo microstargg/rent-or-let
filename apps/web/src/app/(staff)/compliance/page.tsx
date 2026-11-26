@@ -44,7 +44,27 @@ export default async function AdminCompliancePage() {
     .map((r) => ({ property: r.property, register: r.register }))
     .sort((a, b) => (a.register.deadline ?? "9999").localeCompare(b.register.deadline ?? "9999"));
   const registeredCount = letRegister.filter((r) => r.register.propertyNumber).length;
-  const missingCount = items.filter((i) => i.item.status === "missing").length + gaps.length;
+  // One list for the "Missing" card and the "Not on file" section, so they agree:
+  // records the law needs that aren't on file, plus items already marked missing.
+  const notOnFile = [
+    ...gaps.map((g) => ({
+      key: `${g.propertyId}:${g.key}`,
+      propertyId: g.propertyId,
+      label: complianceLabel(g.type),
+      propertyAddress: g.propertyAddress,
+      reason: g.reason as string | null,
+    })),
+    ...items
+      .filter((i) => i.item.status === "missing")
+      .map((i) => ({
+        key: i.item.id,
+        propertyId: i.item.propertyId,
+        label: complianceLabel(i.item.type),
+        propertyAddress: i.propertyAddress,
+        reason: null as string | null,
+      })),
+  ];
+  const missingCount = notOnFile.length;
 
   const sortedItems = [...items].sort((a, b) => {
     const order = { expired: 0, expiring: 1, missing: 2, valid: 3 };
@@ -148,16 +168,16 @@ export default async function AdminCompliancePage() {
         title="Not on file"
         description="Records the law needs for these properties and tenancies that haven't been added yet"
       >
-        {gaps.length ? (
+        {notOnFile.length ? (
           <ul className="divide-y rounded-xl border bg-card">
-            {gaps.slice(0, 50).map((g) => (
-              <li key={`${g.propertyId}:${g.key}`} className="flex flex-wrap items-start justify-between gap-3 px-4 py-3">
+            {notOnFile.slice(0, 50).map((g) => (
+              <li key={g.key} className="flex flex-wrap items-start justify-between gap-3 px-4 py-3">
                 <div className="min-w-0">
-                  <Link href={`/properties/${g.propertyId}`} className="font-medium hover:underline">
-                    {complianceLabel(g.type)}
+                  <Link href={`/properties/${g.propertyId}?tab=compliance`} className="font-medium hover:underline">
+                    {g.label}
                   </Link>
                   <p className="text-sm text-muted-foreground">{g.propertyAddress}</p>
-                  <p className="text-xs text-muted-foreground">{g.reason}</p>
+                  {g.reason && <p className="text-xs text-muted-foreground">{g.reason}</p>}
                 </div>
                 <StatusBadge status="missing" />
               </li>
@@ -166,8 +186,8 @@ export default async function AdminCompliancePage() {
         ) : (
           <AdminEmptyState title="Nothing missing" description="Every property has the records it needs on file." />
         )}
-        {gaps.length > 50 && (
-          <p className="mt-2 text-xs text-muted-foreground">Showing 50 of {gaps.length}.</p>
+        {notOnFile.length > 50 && (
+          <p className="mt-2 text-xs text-muted-foreground">Showing 50 of {notOnFile.length}.</p>
         )}
       </AdminSection>
 
