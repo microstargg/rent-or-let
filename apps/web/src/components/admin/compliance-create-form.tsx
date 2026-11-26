@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useEntityDialogClose } from "@/components/admin/admin-entity-dialog";
 
 export function ComplianceCreateForm({
   properties,
@@ -12,6 +13,7 @@ export function ComplianceCreateForm({
   properties: { id: string; label: string }[];
 }) {
   const router = useRouter();
+  const closeDialog = useEntityDialogClose();
   const [propertyId, setPropertyId] = useState(properties[0]?.id ?? "");
   const [type, setType] = useState("gas_safety");
   const [expiresAt, setExpiresAt] = useState("");
@@ -45,6 +47,7 @@ export function ComplianceCreateForm({
       setReference("");
       setFile(null);
       router.refresh();
+      closeDialog?.();
     } finally {
       setLoading(false);
     }
