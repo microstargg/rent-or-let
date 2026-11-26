@@ -1,85 +1,85 @@
 import Link from "next/link";
-import {
-  getDefaultBranch,
-  listDepositRegister,
-  listInspections,
-  listNotices,
-  listTenancies,
-} from "@/lib/db/queries";
-import { LifecycleActions } from "@/components/admin/lifecycle-actions";
+import { getDefaultBranch, listDepositRegister, listNotices } from "@/lib/db/queries";
+import { DepositRowActions } from "@/components/admin/deposit-row-actions";
+import { BulkRraButton } from "@/components/admin/bulk-rra-button";
 import {
   AdminEmptyState,
   AdminPageHeader,
   AdminSection,
   AdminTable,
+  StatGrid,
   StatusBadge,
   StatPill,
 } from "@/components/admin/admin-page";
 import { displayPersonName } from "@/lib/person-name";
-import { formatDate, formatMoney } from "@/lib/utils";
+import { formatDay, formatMoney, humanize } from "@/lib/utils";
 
 export default async function AdminLifecyclePage() {
   const branch = await getDefaultBranch();
-  const deposits = branch ? await listDepositRegister(branch.id) : [];
-  const inspections = branch ? await listInspections(branch.id) : [];
-  const notices = branch ? await listNotices(branch.id) : [];
-  const tenancyRows = branch ? await listTenancies(branch.id) : [];
+  const [deposits, notices] = branch
+    ? await Promise.all([listDepositRegister(branch.id), listNotices(branch.id)])
+    : [[], []];
 
-  const unprotected = deposits.filter((d) => !d.tenancy.depositProtectionRef).length;
-  const openInspections = inspections.filter((i) => !i.inspection.completedAt).length;
+  const unprotected = deposits.filter((d) => !d.tenancy.depositProtectionRef);
+  // Unprotected deposits first: they have a 30-day legal deadline.
+  const sorted = [...deposits].sort(
+    (a, b) => Number(Boolean(a.tenancy.depositProtectionRef)) - Number(Boolean(b.tenancy.depositProtectionRef))
+  );
 
   return (
     <div>
       <AdminPageHeader
-        title="Deposits, inspections & notices"
-        description="Protect deposits, run inspections, and keep RRA / Section 13 evidence on file."
+        title="Deposits & notices"
+        description="Protect deposits, serve rent increase notices, and keep evidence on file. Inspections are on the Inspections page."
+        actions={
+          <>
+            <BulkRraButton />
+            <Link href="/inspections" className="text-sm text-primary hover:underline">
+              Inspections
+            </Link>
+          </>
+        }
       />
 
-      <div className="mt-6 grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3">
+      <StatGrid columns={3}>
         <StatPill
           label="Unprotected deposits"
-          value={unprotected}
-          tone={unprotected ? "danger" : "success"}
-          hint="Active tenancies without a scheme reference"
+          value={unprotected.length}
+          tone={unprotected.length ? "danger" : "success"}
+          hint="Live tenancies with no scheme reference"
         />
-        <StatPill
-          label="Open inspections"
-          value={openInspections}
-          tone={openInspections ? "warning" : "neutral"}
-        />
+        <StatPill label="Deposits held" value={formatMoney(deposits.reduce((s, d) => s + Number(d.tenancy.depositAmount ?? 0), 0), { pence: false })} />
         <StatPill label="Notices on file" value={notices.length} />
-      </div>
+      </StatGrid>
 
-      <LifecycleActions
-        tenancies={tenancyRows.map(({ tenancy, propertyAddress, renterFirstName, renterLastName }) => ({
-          id: tenancy.id,
-          propertyId: tenancy.propertyId,
-          label: `${propertyAddress} — ${displayPersonName(renterFirstName, renterLastName)}`,
-        }))}
-      />
-
-      <AdminSection title="Deposit register" description="Active tenancies and protection status">
-        {deposits.length ? (
-          <AdminTable headers={["Property", "Renter", "Deposit", "Scheme", "Status"]}>
-            {deposits.map(({ tenancy, propertyAddress, renterFirstName, renterLastName }) => {
-              const protected_ = Boolean(tenancy.depositProtectionRef);
+      <AdminSection title="Deposit register" description="Each row has its own actions, so they always apply to that tenancy.">
+        {sorted.length ? (
+          <AdminTable headers={["Property", "Renter", "Deposit", "Scheme", ""]}>
+            {sorted.map(({ tenancy, propertyAddress, renterFirstName, renterLastName }) => {
+              const isProtected = Boolean(tenancy.depositProtectionRef);
               return (
-                <tr key={tenancy.id}>
-                  <td className="px-4 py-3 font-medium">{propertyAddress}</td>
+                <tr key={tenancy.id} className="row-link align-top">
                   <td className="px-4 py-3">
-                    {displayPersonName(renterFirstName, renterLastName)}
+                    <Link href={`/tenancies/${tenancy.id}?tab=deposit`} className="row-link-main">
+                      {propertyAddress}
+                    </Link>
+                  </td>
+                  <td className="px-4 py-3">{displayPersonName(renterFirstName, renterLastName)}</td>
+                  <td className="px-4 py-3 tabular-nums">{formatMoney(Number(tenancy.depositAmount ?? 0))}</td>
+                  <td className="px-4 py-3">
+                    {isProtected ? (
+                      <span className="text-muted-foreground">
+                        {tenancy.depositScheme ?? "Protected"} · {tenancy.depositProtectionRef}
+                      </span>
+                    ) : (
+                      <StatusBadge status="unprotected" tone="danger" />
+                    )}
                   </td>
                   <td className="px-4 py-3">
-                    {formatMoney(Number(tenancy.depositAmount ?? 0))}
-                  </td>
-                  <td className="px-4 py-3 text-muted-foreground">
-                    {tenancy.depositScheme ?? "—"}
-                    {tenancy.depositProtectionRef ? ` · ${tenancy.depositProtectionRef}` : ""}
-                  </td>
-                  <td className="px-4 py-3">
-                    <StatusBadge
-                      status={protected_ ? "protected" : "unprotected"}
-                      tone={protected_ ? "success" : "danger"}
+                    <DepositRowActions
+                      tenancyId={tenancy.id}
+                      isProtected={isProtected}
+                      currentRent={Number(tenancy.rentAmount) || null}
                     />
                   </td>
                 </tr>
@@ -87,64 +87,20 @@ export default async function AdminLifecyclePage() {
             })}
           </AdminTable>
         ) : (
-          <AdminEmptyState title="No active tenancies" />
-        )}
-      </AdminSection>
-
-      <AdminSection title="Inspections">
-        {inspections.length ? (
-          <div className="space-y-2">
-            {inspections.map(({ inspection, propertyAddress }) => (
-              <div
-                key={inspection.id}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-card p-4 shadow-sm"
-              >
-                <div>
-                  <Link
-                    href={`/inspections/${inspection.id}`}
-                    className="font-semibold capitalize text-primary"
-                  >
-                    {inspection.type.replaceAll("_", " ")}
-                  </Link>
-                  <p className="text-sm text-muted-foreground">{propertyAddress}</p>
-                  {inspection.summary && (
-                    <p className="mt-1 text-sm">{inspection.summary}</p>
-                  )}
-                </div>
-                <StatusBadge
-                  status={inspection.completedAt ? "completed" : "open"}
-                  tone={inspection.completedAt ? "success" : "warning"}
-                />
-              </div>
-            ))}
-          </div>
-        ) : (
-          <AdminEmptyState
-            title="No inspections yet"
-            description="Create a move-in inspection from the actions above."
-          />
+          <AdminEmptyState title="No live tenancies" />
         )}
       </AdminSection>
 
       <AdminSection title="Notices">
         {notices.length ? (
-          <AdminTable headers={["Type", "Property", "Served", "Effective", "Download"]}>
+          <AdminTable headers={["Type", "Property", "Served", ""]}>
             {notices.map(({ notice, propertyAddress }) => (
               <tr key={notice.id}>
-                <td className="px-4 py-3 capitalize font-medium">
-                  {notice.type.replaceAll("_", " ")}
-                </td>
+                <td className="px-4 py-3 font-medium">{humanize(notice.type)}</td>
                 <td className="px-4 py-3">{propertyAddress}</td>
-                <td className="px-4 py-3 text-muted-foreground">
-                  {notice.servedAt ? formatDate(notice.servedAt) : "—"}
-                </td>
-                <td className="px-4 py-3">
-                  <a
-                    className="text-primary underline"
-                    href={`/api/admin/notices/${notice.id}/pdf`}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
+                <td className="px-4 py-3 text-muted-foreground">{notice.servedAt ? formatDay(notice.servedAt) : "Not served"}</td>
+                <td className="px-4 py-3 text-right">
+                  <a className="text-primary hover:underline" href={`/api/admin/notices/${notice.id}/pdf`} target="_blank" rel="noreferrer">
                     PDF
                   </a>
                 </td>
