@@ -11,6 +11,7 @@ const financeLinks = [
   { href: "/finance/exceptions", label: "Exceptions" },
   { href: "/finance/statements", label: "Statements" },
   { href: "/finance/payouts", label: "Payouts" },
+  { href: "/finance/exports", label: "Exports" },
 ];
 
 export function FinanceSubnav() {

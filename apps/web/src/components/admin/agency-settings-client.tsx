@@ -14,6 +14,8 @@ interface AgencySettingsClientProps {
   clientAccountName: string | null;
   clientAccountSortCode: string | null;
   clientAccountNumber: string | null;
+  /** Which parts to show; all when left out. */
+  only?: Array<"payments" | "inbox" | "stripe" | "alert">;
 }
 
 export function AgencySettingsClient({
@@ -25,7 +27,9 @@ export function AgencySettingsClient({
   clientAccountName: initialAccountName,
   clientAccountSortCode: initialSortCode,
   clientAccountNumber: initialAccountNumber,
+  only,
 }: AgencySettingsClientProps) {
+  const show = (part: "payments" | "inbox" | "stripe" | "alert") => !only || only.includes(part);
   const [alertEmail, setAlertEmail] = useState(initialAlertEmail ?? "");
   const [accountName, setAccountName] = useState(initialAccountName ?? "");
   const [sortCode, setSortCode] = useState(initialSortCode ?? "");
@@ -74,33 +78,34 @@ export function AgencySettingsClient({
     const res = await fetch("/api/admin/settings?action=backfill_payment_refs", { method: "POST" });
     const data = await res.json();
     setLoading(false);
-    if (!res.ok) setRefMsg(data.error ?? "Backfill failed");
+    if (!res.ok) setRefMsg(data.error ?? "Couldn't add payment references");
     else setRefMsg(`Assigned payment references to ${data.updated ?? 0} active tenancies`);
   }
 
   return (
     <div className="space-y-6">
+      {show("payments") && (
       <section className="rounded-xl border p-4">
-        <h2 className="font-semibold">Recommended rent rails</h2>
+        <h2 className="font-semibold">How tenants pay rent</h2>
         <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm text-muted-foreground">
           <li>
-            <span className="font-medium text-foreground">Standing order + unique payment reference</span>
-            : tenants pay free bank transfer using their ROL-XXXXXX ref; import statements to match.
+            <span className="font-medium text-foreground">Standing order with their payment reference</span>
+            : free for everyone. Each tenancy gets its own reference, and rent is matched when you import
+            the bank statement or connect the bank feed.
           </li>
           <li>
-            <span className="font-medium text-foreground">CSV statement import</span> (Finance →
-            Exceptions): reconcile without third-party fees.
+            <span className="font-medium text-foreground">Card payment</span> in the tenant portal, if you
+            connect Stripe below. Optional, and Stripe charges a fee.
           </li>
           <li>
-            <span className="font-medium text-foreground">Stripe Connect</span>: optional card “Pay
-            now”.
-          </li>
-          <li>
-            <span className="font-medium text-foreground">Manual mark paid</span>: fallback.
+            <span className="font-medium text-foreground">Mark paid by hand</span> on Invoices, for anything
+            else.
           </li>
         </ol>
       </section>
+      )}
 
+      {show("payments") && (
       <section className="rounded-xl border p-4">
         <h2 className="font-semibold">Client money pay-in details</h2>
         <p className="mt-1 text-sm text-muted-foreground">
@@ -142,27 +147,32 @@ export function AgencySettingsClient({
             Save account details
           </Button>
           <Button type="button" size="sm" variant="outline" onClick={backfillRefs} disabled={loading}>
-            Backfill payment refs
+            Give every tenancy a payment reference
           </Button>
         </div>
         {saveMsg && <p className="mt-2 text-sm text-muted-foreground">{saveMsg}</p>}
         {refMsg && <p className="mt-2 text-sm text-muted-foreground">{refMsg}</p>}
       </section>
+      )}
 
+      {show("inbox") && (
       <section className="rounded-xl border p-4">
         <h2 className="font-semibold">Maintenance inbox</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Forward maintenance emails to this address (requires RESEND_INBOUND_DOMAIN).
+          Forward repair emails to this address and they become tickets.
+          {!inboundDomain && " Not switched on for your agency yet: ask Let Flow support to turn it on."}
         </p>
         {inbox ? (
           <p className="mt-2 break-all font-mono text-sm">{inbox}</p>
-        ) : (
+        ) : !inboundDomain ? null : (
           <Button type="button" className="mt-2" size="sm" onClick={saveSettings} disabled={loading}>
             Generate inbox address
           </Button>
         )}
       </section>
+      )}
 
+      {show("stripe") && (
       <section className="rounded-xl border p-4">
         <h2 className="font-semibold">Stripe Connect (optional)</h2>
         <p className="mt-1 text-sm text-muted-foreground">
@@ -178,7 +188,9 @@ export function AgencySettingsClient({
         )}
         {stripeMsg && <p className="mt-2 text-sm text-red-600">{stripeMsg}</p>}
       </section>
+      )}
 
+      {show("alert") && (
       <section className="rounded-xl border p-4">
         <h2 className="font-semibold">Alert email</h2>
         <div className="mt-2">
@@ -199,6 +211,7 @@ export function AgencySettingsClient({
         </Button>
         {saveMsg && <p className="mt-2 text-sm text-muted-foreground">{saveMsg}</p>}
       </section>
+      )}
     </div>
   );
 }

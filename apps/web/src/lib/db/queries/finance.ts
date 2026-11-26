@@ -119,6 +119,25 @@ export async function getAllocatedTotalForInvoice(invoiceId: string): Promise<nu
   return Number(row?.total ?? 0);
 }
 
+/** Paid-so-far per invoice, for invoices that have allocations. */
+export async function allocatedTotalsForInvoices(invoiceIds: string[]): Promise<Map<string, number>> {
+  const out = new Map<string, number>();
+  if (!invoiceIds.length) return out;
+  await ensureAgency();
+  const rows = await db
+    .select({
+      invoiceId: paymentAllocations.invoiceId,
+      total: sql<string>`coalesce(sum(${paymentAllocations.amount}), 0)`,
+    })
+    .from(paymentAllocations)
+    .where(
+      and(inArray(paymentAllocations.invoiceId, invoiceIds), agencyEq(paymentAllocations.agencyId))
+    )
+    .groupBy(paymentAllocations.invoiceId);
+  for (const r of rows) if (r.invoiceId) out.set(r.invoiceId, Number(r.total));
+  return out;
+}
+
 export async function getTenancyContext(tenancyId: string) {
   const [row] = await db
     .select({
@@ -506,10 +525,13 @@ export async function listPaymentExceptions(branchId: string, status = "open") {
     .select({
       exception: paymentExceptions,
       propertyAddress: properties.displayAddress,
+      renterFirstName: renters.firstName,
+      renterLastName: renters.lastName,
     })
     .from(paymentExceptions)
     .leftJoin(tenancies, eq(paymentExceptions.tenancyId, tenancies.id))
     .leftJoin(properties, eq(tenancies.propertyId, properties.id))
+    .leftJoin(renters, eq(tenancies.primaryRenterId, renters.id))
     .where(
       and(
         eq(paymentExceptions.branchId, branchId),

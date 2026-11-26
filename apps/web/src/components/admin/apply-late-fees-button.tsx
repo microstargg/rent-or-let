@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { formatMoney } from "@/lib/utils";
 
 export function ApplyLateFeesButton() {
   const router = useRouter();
@@ -21,7 +22,7 @@ export function ApplyLateFeesButton() {
       const data = (await res.json().catch(() => ({}))) as { applied?: number; total?: number; reason?: string };
       setMessage(
         data.reason ??
-          (data.applied ? `Charged £${(data.total ?? 0).toFixed(2)} interest on ${data.applied} late payments.` : "Nothing new to charge.")
+          (data.applied ? `Charged ${formatMoney((data.total ?? 0))} interest on ${data.applied} late payments.` : "Nothing new to charge.")
       );
       router.refresh();
     } finally {

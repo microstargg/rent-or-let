@@ -20,27 +20,44 @@ import {
 } from "@/components/admin/admin-page";
 import { Button } from "@/components/ui/button";
 import { displayPersonName } from "@/lib/person-name";
+import { landlordBalancesById, landlordPortalStatuses, type PortalStatus } from "@/lib/db/queries/portfolio";
+import { formatMoney } from "@/lib/utils";
+
+const PORTAL_LABEL: Record<PortalStatus, { text: string; className: string }> = {
+  active: { text: "Using portal", className: "text-emerald-700" },
+  invited: { text: "Invited", className: "text-amber-700" },
+  none: { text: "Not invited", className: "text-muted-foreground" },
+};
+
+const FILTERS = ["no_portal", "no_register"] as const;
 
 export default async function AdminLandlordsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; sort?: string; page?: string }>;
+  searchParams: Promise<{ q?: string; sort?: string; page?: string; filter?: string }>;
 }) {
   const params = await searchParams;
   const q = params.q?.trim() ?? "";
   const sort = params.sort === "name" ? "name" : "newest";
   const page = Math.max(1, Number(params.page) || 1);
-  const hasFilters = Boolean(q) || sort !== "newest" || page > 1;
+  const filter = FILTERS.find((f) => f === params.filter);
+  const hasFilters = Boolean(q) || sort !== "newest" || page > 1 || Boolean(filter);
 
-  const [{ rows, total }, totalAll] = await Promise.all([
-    searchLandlords({ q, sort, page, pageSize: ADMIN_LIST_PAGE_SIZE }),
+  const [{ rows, total }, totalAll, noPortal, noRegister] = await Promise.all([
+    searchLandlords({ q, sort, page, pageSize: ADMIN_LIST_PAGE_SIZE, filter }),
     countLandlords(),
+    searchLandlords({ filter: "no_portal", pageSize: 1 }),
+    searchLandlords({ filter: "no_register", pageSize: 1 }),
   ]);
+  const ids = rows.map((r) => r.landlord.id);
+  const [portal, balances] = await Promise.all([landlordPortalStatuses(ids), landlordBalancesById(ids)]);
 
   const baseHref = listBaseHref("/landlords", {
     q: q || null,
     sort: sort === "newest" ? null : sort,
+    filter: filter ?? null,
   });
+  const filterHref = (f: string) => (filter === f ? "/landlords" : `/landlords?filter=${f}`);
 
   return (
     <div>
@@ -58,13 +75,23 @@ export default async function AdminLandlordsPage({
         }
       />
 
-      <div className="mt-6 grid gap-3 sm:grid-cols-3">
-        <StatPill label="Total landlords" value={totalAll} />
-        <StatPill label="Showing" value={total} hint={q ? "Matching search" : "All records"} />
+      <div className="mt-6 grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3">
+        <StatPill label="Landlords" value={totalAll} href="/landlords" active={!filter && !q} />
         <StatPill
-          label="On this page"
-          value={rows.length}
-          hint={`Page size ${ADMIN_LIST_PAGE_SIZE}`}
+          label="Not on the portal"
+          value={noPortal.total}
+          hint="Never signed in to see statements"
+          tone={noPortal.total ? "warning" : "neutral"}
+          href={filterHref("no_portal")}
+          active={filter === "no_portal"}
+        />
+        <StatPill
+          label="No register number"
+          value={noRegister.total}
+          hint="Needed for the landlord register"
+          tone={noRegister.total ? "warning" : "neutral"}
+          href={filterHref("no_register")}
+          active={filter === "no_register"}
         />
       </div>
 
@@ -84,29 +111,32 @@ export default async function AdminLandlordsPage({
       <AdminSection title="Landlords">
         {rows.length ? (
           <>
-            <AdminTable headers={["Name", "Email", "Phone", "Properties", "Notes", "Actions"]}>
+            <AdminTable headers={["Name", "Contact", "Properties", "Owed now", "Portal", "Actions"]}>
               {rows.map(({ landlord, propertyCount }) => (
-                <tr key={landlord.id}>
-                  <td className="px-4 py-3 font-medium">
-                    {displayPersonName(landlord.firstName, landlord.lastName)}
-                  </td>
+                <tr key={landlord.id} className="row-link">
                   <td className="px-4 py-3">
-                    {landlord.email ? (
-                      <CopyTextButton value={landlord.email} />
-                    ) : (
-                      <span className="text-muted-foreground">—</span>
+                    <Link href={`/landlords/${landlord.id}`} className="row-link-main">
+                      {displayPersonName(landlord.firstName, landlord.lastName)}
+                    </Link>
+                    {landlord.notes && (
+                      <span className="block max-w-[16rem] truncate text-xs font-normal text-muted-foreground" title={landlord.notes}>
+                        {landlord.notes}
+                      </span>
                     )}
                   </td>
                   <td className="px-4 py-3">
-                    {landlord.phone ? (
-                      <CopyTextButton value={landlord.phone} />
-                    ) : (
-                      <span className="text-muted-foreground">—</span>
-                    )}
+                    <div className="flex flex-col items-start gap-0.5">
+                      {landlord.email && <CopyTextButton value={landlord.email} />}
+                      {landlord.phone && <CopyTextButton value={landlord.phone} />}
+                      {!landlord.email && !landlord.phone && <span className="text-muted-foreground">—</span>}
+                    </div>
                   </td>
                   <td className="px-4 py-3 tabular-nums">{propertyCount}</td>
-                  <td className="max-w-[12rem] truncate px-4 py-3 text-muted-foreground">
-                    {landlord.notes || "—"}
+                  <td className="px-4 py-3 tabular-nums">
+                    {(balances.get(landlord.id) ?? 0) > 0.004 ? formatMoney(balances.get(landlord.id)) : <span className="text-muted-foreground">—</span>}
+                  </td>
+                  <td className={`px-4 py-3 text-sm ${PORTAL_LABEL[portal.get(landlord.id) ?? "none"].className}`}>
+                    {PORTAL_LABEL[portal.get(landlord.id) ?? "none"].text}
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex flex-wrap items-center justify-end gap-2">
@@ -131,6 +161,7 @@ export default async function AdminLandlordsPage({
                             lettingFee: landlord.lettingFee,
                             nrlStatus: landlord.nrlStatus,
                             nrlApprovalRef: landlord.nrlApprovalRef,
+                            bankDetails: landlord.bankDetails,
                           }}
                         />
                       </AdminEntityDialog>

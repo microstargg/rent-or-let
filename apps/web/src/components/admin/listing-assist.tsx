@@ -10,13 +10,19 @@ export function ListingAssist({
   description,
   features,
   onCopy,
+  onEpc,
   formRef,
+  mode = "all",
 }: {
   propertyId?: string;
   summary: string;
   description: string;
   features: string[];
   onCopy: (copy: { summary: string; description: string }) => void;
+  /** Called with the certificate picked by the EPC lookup. */
+  onEpc?: (epc: { rating: string; url: string }) => void;
+  /** "copy": generate copy + wording scan. "epc": EPC lookup only. */
+  mode?: "all" | "copy" | "epc";
   formRef: RefObject<HTMLFormElement | null>;
 }) {
   const [busy, setBusy] = useState<string | null>(null);
@@ -84,6 +90,12 @@ export function ListingAssist({
       setEpcChoices(data.matches ?? []);
       return;
     }
+    if (data.applied && onEpc) {
+      onEpc({ rating: data.applied.currentRating, url: data.applied.certificateUrl });
+      setMessage(`EPC ${data.applied.currentRating} applied (${data.applied.address}).`);
+      setEpcChoices([]);
+      return;
+    }
     if (data.applied) {
       const rating = document.getElementById("epc_rating") as HTMLInputElement | null;
       const url = document.getElementById("epc_url") as HTMLInputElement | null;
@@ -113,17 +125,24 @@ export function ListingAssist({
     setMessage(res.ok ? "Override recorded for this wording. Portal sync will proceed." : data.error);
   }
 
+  const showCopy = mode !== "epc";
+  const showEpc = mode !== "copy";
+
   return (
-    <div className="space-y-3 rounded-xl border p-4">
+    <div className={mode === "all" ? "space-y-3 rounded-xl border p-4" : "space-y-3"}>
       <div className="flex flex-wrap gap-2">
-        <Button type="button" variant="outline" disabled={Boolean(busy)} onClick={generate}>
-          {busy === "copy" ? "Generating…" : "Generate listing copy"}
-        </Button>
-        <Button type="button" variant="outline" disabled={Boolean(busy)} onClick={() => lookupEpc()}>
-          {busy === "epc" ? "Looking up…" : "Look up EPC"}
-        </Button>
+        {showCopy && (
+          <Button type="button" variant="outline" size="sm" disabled={Boolean(busy)} onClick={generate}>
+            {busy === "copy" ? "Generating…" : "Generate listing copy"}
+          </Button>
+        )}
+        {showEpc && (
+          <Button type="button" variant="outline" size="sm" disabled={Boolean(busy)} onClick={() => lookupEpc()}>
+            {busy === "epc" ? "Looking up…" : "Look up EPC from the register"}
+          </Button>
+        )}
       </div>
-      {scan.blocked && (
+      {showCopy && scan.blocked && (
         <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm">
           <p className="font-medium text-amber-950">Listing scan flagged wording</p>
           <ul className="mt-1 list-disc pl-5 text-amber-900">
@@ -145,7 +164,7 @@ export function ListingAssist({
           </Button>
         </div>
       )}
-      {epcChoices.length > 0 && (
+      {showEpc && epcChoices.length > 0 && (
         <ul className="space-y-1 text-sm">
           {epcChoices.map((c) => (
             <li key={c.lmkKey} className="flex flex-wrap items-center justify-between gap-2 rounded border px-2 py-1">

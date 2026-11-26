@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { formatMoney } from "@/lib/utils";
 
 interface Row {
   tenancyId: string;
@@ -89,7 +90,7 @@ export function OpeningBalancesTable({ rows }: { rows: Row[] }) {
                 <tr key={r.tenancyId}>
                   <td className="px-4 py-2 font-medium">{r.propertyAddress}</td>
                   <td className="px-4 py-2">{r.renterName}</td>
-                  <td className="px-4 py-2 tabular-nums text-muted-foreground">£{r.rentAmount.toFixed(2)}</td>
+                  <td className="px-4 py-2 tabular-nums text-muted-foreground">{formatMoney(r.rentAmount)}</td>
                   <td className="px-4 py-2">
                     <select
                       className="h-9 rounded-md border bg-background px-2 text-sm"

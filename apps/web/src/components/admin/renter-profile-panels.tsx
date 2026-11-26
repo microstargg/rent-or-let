@@ -5,6 +5,7 @@ import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { formatDay } from "@/lib/utils";
 
 const selectClass = "mt-1.5 flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm";
 const card = "rounded-xl border bg-card p-5 shadow-sm";
@@ -14,9 +15,7 @@ function today() {
 }
 
 function ukDate(iso: string | null | undefined) {
-  if (!iso) return "—";
-  const d = new Date(iso.length === 10 ? `${iso}T00:00:00Z` : iso);
-  return d.toLocaleDateString("en-GB");
+  return formatDay(iso);
 }
 
 function fileSize(bytes: number) {

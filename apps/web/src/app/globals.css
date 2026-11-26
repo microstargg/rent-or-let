@@ -131,3 +131,38 @@
     background: white;
   }
 }
+
+/* Staff pages keep "Cookie settings" in the sidebar footer, so the floating button doesn't cover list rows. */
+body:has([data-staff-shell]) .cookie-fab {
+  display: none;
+}
+
+/*
+ * Clickable table rows: put `row-link` on the <tr> and `row-link-main` on its main link.
+ * The link's ::after stretches over the whole row; buttons and other controls sit above it.
+ */
+tr.row-link {
+  position: relative;
+}
+tr.row-link:hover {
+  background: color-mix(in oklab, var(--muted) 45%, transparent);
+}
+.row-link-main {
+  font-weight: 500;
+  color: var(--primary);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in oklab, currentColor 30%, transparent);
+  text-underline-offset: 3px;
+}
+.row-link-main:hover {
+  text-decoration-color: currentColor;
+}
+tr.row-link .row-link-main::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+tr.row-link :is(button, select, input, textarea, a:not(.row-link-main), [role="button"]) {
+  position: relative;
+  z-index: 1;
+}

@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { formatMoney } from "@/lib/utils";
 
 export function StatementCsvImport({
   title = "Import bank statement (PDF or CSV)",
@@ -35,7 +36,7 @@ export function StatementCsvImport({
         setMessage(
           [
             `${data.imported} new line(s)${range}, ${data.duplicates} already imported.`,
-            `Money in: ${data.credits} line(s), £${Number(data.creditTotal ?? 0).toFixed(2)}. ${data.matched} matched to tenants, ${data.exceptions} sent to Exceptions.`,
+            `Money in: ${data.credits} line(s), ${formatMoney(Number(data.creditTotal ?? 0))}. ${data.matched} matched to tenants, ${data.exceptions} sent to Exceptions.`,
             `Money out: ${data.outgoingMatched} matched to payouts or jobs, ${data.outgoingUnmatched} not recognised.`,
           ].join(" ")
         );
@@ -43,7 +44,7 @@ export function StatementCsvImport({
         const printed = data.statementMoneyIn;
         if (typeof printed === "number" && Math.abs(printed - read) > 0.01) {
           setWarning(
-            `The statement says £${printed.toFixed(2)} came in, but £${read.toFixed(2)} was read. Check the imported lines below against the statement.`
+            `The statement says ${formatMoney(printed)} came in, but ${formatMoney(read)} was read. Check the imported lines below against the statement.`
           );
         }
         router.refresh();

@@ -110,6 +110,8 @@ export async function convertApplicationToTenancy(
   await ensureAgency();
   const app = await getApplicationById(applicationId);
   if (!app || !app.propertyId) throw new Error("Application missing property");
+  const existingRef = (app.referenceData ?? {}) as { tenancyId?: string };
+  if (existingRef.tenancyId) throw new Error("This application already has a tenancy");
   const [property] = await db
     .select({ pricePcm: properties.pricePcm, deposit: properties.deposit })
     .from(properties)
@@ -146,7 +148,12 @@ export async function convertApplicationToTenancy(
       : {};
   await db
     .update(tenantApplications)
-    .set({ status: "approved", referencingStatus: "complete", ...holdingApplied })
+    .set({
+      status: "approved",
+      referencingStatus: "complete",
+      referenceData: { ...existingRef, tenancyId: tenancy.id },
+      ...holdingApplied,
+    })
     .where(and(eq(tenantApplications.id, applicationId), agencyEq(tenantApplications.agencyId)));
 
   return { renter, tenancy };

@@ -55,7 +55,7 @@ export default async function AdminPropertiesPage({
         }
       />
 
-      <div className="mt-6 grid gap-3 sm:grid-cols-3">
+      <div className="mt-6 grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3">
         <StatPill label="Total" value={stats.total} />
         <StatPill label="Available" value={stats.available} tone="success" />
         <StatPill
@@ -100,11 +100,11 @@ export default async function AdminPropertiesPage({
                       )
                     : null;
                 return (
-                  <tr key={property.id}>
+                  <tr key={property.id} className="row-link">
                     <td className="px-4 py-3">
                       <Link
                         href={`/properties/${property.id}`}
-                        className="font-medium text-primary hover:underline"
+                        className="row-link-main"
                       >
                         {property.displayAddress}
                       </Link>
@@ -121,7 +121,7 @@ export default async function AdminPropertiesPage({
                     <td className="px-4 py-3">
                       {landlordName ? (
                         <Link
-                          href={`/landlords?q=${encodeURIComponent(landlordName)}`}
+                          href={property.landlordId ? `/landlords/${property.landlordId}` : `/landlords?q=${encodeURIComponent(landlordName)}`}
                           className="text-sm text-primary hover:underline"
                         >
                           {landlordName}

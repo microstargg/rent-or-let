@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireStaffSession } from "@/lib/auth/server";
-import { createProperty, uniquePropertySlug } from "@/lib/db/queries";
+import { createProperty, mergePropertyMetadata, uniquePropertySlug } from "@/lib/db/queries";
 import { syncPropertyToPortals } from "@/lib/portals/sync-worker";
 import {
   adminPropertySchema,
@@ -20,6 +20,7 @@ export async function POST(request: Request) {
 
     const slug = await uniquePropertySlug(data.slug || slugify(data.display_address));
     const property = await createProperty({ ...fields, slug });
+    if (data.listing) await mergePropertyMetadata(property.id, { listing: data.listing });
 
     if (data.status === "available") {
       await syncPropertyToPortals(property.id, "send");

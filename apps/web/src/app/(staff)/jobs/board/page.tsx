@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { Suspense } from "react";
 import { listWorkOrders, getDefaultBranch, listContractors } from "@/lib/db/queries";
 import { Button } from "@/components/ui/button";
 import {
@@ -9,7 +8,7 @@ import {
   StatusBadge,
   StatPill,
 } from "@/components/admin/admin-page";
-import { AdminListToolbar, FilterChip } from "@/components/admin/admin-list-toolbar";
+import { FilterChip } from "@/components/admin/admin-list-toolbar";
 import { JobBoardActions } from "@/components/admin/job-board-actions";
 import { JobAssigneeSelect } from "@/components/admin/assignee-select";
 import { NewTaskDialog } from "@/components/admin/new-task-dialog";
@@ -17,7 +16,7 @@ import { TaskCardActions } from "@/components/admin/task-card-actions";
 import { listAssignableStaff, listBoardTasks } from "@/lib/db/queries/notifications";
 import { requireStaffSession } from "@/lib/auth/server";
 import { londonDateKey } from "@/lib/notifications/preferences";
-import { formatDate } from "@/lib/utils";
+import { formatDate, formatMoney, formatDay, humanize } from "@/lib/utils";
 
 function initials(name: string): string {
   return name
@@ -121,6 +120,7 @@ export default async function JobsBoardPage({
   const tasksDue = tasks.filter((t) => dueByToday(t.task.dueAt)).length;
 
   const statuses = ["draft", "awaiting_approval", "approved", "assigned", "completed"];
+  const activeFilterCount = [params.status, params.trade, who, params.q].filter(Boolean).length;
 
   const baseQuery = new URLSearchParams();
   if (params.status) baseQuery.set("status", params.status);
@@ -151,7 +151,7 @@ export default async function JobsBoardPage({
         }
       />
 
-      <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mt-6 grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4">
         <StatPill label="Mine today" value={myToday} tone={myToday ? "info" : "success"} hint="Jobs and tasks, incl. overdue" />
         <StatPill label="Open jobs" value={open} />
         <StatPill
@@ -162,74 +162,83 @@ export default async function JobsBoardPage({
         <StatPill label="Tasks due" value={tasksDue} tone={tasksDue ? "warning" : "success"} hint="Today or overdue" />
       </div>
 
-      <AdminSection title="Quick views">
-        <div className="flex flex-wrap gap-2">
-          <FilterChip href={viewHref("")} active={!view} label="All" />
-          <FilterChip href={viewHref("mine")} active={view === "mine"} label="My jobs" />
-          <FilterChip href={viewHref("today")} active={view === "today"} label="Today" />
-          <FilterChip href={viewHref("unassigned")} active={view === "unassigned"} label="Unassigned" />
-          <FilterChip href={viewHref("open")} active={view === "open"} label="Open" />
-          <FilterChip href={viewHref("tasks")} active={view === "tasks"} label="Tasks" />
-          <FilterChip
-            href={viewHref("awaiting")}
-            active={view === "awaiting"}
-            label="Awaiting approval"
-          />
-        </div>
-        {staff.length > 1 && (
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <span className="text-xs font-medium text-muted-foreground">Assigned to</span>
-            {staff.map((s) => {
-              const sp = new URLSearchParams(baseQuery);
-              if (view) sp.set("view", view);
-              if (who === s.id) sp.delete("who");
-              else sp.set("who", s.id);
-              const qs = sp.toString();
-              return (
-                <FilterChip
-                  key={s.id}
-                  href={qs ? `/jobs/board?${qs}` : "/jobs/board"}
-                  active={who === s.id}
-                  label={s.id === me ? `${s.name} (you)` : s.name}
-                />
-              );
-            })}
-          </div>
-        )}
-      </AdminSection>
-
-      <AdminSection title="Search & filters">
-        <Suspense fallback={<div className="h-10 animate-pulse rounded-md bg-muted" />}>
-          <AdminListToolbar
-            searchPlaceholder="Search address, job, or contractor…"
-            statusOptions={statuses.map((s) => ({
-              value: s,
-              label: s.replaceAll("_", " "),
-            }))}
-          />
-        </Suspense>
-        {trades.length > 0 && (
-          <div className="mt-3 flex flex-wrap gap-2">
-            {trades.map((t) => {
-              const sp = new URLSearchParams();
-              if (params.status) sp.set("status", params.status);
-              if (params.q) sp.set("q", params.q);
-              if (who) sp.set("who", who);
-              if (view) sp.set("view", view);
-              if (params.trade !== t) sp.set("trade", t);
-              const qs = sp.toString();
-              return (
-                <FilterChip
-                  key={t}
-                  href={qs ? `/jobs/board?${qs}` : "/jobs/board"}
-                  active={params.trade === t}
-                  label={t}
-                />
-              );
-            })}
-          </div>
-        )}
-      </AdminSection>
+      <div className="mt-6 flex flex-wrap items-center gap-2">
+        <FilterChip href={viewHref("")} active={!view} label="All" />
+        <FilterChip href={viewHref("mine")} active={view === "mine"} label="My jobs" />
+        <FilterChip href={viewHref("today")} active={view === "today"} label="Today" />
+        <FilterChip href={viewHref("unassigned")} active={view === "unassigned"} label="Unassigned" />
+        <FilterChip href={viewHref("awaiting")} active={view === "awaiting"} label="Awaiting approval" />
+        <FilterChip href={viewHref("tasks")} active={view === "tasks"} label="Tasks" />
+        <details className="relative">
+          <summary
+            className={`flex h-8 cursor-pointer list-none items-center gap-1 rounded-full border px-3 text-sm ${
+              activeFilterCount ? "border-primary bg-primary/10 font-medium text-primary" : "hover:bg-muted"
+            }`}
+          >
+            Filters{activeFilterCount ? ` (${activeFilterCount})` : ""}
+          </summary>
+          <form
+            method="get"
+            className="absolute left-0 z-20 mt-2 w-72 space-y-3 rounded-xl border bg-card p-4 shadow-lg"
+          >
+            {view && <input type="hidden" name="view" value={view} />}
+            <label className="block text-sm">
+              <span className="font-medium">Search</span>
+              <input
+                name="q"
+                defaultValue={params.q ?? ""}
+                placeholder="Address, job or contractor"
+                className="mt-1 h-9 w-full rounded-md border bg-background px-2 text-sm"
+              />
+            </label>
+            <label className="block text-sm">
+              <span className="font-medium">Status</span>
+              <select name="status" defaultValue={params.status ?? ""} className="mt-1 h-9 w-full rounded-md border bg-background px-2 text-sm">
+                <option value="">Any</option>
+                {statuses.map((st) => (
+                  <option key={st} value={st}>
+                    {humanize(st)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {trades.length > 0 && (
+              <label className="block text-sm">
+                <span className="font-medium">Trade</span>
+                <select name="trade" defaultValue={params.trade ?? ""} className="mt-1 h-9 w-full rounded-md border bg-background px-2 text-sm">
+                  <option value="">Any</option>
+                  {trades.map((t) => (
+                    <option key={t} value={t}>
+                      {humanize(t)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+            {staff.length > 1 && (
+              <label className="block text-sm">
+                <span className="font-medium">Assigned to</span>
+                <select name="who" defaultValue={who} className="mt-1 h-9 w-full rounded-md border bg-background px-2 text-sm">
+                  <option value="">Anyone</option>
+                  {staff.map((st) => (
+                    <option key={st.id} value={st.id}>
+                      {st.id === me ? `${st.name} (you)` : st.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+            <div className="flex items-center justify-between gap-2">
+              <a href={view ? `/jobs/board?view=${view}` : "/jobs/board"} className="text-sm text-muted-foreground hover:underline">
+                Clear
+              </a>
+              <button type="submit" className="h-9 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground">
+                Show
+              </button>
+            </div>
+          </form>
+        </details>
+      </div>
 
       {view !== "tasks" && (
       <AdminSection title="Contractor jobs" description={`${filtered.length} showing`}>
@@ -263,7 +272,7 @@ export default async function JobsBoardPage({
                     )}
                     {invoice && (
                       <p className="mt-1 text-xs text-muted-foreground">
-                        Works invoice £{Number(invoice.amount).toFixed(2)} dated {invoice.dueDate}
+                        Works invoice {formatMoney(Number(invoice.amount))} dated {formatDay(invoice.dueDate)}
                         {invoice.status === "billed"
                           ? " · on landlord statement"
                           : " · awaiting statement"}

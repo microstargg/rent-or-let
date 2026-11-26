@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { formatMoney } from "@/lib/utils";
 
 const selectClass = "mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm";
 
@@ -113,12 +114,12 @@ export function TaxExportsPanel({
                   <span className="font-medium">{n.name}</span>
                   <span className="text-muted-foreground">
                     {" "}
-                    · profit £{n.profit.toFixed(2)} · withheld £{n.withheld.toFixed(2)}
+                    · profit {formatMoney(n.profit)} · withheld {formatMoney(n.withheld)}
                   </span>
                 </span>
                 {n.due > 0 ? (
                   <Button size="sm" disabled={busy !== null} onClick={() => withhold(n.landlordId)}>
-                    Withhold £{n.due.toFixed(2)}
+                    Withhold {formatMoney(n.due)}
                   </Button>
                 ) : (
                   <span className="text-emerald-700">Done</span>

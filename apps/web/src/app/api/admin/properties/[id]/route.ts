@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireStaffSession } from "@/lib/auth/server";
-import { updateProperty } from "@/lib/db/queries";
+import { mergePropertyMetadata, updateProperty } from "@/lib/db/queries";
 import { syncPropertyToPortals } from "@/lib/portals/sync-worker";
 import {
   adminPropertySchema,
@@ -21,6 +21,7 @@ export async function PATCH(
     const data = adminPropertySchema.parse(body);
 
     await updateProperty(id, toPropertyDbFields(data));
+    if (data.listing) await mergePropertyMetadata(id, { listing: data.listing });
 
     if (data.status === "available") {
       await syncPropertyToPortals(id, "send");

@@ -26,7 +26,7 @@ Before emailing Rightmove, confirm our side is ready:
 
 | RemoveProperty (`removeproperty`) | Implemented with mTLS |
 
-| GetBranchPropertyList (`getbranchpropertylist`) | Implemented — use **Test RTDF connection** in Admin → Portal sync |
+| GetBranchPropertyList (`getbranchpropertylist`) | Implemented — use **Test connection** in Admin → Portal sync |
 
 | Lettings channel (channel = 2) | Configured |
 
@@ -120,7 +120,7 @@ WHERE id = '00000000-0000-0000-0000-000000000001';
 
 
 
-6. In **Admin → Portal sync**, click **Test RTDF connection** to verify mTLS auth
+6. In **Admin → Portal sync**, click **Test connection** to verify mTLS auth
 
 7. Enable **Sync to Rightmove** and test with one dummy property (`TEST-001`)
 
@@ -173,7 +173,7 @@ UPDATE branches SET otm_branch_id = 'YOUR_OTM_BRANCH_ID'
 WHERE id = '00000000-0000-0000-0000-000000000001';
 ```
 
-4. **Test RTDF connection** in Admin → Portal sync
+4. **Test connection** in Admin → Portal sync
 5. Enable **Sync to OnTheMarket** and test with a dummy property
 6. Coordinate go-live with OTM support
 
@@ -235,7 +235,7 @@ Rightmove fetches images from URLs you send. They use user-agent `rightmove-data
 
 2. Set branch IDs in Neon
 
-3. Run **Test RTDF connection** in Admin → Portal sync
+3. Run **Test connection** in Admin → Portal sync
 
 4. Enable each portal in admin settings
 

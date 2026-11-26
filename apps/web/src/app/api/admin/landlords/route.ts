@@ -17,6 +17,14 @@ const schema = z.object({
   letting_fee: z.number().min(0).max(100000).nullable().optional(),
   nrl_status: z.enum(["approved", "withhold"]).or(z.literal("")).nullable().optional(),
   nrl_approval_ref: z.string().max(40).nullable().optional(),
+  bank_details: z
+    .object({
+      account_name: z.string().max(100).nullable().optional(),
+      sort_code: z.string().regex(/^[\d\s-]{0,10}$/, "Sort code should be 6 digits").nullable().optional(),
+      account_number: z.string().regex(/^[\d\s]{0,12}$/, "Account number should be digits").nullable().optional(),
+    })
+    .nullable()
+    .optional(),
 });
 
 export async function GET() {

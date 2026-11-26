@@ -25,6 +25,40 @@ import { Button } from "@/components/ui/button";
 import { displayPersonName } from "@/lib/person-name";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
+function StepHeader({
+  n,
+  title,
+  done,
+  label,
+  description,
+}: {
+  n: number;
+  title: string;
+  done: boolean;
+  label: string;
+  description: string;
+}) {
+  return (
+    <div className="flex flex-wrap items-start justify-between gap-2">
+      <div className="flex gap-3">
+        <span
+          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-semibold ${
+            done ? "bg-green-600 text-white" : "bg-muted text-foreground"
+          }`}
+        >
+          {done ? "✓" : n}
+        </span>
+        <div>
+          <h2 className="font-semibold">{title}</h2>
+          <p className={`mt-0.5 max-w-2xl text-sm text-muted-foreground ${done ? "hidden sm:block" : ""}`}>{description}</p>
+        </div>
+      </div>
+      <StatusBadge status={label} tone={done ? "success" : "warning"} />
+    </div>
+  );
+}
+
+/** A month end step. Finished steps fold away to their heading; click to open them again. */
 function Step({
   n,
   title,
@@ -42,26 +76,63 @@ function Step({
   description: string;
   children: React.ReactNode;
 }) {
+  const header = (
+    <StepHeader n={n} title={title} done={done} label={done ? doneLabel : todoLabel} description={description} />
+  );
+  if (done) {
+    return (
+      <details id={`step-${n}`} className="group mt-4 scroll-mt-4 rounded-xl border bg-card p-5 shadow-sm">
+        <summary className="cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+          {header}
+          <span className="mt-2 block text-xs text-primary group-open:hidden">Show details</span>
+        </summary>
+        <div className="mt-4">{children}</div>
+      </details>
+    );
+  }
   return (
-    <section className="mt-6 rounded-xl border bg-card p-5 shadow-sm">
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div className="flex gap-3">
-          <span
-            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-semibold ${
-              done ? "bg-green-600 text-white" : "bg-muted text-foreground"
-            }`}
-          >
-            {done ? "✓" : n}
-          </span>
-          <div>
-            <h2 className="font-semibold">{title}</h2>
-            <p className="mt-0.5 max-w-2xl text-sm text-muted-foreground">{description}</p>
-          </div>
-        </div>
-        <StatusBadge status={done ? doneLabel : todoLabel} tone={done ? "success" : "warning"} />
-      </div>
+    <section id={`step-${n}`} className="mt-4 scroll-mt-4 rounded-xl border bg-card p-5 shadow-sm">
+      {header}
       <div className="mt-4">{children}</div>
     </section>
+  );
+}
+
+/** The six steps as a bar across the top, so you can see how far through month end you are. */
+function StepProgress({ steps }: { steps: Array<{ n: number; title: string; done: boolean }> }) {
+  const doneCount = steps.filter((s) => s.done).length;
+  const next = steps.find((s) => !s.done);
+  return (
+    <nav aria-label="Month end progress" className="mt-6 rounded-xl border bg-card p-4">
+      <div className="flex flex-wrap items-baseline justify-between gap-2 text-sm">
+        <p className="font-medium">
+          {doneCount} of {steps.length} steps done
+        </p>
+        {next ? (
+          <a href={`#step-${next.n}`} className="text-primary hover:underline">
+            Next: {next.title}
+          </a>
+        ) : (
+          <p className="text-emerald-700">Month end finished</p>
+        )}
+      </div>
+      <ol className="mt-3 grid grid-cols-6 gap-1.5">
+        {steps.map((s) => (
+          <li key={s.n}>
+            <a
+              href={`#step-${s.n}`}
+              title={`${s.n}. ${s.title}`}
+              className={`block h-2 rounded-full ${s.done ? "bg-green-600" : s === next ? "bg-amber-400" : "bg-muted"}`}
+            >
+              <span className="sr-only">
+                Step {s.n}: {s.title} ({s.done ? "done" : "to do"})
+              </span>
+            </a>
+            <span className="mt-1 hidden text-[11px] leading-tight text-muted-foreground lg:block">{s.title}</span>
+          </li>
+        ))}
+      </ol>
+    </nav>
   );
 }
 
@@ -139,6 +210,15 @@ export default async function MonthEndPage({
     unmatchedJobs.length === 0 &&
     data.unexpected.length === 0;
 
+  const stepsDone = [
+    { n: 1, title: "Check rent has come in", done: imported && unpaidRent.length === 0 },
+    { n: 2, title: "Clear payment exceptions", done: data.openExceptions === 0 },
+    { n: 3, title: "Pay landlords", done: data.balances.length === 0 },
+    { n: 4, title: "Check payments out", done: outgoingsChecked },
+    { n: 5, title: "Send landlord statements", done: data.statementCount > 0 },
+    { n: 6, title: "Check the client account balance", done: balanced || sameAsLast },
+  ];
+
   return (
     <div>
       <AdminPageHeader
@@ -158,7 +238,7 @@ export default async function MonthEndPage({
       />
       <FinanceSubnav />
 
-      <div className="mt-6 grid gap-3 sm:grid-cols-4">
+      <div className="mt-6 grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4">
         <StatPill label="Rent expected" value={formatCurrency(data.rentExpected)} />
         <StatPill
           label="Rent received"
@@ -176,6 +256,8 @@ export default async function MonthEndPage({
           hint="Client charges minus contractor costs"
         />
       </div>
+
+      <StepProgress steps={stepsDone} />
 
       <Step
         n={1}
@@ -207,9 +289,18 @@ export default async function MonthEndPage({
             and pull transactions straight from your bank.
           </p>
         )}
-        <StatementCsvImport
-          title={openBankingEnabled ? "Or upload a bank statement" : "Upload bank statement"}
-        />
+        {bankConnections.some((c) => c.status === "active") ? (
+          <details className="rounded-xl border bg-card p-4 text-sm">
+            <summary className="cursor-pointer font-medium text-primary">Upload a bank statement instead</summary>
+            <div className="mt-3">
+              <StatementCsvImport title="Upload bank statement" />
+            </div>
+          </details>
+        ) : (
+          <StatementCsvImport
+            title={openBankingEnabled ? "Or upload a bank statement" : "Upload bank statement"}
+          />
+        )}
         {unpaidRent.length > 0 && (
           <div className="mt-4">
             <AdminTable headers={["Property", "Renter", "Due", "Amount", "Outstanding"]}>

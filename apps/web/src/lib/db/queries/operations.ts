@@ -1,4 +1,4 @@
-import { eq, and, desc, asc, ilike, or, sql, count, type SQL } from "drizzle-orm";
+import { eq, and, desc, asc, ilike, inArray, or, sql, count, type SQL } from "drizzle-orm";
 import { db } from "../index";
 import { renterOnTenancy } from "../renter-tenancy";
 import { agencyEq, currentAgencyId, ensureAgency } from "../agency-scope";
@@ -19,6 +19,10 @@ export type ListPageOpts = {
   pageSize?: number;
   sort?: string;
   status?: string;
+  /** Landlords: "no_portal" | "no_register". Renters: "rtr" (Right to Rent not checked, has a current or upcoming tenancy). */
+  filter?: string;
+  /** Limit to these ids (e.g. tenancies in arrears). */
+  ids?: string[];
 };
 
 function pageOffset(page = 1, pageSize = ADMIN_LIST_PAGE_SIZE) {
@@ -71,12 +75,24 @@ export async function searchLandlords(opts: ListPageOpts = {}) {
       )
     );
   }
+  if (opts.filter === "no_portal") {
+    conditions.push(
+      sql`not exists (select 1 from landlord_profiles lp where lp.landlord_id = ${landlords}.id)`
+    );
+  } else if (opts.filter === "no_register") {
+    conditions.push(
+      sql`coalesce(${landlords.prsRegistrationNumber}, '') = '' and exists (select 1 from properties p where p.landlord_id = ${landlords}.id)`
+    );
+  }
   const where = and(...conditions);
 
+  // Alias the inner table: Drizzle prints bare column names inside a select's
+  // sql``, so `${properties.landlordId} = ${landlords.id}` compared the property's
+  // own id and every landlord showed 0 properties.
   const propertyCount = sql<number>`(
-    select count(*)::int from ${properties}
-    where ${properties.landlordId} = ${landlords.id}
-      and ${properties.agencyId} = ${landlords.agencyId}
+    select count(*)::int from properties p
+    where p.landlord_id = ${landlords}.id
+      and p.agency_id = ${landlords}.agency_id
   )`.mapWith(Number);
 
   const orderBy =
@@ -216,6 +232,27 @@ export async function searchRenters(opts: ListPageOpts = {}) {
       )
     );
   }
+  if (opts.filter === "rtr") {
+    conditions.push(
+      sql`${renters.rtrCheckedAt} is null and exists (
+        select 1 from tenancies t
+        where t.status in ('active', 'upcoming', 'pending')
+          and (t.primary_renter_id = ${renters}.id or exists (
+            select 1 from tenancy_parties tp where tp.tenancy_id = t.id and tp.renter_id = ${renters}.id and tp.role = 'tenant'
+          ))
+      )`
+    );
+  } else if (opts.filter === "current") {
+    conditions.push(
+      sql`exists (
+        select 1 from tenancies t
+        where t.status in ('active', 'upcoming', 'pending')
+          and (t.primary_renter_id = ${renters}.id or exists (
+            select 1 from tenancy_parties tp where tp.tenancy_id = t.id and tp.renter_id = ${renters}.id and tp.role = 'tenant'
+          ))
+      )`
+    );
+  }
   const where = and(...conditions);
 
   const orderBy =
@@ -342,6 +379,16 @@ export async function searchTenancies(opts: ListPageOpts = {}) {
   const conditions: SQL[] = [agencyEq(tenancies.agencyId)];
   if (branchId) conditions.push(eq(tenancies.branchId, branchId));
   if (status && status !== "all") conditions.push(eq(tenancies.status, status));
+  if (opts.filter === "ending") {
+    // Fixed term ending (or end date set) in the next 60 days.
+    conditions.push(
+      sql`${tenancies.endDate} is not null and ${tenancies.endDate} >= current_date and ${tenancies.endDate} <= current_date + 60`
+    );
+  }
+  if (opts.ids) {
+    if (!opts.ids.length) conditions.push(sql`false`);
+    else conditions.push(inArray(tenancies.id, opts.ids));
+  }
   if (q?.trim()) {
     const pattern = `%${q.trim()}%`;
     conditions.push(

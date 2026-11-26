@@ -18,7 +18,7 @@ export default async function PortalTicketDetailPage({
   const ticket = await getTicketForRenter(id, branchId, renterId);
   if (!ticket) notFound();
 
-  const messages = await listTicketMessages(id);
+  const messages = await listTicketMessages(id, { tenantView: true });
 
   return (
     <div>

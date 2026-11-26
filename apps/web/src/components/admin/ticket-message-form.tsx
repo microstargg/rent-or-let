@@ -11,6 +11,7 @@ export function TicketMessageForm({ ticketId }: { ticketId: string }) {
   const router = useRouter();
   const [body, setBody] = useState("");
   const [loading, setLoading] = useState(false);
+  const [internal, setInternal] = useState(false);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -19,7 +20,7 @@ export function TicketMessageForm({ ticketId }: { ticketId: string }) {
     await fetch(`/api/admin/tickets/${ticketId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: body }),
+      body: JSON.stringify({ message: body, internal }),
     });
     setBody("");
     router.refresh();
@@ -34,12 +35,35 @@ export function TicketMessageForm({ ticketId }: { ticketId: string }) {
           value={body}
           onChange={(e) => setBody(e.target.value)}
           rows={3}
-          placeholder="Reply or field update…"
+          placeholder={internal ? "Note for the team (the tenant won't see it)…" : "Update for the tenant…"}
           className="min-h-[5rem]"
         />
-        <Button type="submit" className="min-h-11 w-full sm:w-auto" disabled={loading}>
-          {loading ? "Sending…" : "Send update"}
-        </Button>
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="inline-flex rounded-lg border bg-muted/30 p-0.5 text-sm" role="radiogroup" aria-label="Who sees this">
+            {[
+              { value: false, label: "Send to tenant" },
+              { value: true, label: "Internal note" },
+            ].map((o) => (
+              <button
+                key={o.label}
+                type="button"
+                role="radio"
+                aria-checked={internal === o.value}
+                onClick={() => setInternal(o.value)}
+                className={
+                  internal === o.value
+                    ? "rounded-md bg-background px-3 py-1 font-medium shadow-sm"
+                    : "rounded-md px-3 py-1 text-muted-foreground hover:text-foreground"
+                }
+              >
+                {o.label}
+              </button>
+            ))}
+          </div>
+          <Button type="submit" className="min-h-11 w-full sm:w-auto" disabled={loading}>
+            {loading ? "Saving…" : internal ? "Save note" : "Send update"}
+          </Button>
+        </div>
       </form>
       <div>
         <p className="mb-2 text-sm font-medium">Photos</p>
