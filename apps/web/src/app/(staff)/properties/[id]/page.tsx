@@ -303,7 +303,12 @@ export default async function EditPropertyPage({ params, searchParams }: EditPro
           {landlord ? (
             <Facts
               rows={[
-                ["Name", landlord.name],
+                [
+                  "Name",
+                  <Link key="ll" href={`/landlords/${landlord.id}`} className="text-primary hover:underline">
+                    {landlord.name}
+                  </Link>,
+                ],
                 ...(landlord.phone ? ([["Phone", landlord.phone]] as [string, React.ReactNode][]) : []),
                 ...(landlord.email ? ([["Email", landlord.email]] as [string, React.ReactNode][]) : []),
               ]}
@@ -590,7 +595,9 @@ export default async function EditPropertyPage({ params, searchParams }: EditPro
             {landlord && (
               <>
                 <span aria-hidden>·</span>
-                <span className="truncate">Landlord: {landlord.name}</span>
+                <Link href={`/landlords/${landlord.id}`} className="truncate hover:underline">
+                  Landlord: {landlord.name}
+                </Link>
               </>
             )}
           </div>
