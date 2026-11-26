@@ -107,6 +107,8 @@ export function humanize(value: string | null | undefined): string {
     smoke_co: "Smoke & CO alarms",
   };
   if (known[value]) return known[value];
+  // Already written for people ("Seen 3 Nov", "Let Agreed"): leave it alone.
+  if (!/^[a-z0-9_-]+$/.test(value)) return value;
   const words = value.replaceAll("_", " ").replaceAll("-", " ").trim().toLowerCase();
   return words.charAt(0).toUpperCase() + words.slice(1);
 }
