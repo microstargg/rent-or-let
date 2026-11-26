@@ -121,7 +121,7 @@ export default async function AdminPropertiesPage({
                     <td className="px-4 py-3">
                       {landlordName ? (
                         <Link
-                          href={`/landlords?q=${encodeURIComponent(landlordName)}`}
+                          href={property.landlordId ? `/landlords/${property.landlordId}` : `/landlords?q=${encodeURIComponent(landlordName)}`}
                           className="text-sm text-primary hover:underline"
                         >
                           {landlordName}
