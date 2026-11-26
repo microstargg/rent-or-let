@@ -130,7 +130,8 @@ export async function PATCH(
       ticketId: id,
       senderType: "staff",
       body: body.message.trim(),
-      channel: "portal",
+      // Internal notes stay off the tenant portal.
+      channel: body.internal === true ? "internal" : "portal",
     });
     return NextResponse.json({ success: true });
   }

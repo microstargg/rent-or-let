@@ -615,7 +615,7 @@ export async function insertComplaint(data: {
   slaDueAt?: Date;
 }) {
   await ensureAgency();
-  await db.insert(complaints).values({
+  const [row] = await db.insert(complaints).values({
     agencyId: currentAgencyId(),
     propertyId: data.propertyId ?? null,
     tenantName: data.tenantName,
@@ -626,12 +626,18 @@ export async function insertComplaint(data: {
     priority: "medium",
     source: data.source ?? "website",
     slaDueAt: data.slaDueAt,
-  });
+  }).returning({ id: complaints.id });
+  return row ?? null;
 }
 
 export async function listComplaints() {
   await ensureAgency();
-  return db.select().from(complaints).where(agencyEq(complaints.agencyId)).orderBy(desc(complaints.createdAt));
+  return db
+    .select({ complaint: complaints, propertyAddress: properties.displayAddress })
+    .from(complaints)
+    .leftJoin(properties, eq(complaints.propertyId, properties.id))
+    .where(agencyEq(complaints.agencyId))
+    .orderBy(desc(complaints.createdAt));
 }
 
 export async function updateComplaint(
@@ -639,10 +645,22 @@ export async function updateComplaint(
   data: { status: string; resolvedAt?: Date | null }
 ) {
   await ensureAgency();
-  await db
+  const [row] = await db
     .update(complaints)
     .set({ status: data.status, resolvedAt: data.resolvedAt ?? null })
-    .where(and(eq(complaints.id, id), agencyEq(complaints.agencyId)));
+    .where(and(eq(complaints.id, id), agencyEq(complaints.agencyId)))
+    .returning();
+  return row ?? null;
+}
+
+export async function getComplaintById(id: string) {
+  await ensureAgency();
+  const [row] = await db
+    .select()
+    .from(complaints)
+    .where(and(eq(complaints.id, id), agencyEq(complaints.agencyId)))
+    .limit(1);
+  return row ?? null;
 }
 
 export async function insertCookieConsent(data: {
@@ -863,6 +881,27 @@ export async function addStaffMember(data: {
         .limit(1)
     )[0];
   return { status: "invited" as const, invite: pending };
+}
+
+export async function updateStaffRole(id: string, role: "admin" | "staff") {
+  await ensureAgency();
+  const [row] = await db
+    .update(staffProfiles)
+    .set({ role })
+    .where(and(eq(staffProfiles.id, id), agencyEq(staffProfiles.agencyId)))
+    .returning();
+  return row ?? null;
+}
+
+/** Takes someone off this agency. Their login keeps working on any other agency. */
+export async function removeStaffMember(id: string) {
+  await ensureAgency();
+  await db.delete(staffProfiles).where(and(eq(staffProfiles.id, id), agencyEq(staffProfiles.agencyId)));
+}
+
+export async function removeStaffInvite(id: string) {
+  await ensureAgency();
+  await db.delete(staffInvites).where(and(eq(staffInvites.id, id), agencyEq(staffInvites.agencyId)));
 }
 
 export async function ensureStaffMembership(userId: string, email: string | null | undefined) {

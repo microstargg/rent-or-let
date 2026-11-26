@@ -1,4 +1,4 @@
-import { and, desc, eq, or } from "drizzle-orm";
+import { and, desc, eq, inArray, or } from "drizzle-orm";
 import { db } from "../index";
 import { agencyEq, currentAgencyId, ensureAgency } from "../agency-scope";
 import { activityLog } from "../schema";
@@ -71,4 +71,15 @@ export async function listActivity(
     .where(and(agencyEq(activityLog.agencyId), filters.length === 1 ? filters[0] : or(...filters)))
     .orderBy(desc(activityLog.createdAt))
     .limit(limit);
+}
+
+/** Activity for several records at once (e.g. every complaint on a page), oldest first. */
+export async function listActivityForEntities(entityIds: string[]) {
+  if (!entityIds.length) return [];
+  await ensureAgency();
+  return db
+    .select()
+    .from(activityLog)
+    .where(and(agencyEq(activityLog.agencyId), inArray(activityLog.entityId, entityIds)))
+    .orderBy(activityLog.createdAt);
 }

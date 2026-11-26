@@ -80,6 +80,8 @@ export async function createInspection(data: {
   type: string;
   scheduledAt?: Date | null;
   notes?: string | null;
+  /** Staff member doing the visit; kept in meta so no migration is needed. */
+  inspectorStaffId?: string | null;
 }) {
   await ensureAgency();
   const [property] = await db
@@ -108,6 +110,7 @@ export async function createInspection(data: {
       notes: data.notes ?? null,
       meta: {
         report,
+        ...(data.inspectorStaffId ? { inspector_staff_id: data.inspectorStaffId } : {}),
         ...(baseline && baselineReport
           ? { baseline: baselineReport, baseline_inspection_id: baseline.id }
           : {}),

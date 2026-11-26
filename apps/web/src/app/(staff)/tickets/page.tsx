@@ -15,11 +15,21 @@ import {
   AdminEmptyState,
   AdminPageHeader,
   AdminSection,
-  StatusBadge,
+  AdminTable,
+  StatGrid,
   StatPill,
 } from "@/components/admin/admin-page";
 import { Button } from "@/components/ui/button";
-import { formatDateTime } from "@/lib/utils";
+import { formatDateTime, humanize } from "@/lib/utils";
+import { displayPersonName } from "@/lib/person-name";
+
+function age(created: Date | string) {
+  const days = Math.floor((Date.now() - new Date(created).getTime()) / 86400000);
+  if (days < 1) return "Today";
+  if (days < 14) return `${days}d`;
+  if (days < 60) return `${Math.floor(days / 7)}w`;
+  return `${Math.floor(days / 30)}mo`;
+}
 
 const TICKET_STATUSES = [
   { value: "new", label: "New" },
@@ -36,16 +46,16 @@ export default async function AdminTicketsPage({
 }) {
   const params = await searchParams;
   const q = params.q?.trim() ?? "";
-  const status = params.status ?? "";
+  const status = params.status ?? "open";
   const page = Math.max(1, Number(params.page) || 1);
-  const hasFilters = Boolean(q) || Boolean(status) || page > 1;
+  const hasFilters = Boolean(q) || status !== "open" || page > 1;
 
   const branch = await getDefaultBranch();
   const [{ rows, total, openCount }, properties] = await Promise.all([
     searchTickets({
       branchId: branch?.id,
       q,
-      status: status || undefined,
+      status,
       page,
       pageSize: TICKET_LIST_PAGE_SIZE,
     }),
@@ -54,7 +64,7 @@ export default async function AdminTicketsPage({
 
   const baseHref = listBaseHref("/tickets", {
     q: q || null,
-    status: status || null,
+    status: params.status || null,
   });
 
   return (
@@ -84,57 +94,54 @@ export default async function AdminTicketsPage({
         }
       />
 
-      <div className="mt-6 grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3">
-        <StatPill label="Open tickets" value={openCount} tone="warning" />
-        <StatPill label="Showing" value={total} hint="After filters" />
-        <StatPill label="On this page" value={rows.length} />
-      </div>
+      <StatGrid columns={3}>
+        <StatPill label="Open tickets" value={openCount} tone={openCount ? "warning" : "success"} href="/tickets" active={status === "open"} />
+        <StatPill label="Matching" value={total} />
+      </StatGrid>
 
-      <AdminSection title="Find tickets">
+      <AdminSection title="Tickets">
         <Suspense fallback={<div className="h-10 animate-pulse rounded-md bg-muted" />}>
           <AdminListToolbar
             searchPlaceholder="Search summary, address, or postcode…"
-            statusOptions={TICKET_STATUSES}
+            statusOptions={[{ value: "open", label: "Open" }, ...TICKET_STATUSES]}
+            defaultStatus="open"
           />
         </Suspense>
-      </AdminSection>
-
-      <AdminSection title="Tickets">
         {rows.length ? (
-          <>
-            <div className="space-y-3">
-              {rows.map(({ ticket, propertyAddress }) => (
-                <div key={ticket.id} className="rounded-xl border bg-card p-4 shadow-sm">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div className="min-w-0 flex-1">
-                      <Link
-                        href={`/tickets/${ticket.id}`}
-                        className="text-base font-semibold hover:underline"
-                      >
-                        {ticket.summary}
-                      </Link>
-                      <p className="mt-0.5 text-sm text-muted-foreground">{propertyAddress}</p>
-                      <p className="mt-2 text-xs text-muted-foreground">
-                        {ticket.source} ·{" "}
-                        {formatDateTime(ticket.createdAt)}
-                        {ticket.priority ? ` · ${ticket.priority}` : ""}
-                      </p>
-                    </div>
-                    <div className="flex flex-col items-end gap-2">
-                      <StatusBadge status={ticket.status} />
-                      <TicketStatusSelect id={ticket.id} status={ticket.status} />
-                    </div>
-                  </div>
-                  <div className="mt-3">
-                    <Button asChild variant="outline" className="min-h-11 w-full sm:w-auto">
-                      <Link href={`/tickets/${ticket.id}`}>Open</Link>
-                    </Button>
-                  </div>
-                </div>
+          <div className="mt-3">
+            <AdminTable headers={["Ticket", "Property", "Tenant", "Priority", "Contractor", "Age", "Status"]}>
+              {rows.map(({ ticket, propertyAddress, renterFirstName, renterLastName, contractorName }) => (
+                <tr key={ticket.id} className="row-link align-top">
+                  <td className="px-4 py-3">
+                    <Link href={`/tickets/${ticket.id}`} className="row-link-main">
+                      {ticket.summary}
+                    </Link>
+                    {ticket.isEmergency && <span className="ml-2 rounded bg-red-100 px-1.5 py-0.5 text-xs font-medium text-red-800">Emergency</span>}
+                    <p className="text-xs text-muted-foreground">{humanize(ticket.source)}</p>
+                  </td>
+                  <td className="px-4 py-3 text-muted-foreground">{propertyAddress}</td>
+                  <td className="px-4 py-3">
+                    {renterFirstName || renterLastName ? displayPersonName(renterFirstName ?? "", renterLastName ?? "") : <span className="text-muted-foreground">—</span>}
+                  </td>
+                  <td className="px-4 py-3">
+                    {ticket.priority ? (
+                      <span className={ticket.priority === "urgent" || ticket.priority === "high" ? "text-amber-700" : ""}>{humanize(ticket.priority)}</span>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3">{contractorName ?? <span className="text-muted-foreground">Not booked</span>}</td>
+                  <td className="whitespace-nowrap px-4 py-3 text-muted-foreground" title={formatDateTime(ticket.createdAt)}>
+                    {age(ticket.createdAt)}
+                  </td>
+                  <td className="px-4 py-3">
+                    <TicketStatusSelect id={ticket.id} status={ticket.status} compact />
+                  </td>
+                </tr>
               ))}
-            </div>
+            </AdminTable>
             <AdminPagination page={page} total={total} baseHref={baseHref} />
-          </>
+          </div>
         ) : hasFilters ? (
           <AdminEmptyState
             title="No tickets match"
@@ -146,8 +153,8 @@ export default async function AdminTicketsPage({
           </AdminEmptyState>
         ) : (
           <AdminEmptyState
-            title="No tickets yet"
-            description="Create a ticket when a maintenance request comes in."
+            title="No open tickets"
+            description="Nothing waiting. Pick All to see finished tickets."
           />
         )}
       </AdminSection>
