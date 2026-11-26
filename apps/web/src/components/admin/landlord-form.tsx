@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useEntityDialogClose } from "@/components/admin/admin-entity-dialog";
 import { SERVICE_LEVELS } from "@/lib/finance/fees";
+import { parseLandlordBank } from "@/lib/finance/landlord-fields";
 
 export interface PersonFormValues {
   id?: string;
@@ -21,6 +22,7 @@ export interface PersonFormValues {
   lettingFee?: string | null;
   nrlStatus?: string | null;
   nrlApprovalRef?: string | null;
+  bankDetails?: unknown;
 }
 
 const selectClass = "mt-1.5 flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm";
@@ -37,6 +39,13 @@ export function LandlordForm({ initial, onSuccess, compact }: LandlordFormProps)
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const isEdit = Boolean(initial?.id);
+  const rawBank = (initial?.bankDetails ?? {}) as Record<string, unknown>;
+  const bankField = (k: string) => (typeof rawBank[k] === "string" ? (rawBank[k] as string) : "");
+  const bank = {
+    accountName: bankField("account_name"),
+    sortCode: parseLandlordBank(rawBank)?.sortCode ?? bankField("sort_code"),
+    accountNumber: bankField("account_number"),
+  };
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -55,6 +64,11 @@ export function LandlordForm({ initial, onSuccess, compact }: LandlordFormProps)
       letting_fee: fd.get("letting_fee") ? Number(fd.get("letting_fee")) : null,
       nrl_status: fd.get("nrl_status") || null,
       nrl_approval_ref: fd.get("nrl_approval_ref") || null,
+      bank_details: {
+        account_name: String(fd.get("bank_account_name") ?? ""),
+        sort_code: String(fd.get("bank_sort_code") ?? ""),
+        account_number: String(fd.get("bank_account_number") ?? ""),
+      },
     };
     const res = await fetch(
       isEdit ? `/api/admin/landlords/${initial!.id}` : "/api/admin/landlords",
@@ -157,6 +171,32 @@ export function LandlordForm({ initial, onSuccess, compact }: LandlordFormProps)
         <Label htmlFor="nrl_approval_ref">HMRC NRL approval reference</Label>
         <Input id="nrl_approval_ref" name="nrl_approval_ref" defaultValue={initial?.nrlApprovalRef ?? ""} />
       </div>
+      <fieldset className="grid gap-3 sm:col-span-2 sm:grid-cols-3">
+        <legend className="mb-1 text-sm font-medium">Bank account for payouts</legend>
+        <div>
+          <Label htmlFor="bank_account_name">Account name</Label>
+          <Input id="bank_account_name" name="bank_account_name" defaultValue={bank.accountName ?? ""} />
+        </div>
+        <div>
+          <Label htmlFor="bank_sort_code">Sort code</Label>
+          <Input
+            id="bank_sort_code"
+            name="bank_sort_code"
+            inputMode="numeric"
+            placeholder="00-00-00"
+            defaultValue={bank.sortCode ?? ""}
+          />
+        </div>
+        <div>
+          <Label htmlFor="bank_account_number">Account number</Label>
+          <Input
+            id="bank_account_number"
+            name="bank_account_number"
+            inputMode="numeric"
+            defaultValue={bank.accountNumber ?? ""}
+          />
+        </div>
+      </fieldset>
       <div className="sm:col-span-2">
         <Label htmlFor="notes">Notes</Label>
         <Input id="notes" name="notes" defaultValue={initial?.notes ?? ""} />

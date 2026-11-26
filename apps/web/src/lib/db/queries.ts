@@ -985,6 +985,7 @@ export {
   getInvoiceById,
   getInvoiceForRenter,
   listInvoicesForRenter,
+  allocatedTotalsForInvoices,
   createInvoices,
   markInvoicePaid,
   markInvoicePartialPaid,

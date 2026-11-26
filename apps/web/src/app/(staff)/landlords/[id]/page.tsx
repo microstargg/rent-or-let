@@ -78,6 +78,7 @@ export default async function LandlordPage({ params }: { params: Promise<{ id: s
                   lettingFee: landlord.lettingFee,
                   nrlStatus: landlord.nrlStatus,
                   nrlApprovalRef: landlord.nrlApprovalRef,
+                  bankDetails: landlord.bankDetails,
                 }}
               />
             </AdminEntityDialog>

@@ -161,6 +161,7 @@ export default async function AdminLandlordsPage({
                             lettingFee: landlord.lettingFee,
                             nrlStatus: landlord.nrlStatus,
                             nrlApprovalRef: landlord.nrlApprovalRef,
+                            bankDetails: landlord.bankDetails,
                           }}
                         />
                       </AdminEntityDialog>

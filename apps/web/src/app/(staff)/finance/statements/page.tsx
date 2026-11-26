@@ -1,56 +1,60 @@
 import Link from "next/link";
-import {
-  getDefaultBranch,
-  listLandlordStatements,
-  listLandlordBalances,
-} from "@/lib/db/queries";
+import { getDefaultBranch, listLandlordStatements } from "@/lib/db/queries";
 import { Button } from "@/components/ui/button";
 import { LandlordStatementActions } from "@/components/admin/landlord-statement-actions";
 import { FinanceSubnav } from "@/components/admin/finance-subnav";
-import {
-  AdminEmptyState,
-  AdminPageHeader,
-  AdminSection,
-  StatusBadge,
-  StatPill,
-} from "@/components/admin/admin-page";
-import { formatCurrency, formatMoney, formatDayRange } from "@/lib/utils";
-import {
-  groupStatementsWithProperties,
-  statementAdminPath,
-} from "@/lib/finance/statement-format";
+import { AdminListToolbar } from "@/components/admin/admin-list-toolbar";
+import { AdminEmptyState, AdminPageHeader, AdminSection, StatusBadge } from "@/components/admin/admin-page";
+import { formatMoney, formatDayRange } from "@/lib/utils";
+import { groupStatementsWithProperties, statementAdminPath } from "@/lib/finance/statement-format";
 import { statementDownloadPath, statementPropertyAddress } from "@/lib/pdf/landlord-statement";
 import { StatementShareActions } from "@/components/admin/statement-share-actions";
-import { TaxExportsPanel } from "@/components/admin/tax-exports-panel";
-import { listLandlords } from "@/lib/db/queries";
-import { listNrlWithholdLandlords } from "@/lib/db/queries/landlord-finance";
-import { nrlTaxDue, previousNrlQuarter, summariseForTax, taxYearOf, taxYearRange } from "@/lib/finance/tax";
 import { displayPersonName } from "@/lib/person-name";
 
-export default async function LandlordStatementsPage() {
+function monthLabel(day: string | Date) {
+  const d = typeof day === "string" ? new Date(`${day.slice(0, 10)}T12:00:00Z`) : day;
+  return d.toLocaleDateString("en-GB", { month: "long", year: "numeric", timeZone: "Europe/London" });
+}
+
+const netOf = (totals: unknown) => Number((totals as { net?: number } | null)?.net ?? 0);
+
+export default async function LandlordStatementsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
+  const { q: rawQ } = await searchParams;
+  const q = (rawQ ?? "").trim().toLowerCase();
   const branch = await getDefaultBranch();
   const statements = branch ? await listLandlordStatements(branch.id) : [];
-  const balances = branch ? await listLandlordBalances(branch.id) : [];
-  const due = balances.filter((b) => b.balance > 0.001);
-  const dueTotal = due.reduce((sum, b) => sum + b.balance, 0);
-  const landlordRows = branch ? await listLandlords(branch.id) : [];
-  const quarter = previousNrlQuarter(new Date());
-  const nrlRows = branch ? await listNrlWithholdLandlords(branch.id, quarter) : [];
-  const thisTaxYear = taxYearOf(new Date());
-  const monthStart = new Date();
-  monthStart.setUTCDate(1);
-  const lastMonthEnd = new Date(monthStart.getTime() - 86400000);
-  const lastMonthStart = new Date(Date.UTC(lastMonthEnd.getUTCFullYear(), lastMonthEnd.getUTCMonth(), 1));
-  const grouped = groupStatementsWithProperties(
-    statements,
-    (row) => statementPropertyAddress(row.statement) ?? ""
-  );
+  const grouped = groupStatementsWithProperties(statements, (row) => statementPropertyAddress(row.statement) ?? "");
+
+  const matching = grouped.filter(({ overall, properties }) => {
+    if (!q) return true;
+    const hay = [
+      displayPersonName(overall.firstName ?? "", overall.lastName ?? ""),
+      ...properties.map((p) => statementPropertyAddress(p.statement) ?? ""),
+    ]
+      .join(" ")
+      .toLowerCase();
+    return hay.includes(q);
+  });
+
+  // Group by the month the statement period ends in, newest first.
+  const byMonth = new Map<string, typeof matching>();
+  for (const g of matching) {
+    const key = String(g.overall.statement.periodTo).slice(0, 7);
+    const list = byMonth.get(key) ?? [];
+    list.push(g);
+    byMonth.set(key, list);
+  }
+  const months = [...byMonth.keys()].sort().reverse();
 
   return (
     <div>
       <AdminPageHeader
         title="Landlord statements"
-        description="Generate period statements from the landlord ledger. Each client gets an overall statement covering every property, plus an individual statement for each property when they have more than one. Open a statement to review it on the platform before downloading, emailing, or sending the portal link. Completed jobs dated in the period appear as works deductions."
+        description="One statement per landlord for each period, with a statement per property when they have more than one. Open one to check it before you send it."
         actions={
           <Button asChild variant="outline" size="sm">
             <Link href="/finance/payouts">Go to payouts</Link>
@@ -59,117 +63,87 @@ export default async function LandlordStatementsPage() {
       />
       <FinanceSubnav />
 
-      <div className="mt-6 grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3">
-        <StatPill label="Landlords owed" value={due.length} tone={due.length ? "warning" : "success"} />
-        <StatPill label="Net due" value={formatCurrency(dueTotal)} tone={dueTotal > 0 ? "warning" : "neutral"} />
-        <StatPill label="Statements issued" value={grouped.length} />
-      </div>
+      <details className="mt-6 rounded-xl border bg-card" open={grouped.length === 0}>
+        <summary className="cursor-pointer px-4 py-3 text-sm font-medium">Make statements for a period</summary>
+        <div className="border-t p-4">
+          <p className="mb-3 text-sm text-muted-foreground">
+            Usually done on Month end. Finished jobs dated in the period show as repair costs.
+          </p>
+          <LandlordStatementActions />
+        </div>
+      </details>
 
-      <div className="mt-6">
-        <LandlordStatementActions />
-      </div>
-
-      <AdminSection title="Balances due" description="Positive = money still owed to the landlord">
-        {due.length ? (
-          <div className="overflow-hidden rounded-xl border bg-card">
-            <ul className="divide-y">
-              {due.map((b) => (
-                <li key={b.landlordId} className="flex items-center justify-between px-4 py-3 text-sm">
-                  <span className="font-medium">{b.name}</span>
-                  <span className="font-semibold">{formatMoney(b.balance)}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ) : (
-          <AdminEmptyState title="Nothing outstanding" description="Landlord ledgers are settled." />
-        )}
-      </AdminSection>
-
-      <AdminSection title="Tax and exports">
-        <TaxExportsPanel
-          landlords={landlordRows.map((l) => ({ id: l.id, name: displayPersonName(l.firstName, l.lastName) }))}
-          taxYears={[thisTaxYear - 1, thisTaxYear, thisTaxYear - 2].map((y) => ({ value: y, label: taxYearRange(y).label }))}
-          defaultFrom={lastMonthStart.toISOString().slice(0, 10)}
-          defaultTo={lastMonthEnd.toISOString().slice(0, 10)}
-          nrlQuarterLabel={quarter.label}
-          nrl={nrlRows.map(({ landlord, lines }) => {
-            const t = summariseForTax(lines);
-            return {
-              landlordId: landlord.id,
-              name: displayPersonName(landlord.firstName, landlord.lastName),
-              approvalRef: landlord.nrlApprovalRef,
-              profit: t.profit,
-              withheld: t.taxWithheld,
-              due: nrlTaxDue(t),
-            };
-          })}
-        />
-      </AdminSection>
-
-      <AdminSection title="Issued statements">
-        {grouped.length ? (
-          <div className="space-y-2">
-            {grouped.map(({ overall: { statement, firstName, lastName }, properties }) => (
-              <div key={statement.id} className="rounded-xl border bg-card p-4 shadow-sm">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <p className="font-semibold">
-                      <Link href={statementAdminPath(statement.id)} className="hover:underline">
-                        {firstName} {lastName}
-                      </Link>
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      {formatDayRange(statement.periodFrom, statement.periodTo)} · Net{" "}
-                      {formatMoney((statement.totals as { net?: number })?.net ?? 0)}
+      <AdminSection title="Statements">
+        <AdminListToolbar searchPlaceholder="Search landlord or address" />
+        {months.length ? (
+          <div className="mt-3 space-y-6">
+            {months.map((m) => {
+              const list = byMonth.get(m)!;
+              const total = list.reduce((s, g) => s + netOf(g.overall.statement.totals), 0);
+              return (
+                <section key={m}>
+                  <div className="mb-2 flex items-baseline justify-between gap-3">
+                    <h3 className="font-semibold">{monthLabel(`${m}-15`)}</h3>
+                    <p className="text-sm tabular-nums text-muted-foreground">
+                      {list.length} {list.length === 1 ? "landlord" : "landlords"} · Net {formatMoney(total)}
                     </p>
                   </div>
-                  <div className="flex flex-col items-end gap-2 sm:flex-row sm:items-center">
-                    <StatusBadge status={statement.status} />
-                    <Button asChild size="sm">
-                      <Link href={statementAdminPath(statement.id)}>View</Link>
-                    </Button>
-                    <Button asChild variant="outline" size="sm">
-                      <a href={statementDownloadPath(statement.id)}>Download PDF</a>
-                    </Button>
-                    <StatementShareActions statementId={statement.id} />
-                  </div>
-                </div>
-                {properties.length > 0 && (
-                  <ul className="mt-3 divide-y border-t">
-                    {properties.map(({ statement: ps }) => (
-                      <li
-                        key={ps.id}
-                        className="flex flex-wrap items-center justify-between gap-3 py-2 pl-4 text-sm"
-                      >
-                        <div>
-                          <Link href={statementAdminPath(ps.id)} className="font-medium hover:underline">
-                            {statementPropertyAddress(ps)}
-                          </Link>
-                          <span className="text-muted-foreground">
-                            {" "}
-                            · Net {formatMoney(Number((ps.totals as { net?: number })?.net ?? 0))}
-                          </span>
+                  <ul className="divide-y rounded-xl border bg-card">
+                    {list.map(({ overall: { statement, firstName, lastName }, properties }) => (
+                      <li key={statement.id} className="px-4 py-3">
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                          <div className="min-w-0">
+                            <Link href={statementAdminPath(statement.id)} className="font-medium hover:underline">
+                              {displayPersonName(firstName ?? "", lastName ?? "")}
+                            </Link>
+                            <p className="text-sm text-muted-foreground">
+                              {formatDayRange(statement.periodFrom, statement.periodTo)} · Net{" "}
+                              <span className="tabular-nums">{formatMoney(netOf(statement.totals))}</span>
+                            </p>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <StatusBadge status={statement.status} />
+                            <Button asChild variant="outline" size="sm">
+                              <a href={statementDownloadPath(statement.id)}>PDF</a>
+                            </Button>
+                            <StatementShareActions statementId={statement.id} />
+                          </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <Button asChild variant="ghost" size="sm">
-                            <Link href={statementAdminPath(ps.id)}>View</Link>
-                          </Button>
-                          <Button asChild variant="ghost" size="sm">
-                            <a href={statementDownloadPath(ps.id)}>Download PDF</a>
-                          </Button>
-                        </div>
+                        {properties.length > 0 && (
+                          <details className="mt-2">
+                            <summary className="cursor-pointer text-sm text-muted-foreground hover:text-foreground">
+                              {properties.length} property {properties.length === 1 ? "statement" : "statements"}
+                            </summary>
+                            <ul className="mt-1 divide-y border-l pl-3">
+                              {properties.map(({ statement: ps }) => (
+                                <li key={ps.id} className="flex flex-wrap items-center justify-between gap-2 py-1.5 text-sm">
+                                  <Link href={statementAdminPath(ps.id)} className="hover:underline">
+                                    {statementPropertyAddress(ps)}
+                                  </Link>
+                                  <span className="flex items-center gap-3">
+                                    <span className="tabular-nums text-muted-foreground">
+                                      Net {formatMoney(netOf(ps.totals))}
+                                    </span>
+                                    <a href={statementDownloadPath(ps.id)} className="text-primary hover:underline">
+                                      PDF
+                                    </a>
+                                  </span>
+                                </li>
+                              ))}
+                            </ul>
+                          </details>
+                        )}
                       </li>
                     ))}
                   </ul>
-                )}
-              </div>
-            ))}
+                </section>
+              );
+            })}
           </div>
         ) : (
           <AdminEmptyState
-            title="No statements yet"
-            description="Pick a date range above and generate statements from ledger activity."
+            title={grouped.length ? "No statements match" : "No statements yet"}
+            description={grouped.length ? "Try another name or address." : "They're made on Month end, or above."}
           />
         )}
       </AdminSection>

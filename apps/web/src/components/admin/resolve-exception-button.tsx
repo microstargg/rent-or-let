@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 
-export function ResolveExceptionButton({ id }: { id: string }) {
+export function ResolveExceptionButton({ id, label = "Resolve" }: { id: string; label?: string }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
 
@@ -24,7 +24,7 @@ export function ResolveExceptionButton({ id }: { id: string }) {
 
   return (
     <Button type="button" size="sm" variant="outline" onClick={resolve} disabled={loading}>
-      {loading ? "Resolving…" : "Resolve"}
+      {loading ? "Saving…" : label}
     </Button>
   );
 }
