@@ -47,10 +47,12 @@ export function PropertyTabs({
   tabs,
   summary,
   initialTab,
+  ariaLabel = "Property sections",
 }: {
   tabs: PropertyTab[];
   summary: PropertySummaryCard[];
   initialTab?: string;
+  ariaLabel?: string;
 }) {
   const fallback = tabs[0]?.id ?? "";
   const [active, setActive] = useState(
@@ -108,7 +110,7 @@ export function PropertyTabs({
       <div ref={panelTop} className="scroll-mt-4" />
       <div
         role="tablist"
-        aria-label="Property sections"
+        aria-label={ariaLabel}
         className="-mx-4 mt-6 flex gap-1 overflow-x-auto border-b px-4 [scrollbar-width:none] sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden"
       >
         {tabs.map((tab, i) => {
