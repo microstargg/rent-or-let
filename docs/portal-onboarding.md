@@ -26,7 +26,7 @@ Before emailing Rightmove, confirm our side is ready:
 
 | RemoveProperty (`removeproperty`) | Implemented with mTLS |
 
-| GetBranchPropertyList (`getbranchpropertylist`) | Implemented — use **Test RTDF connection** in Admin → Portal sync |
+| GetBranchPropertyList (`getbranchpropertylist`) | Implemented — use **Test connection** in Admin → Portal sync |
 
 | Lettings channel (channel = 2) | Configured |
 
@@ -38,7 +38,7 @@ Before emailing Rightmove, confirm our side is ready:
 
 | Admin portal on/off toggles | Admin → Portal sync |
 
-| Cron queue (every 5 min) | `/api/cron/portal-sync` |
+| Retry of failed sends (daily 05:30 UTC, plus **Retry failed listings** button) | `/api/cron/portal-sync` |
 
 | Public HTTPS image URLs | Vercel Blob in production |
 | OTM API (mirrors Rightmove v1.4) | Same mapper + mTLS client |
@@ -120,7 +120,7 @@ WHERE id = '00000000-0000-0000-0000-000000000001';
 
 
 
-6. In **Admin → Portal sync**, click **Test RTDF connection** to verify mTLS auth
+6. In **Admin → Portal sync**, click **Test connection** to verify mTLS auth
 
 7. Enable **Sync to Rightmove** and test with one dummy property (`TEST-001`)
 
@@ -173,7 +173,7 @@ UPDATE branches SET otm_branch_id = 'YOUR_OTM_BRANCH_ID'
 WHERE id = '00000000-0000-0000-0000-000000000001';
 ```
 
-4. **Test RTDF connection** in Admin → Portal sync
+4. **Test connection** in Admin → Portal sync
 5. Enable **Sync to OnTheMarket** and test with a dummy property
 6. Coordinate go-live with OTM support
 
@@ -235,13 +235,13 @@ Rightmove fetches images from URLs you send. They use user-agent `rightmove-data
 
 2. Set branch IDs in Neon
 
-3. Run **Test RTDF connection** in Admin → Portal sync
+3. Run **Test connection** in Admin → Portal sync
 
 4. Enable each portal in admin settings
 
 5. Ensure properties are `available` — saving auto-enqueues sync
 
-6. Cron at `/api/cron/portal-sync` processes jobs every 5 minutes
+6. Properties send on save; anything that failed is retried daily by `/api/cron/portal-sync` (or straight away with **Retry failed listings** in Admin → Portal sync)
 
 7. Monitor Admin → Portal sync logs
 
