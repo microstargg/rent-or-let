@@ -6,6 +6,7 @@ import { bankConnections } from "@/lib/db/schema";
 import { ensureBankFeed } from "@/lib/db/queries/bank-feed";
 import {
   getEnableBankingConfig,
+  isOpenBankingEnabled,
   type EnableBankingConfig,
 } from "@/lib/bank-feed/enable-banking";
 import { decryptSecret, encryptSecret } from "@/lib/bank-feed/secret-box";
@@ -45,6 +46,7 @@ export async function getEnableBankingSetupStatus(
   agencySlug: string,
   branchId: string
 ): Promise<EnableBankingSetupStatus> {
+  if (!isOpenBankingEnabled()) return { source: null, appId: null, savedAt: null };
   const row = await credentialsRow(branchId);
   if (row?.status === "active" && row.accountId) {
     return { source: "agency", appId: row.accountId, savedAt: row.updatedAt.toISOString() };
@@ -59,6 +61,7 @@ export async function resolveEnableBankingConfig(
   agencySlug: string,
   branchId: string
 ): Promise<EnableBankingConfig | null> {
+  if (!isOpenBankingEnabled()) return null;
   const row = await credentialsRow(branchId);
   if (row?.status === "active" && row.accountId && row.accessTokenEnc) {
     return {

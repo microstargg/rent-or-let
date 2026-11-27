@@ -9,6 +9,7 @@ import { OpenBankingConnect } from "@/components/admin/open-banking-connect";
 import { ensureAgency } from "@/lib/db/agency-scope";
 import { getEnableBankingSetupStatus } from "@/lib/bank-feed/enable-banking-credentials";
 import { listEnableBankingConnections } from "@/lib/bank-feed/enable-banking-sync";
+import { isOpenBankingEnabled } from "@/lib/bank-feed/enable-banking";
 import { LandlordPayoutButton } from "@/components/admin/landlord-payout-button";
 import {
   OutgoingLineActions,
@@ -280,7 +281,7 @@ export default async function MonthEndPage({
               noticeError={params.bank_error ?? null}
             />
           </div>
-        ) : (
+        ) : isOpenBankingEnabled() ? (
           <p className="mb-3 text-sm text-muted-foreground">
             Tired of downloading statements?{" "}
             <Link href="/settings/bank-feed" className="text-primary underline">
@@ -288,7 +289,7 @@ export default async function MonthEndPage({
             </Link>{" "}
             and pull transactions straight from your bank.
           </p>
-        )}
+        ) : null}
         {bankConnections.some((c) => c.status === "active") ? (
           <details className="rounded-xl border bg-card p-4 text-sm">
             <summary className="cursor-pointer font-medium text-primary">Upload a bank statement instead</summary>

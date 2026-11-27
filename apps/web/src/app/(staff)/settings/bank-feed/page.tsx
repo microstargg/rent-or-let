@@ -1,14 +1,17 @@
 import { headers } from "next/headers";
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import { getTenant } from "@repo/config/server";
 import { getDefaultBranch } from "@/lib/db/queries";
 import { ensureAgency } from "@/lib/db/agency-scope";
 import { EnableBankingSetup } from "@/components/admin/enable-banking-setup";
 import { getEnableBankingSetupStatus } from "@/lib/bank-feed/enable-banking-credentials";
 import { canEncryptSecrets } from "@/lib/bank-feed/secret-box";
+import { isOpenBankingEnabled } from "@/lib/bank-feed/enable-banking";
 import { AdminEmptyState } from "@/components/admin/admin-page";
 
 export default async function BankFeedSetupPage() {
+  if (!isOpenBankingEnabled()) notFound();
   const slug = await ensureAgency();
   const branch = await getDefaultBranch();
   if (!branch) return <AdminEmptyState title="No branch" description="Set up a branch first." />;

@@ -1,5 +1,11 @@
 # Open banking bank feed (Enable Banking)
 
+> **Switched off (27 Nov 2026).** The whole bank feed is hidden unless `OPEN_BANKING_ENABLED=true`
+> is set in Vercel. Enable Banking's free mode doesn't allow business or commercial use, and no
+> paid provider has been picked yet, so Month end and Settings show statement import only. The
+> code and saved data are kept; set the variable and redeploy to bring it back.
+
+
 Month end can pull transactions straight from the agency's bank instead of a statement upload.
 It uses [Enable Banking](https://enablebanking.com) for read-only account information (AIS), under
 their licence, so LetFlow does not need its own FCA AISP permission. Pulled lines go through the

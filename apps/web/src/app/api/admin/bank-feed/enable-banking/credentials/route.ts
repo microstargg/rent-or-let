@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { requireAdminApi } from "@/lib/api-auth";
 import { getDefaultBranch } from "@/lib/db/queries";
 import { ensureAgency } from "@/lib/db/agency-scope";
-import { EnableBankingError, listAspsps } from "@/lib/bank-feed/enable-banking";
+import { EnableBankingError, isOpenBankingEnabled, listAspsps } from "@/lib/bank-feed/enable-banking";
 import {
   configFromCredentials,
   removeEnableBankingCredentials,
@@ -18,6 +18,9 @@ export async function POST(request: Request) {
   await ensureAgency();
   const branch = await getDefaultBranch();
   if (!branch) return NextResponse.json({ error: "No branch" }, { status: 400 });
+  if (!isOpenBankingEnabled()) {
+    return NextResponse.json({ error: "The bank feed is switched off for now." }, { status: 404 });
+  }
   if (!canEncryptSecrets()) {
     return NextResponse.json(
       { error: "Bank feed storage isn't switched on for LetFlow yet. Contact LetFlow support." },
