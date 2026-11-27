@@ -20,7 +20,6 @@ import {
   isTenantPayableInvoiceType,
   isWorksInvoiceType,
 } from "@/lib/operations/maintenance/constants";
-import { LATE_RENT_MIN_DAYS } from "@/lib/finance/late-interest";
 import { RaiseRentButton } from "@/components/admin/raise-rent-button";
 
 const FILTERS = [
@@ -36,12 +35,6 @@ type Filter = (typeof FILTERS)[number]["value"] | "all";
 
 function londonToday() {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/London" }).format(new Date());
-}
-
-function addDays(day: string, n: number) {
-  const d = new Date(`${day}T12:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + n);
-  return d.toISOString().slice(0, 10);
 }
 
 function monthLabel(ym: string) {
@@ -64,7 +57,6 @@ export default async function AdminInvoicesPage({
   const branch = await getDefaultBranch();
   const rows = await listInvoices(branch?.id);
   const today = londonToday();
-  const overdueBefore = addDays(today, -LATE_RENT_MIN_DAYS);
 
   const isOpenRent = (r: (typeof rows)[number]) =>
     isTenantPayableInvoiceType(r.invoice.type) &&
@@ -76,7 +68,8 @@ export default async function AdminInvoicesPage({
       case "to_collect":
         return isOpenRent(r) && due <= today;
       case "overdue":
-        return isOpenRent(r) && due < overdueBefore;
+        // Overdue the day after it was due and not marked received.
+        return isOpenRent(r) && due < today;
       case "upcoming":
         return isOpenRent(r) && due > today;
       case "partial":
@@ -133,7 +126,7 @@ export default async function AdminInvoicesPage({
     <div>
       <AdminPageHeader
         title="Invoices"
-        description="Rent charges for tenants, and works invoices from finished jobs. Rent is raised on the 1st for the next month."
+        description="Rent charges for tenants, and works invoices from finished jobs. Rent is raised each morning from every tenancy's pay schedule."
         actions={<RaiseRentButton />}
       />
       <FinanceSubnav />
@@ -150,7 +143,7 @@ export default async function AdminInvoicesPage({
         <StatPill
           label="Overdue"
           value={overdue.length}
-          hint={`${LATE_RENT_MIN_DAYS}+ days · ${formatMoney(sumOutstanding(overdue))}`}
+          hint={`1+ day late · ${formatMoney(sumOutstanding(overdue))}`}
           tone={overdue.length ? "danger" : "neutral"}
           href={filterHref("overdue")}
           active={filter === "overdue"}
@@ -218,7 +211,7 @@ export default async function AdminInvoicesPage({
                     ? `/tenancies/${invoice.tenancyId}?tab=money`
                     : null;
                 const owed = outstandingOf(r);
-                const late = isOpenRent(r) && String(invoice.dueDate) < overdueBefore;
+                const late = isOpenRent(r) && String(invoice.dueDate) < today;
 
                 return (
                   <tr key={invoice.id} className={href ? "row-link align-top" : "align-top"}>
@@ -272,7 +265,7 @@ export default async function AdminInvoicesPage({
                 ? filter === "to_collect"
                   ? "No rent is waiting to be collected. Try Upcoming or All."
                   : "Try another filter or month."
-                : "Rent invoices are raised on the 1st. Finished jobs add works invoices."
+                : "Rent invoices are raised each morning from every tenancy's pay schedule. Finished jobs add works invoices."
             }
           />
         )}

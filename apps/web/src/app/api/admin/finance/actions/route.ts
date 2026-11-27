@@ -22,6 +22,9 @@ const bodySchema = z.object({
   invoiceId: z.string().uuid().optional(),
   landlordId: z.string().uuid().optional(),
   tenancyId: z.string().uuid().optional(),
+  paymentId: z.string().uuid().optional(),
+  bankTransactionId: z.string().uuid().optional(),
+  choice: z.enum(["keep_tick", "use_bank"]).optional(),
 });
 
 export async function POST(request: Request) {
@@ -57,6 +60,28 @@ export async function POST(request: Request) {
       quarterLabel: quarter.label,
     });
     return NextResponse.json({ withheld: due });
+  }
+
+  // Weekly bank check: settle ticks the bank statement doesn't back up.
+  if (body.action === "bank_mismatch" && body.exceptionId && body.choice) {
+    const { resolveBankMismatch } = await import("@/lib/db/queries/bank-check");
+    const result = await resolveBankMismatch(branch.id, body.exceptionId, body.choice);
+    return "error" in result ? NextResponse.json(result, { status: 400 }) : NextResponse.json(result);
+  }
+  if (body.action === "undo_tick" && body.paymentId) {
+    const { undoHandPayment } = await import("@/lib/db/queries/bank-check");
+    const result = await undoHandPayment(branch.id, body.paymentId);
+    return "error" in result ? NextResponse.json(result, { status: 400 }) : NextResponse.json(result);
+  }
+  if (body.action === "dismiss_tick" && body.paymentId) {
+    const { dismissTickCheck } = await import("@/lib/db/queries/bank-check");
+    const row = await dismissTickCheck(branch.id, body.paymentId);
+    return row ? NextResponse.json({ ok: true }) : NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+  if (body.action === "link_tick" && body.paymentId && body.bankTransactionId) {
+    const { linkBankLineToTick } = await import("@/lib/db/queries/bank-check");
+    const result = await linkBankLineToTick(branch.id, body.bankTransactionId, body.paymentId);
+    return "error" in result ? NextResponse.json(result, { status: 400 }) : NextResponse.json(result);
   }
 
   if (body.action === "raise_rent") {

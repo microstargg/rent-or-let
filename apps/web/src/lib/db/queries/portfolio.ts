@@ -150,6 +150,7 @@ export type RenterTenancySummary = {
   startDate: string;
   endDate: string | null;
   rentAmount: number;
+  rentFrequency: string;
   arrears: number;
 };
 
@@ -213,6 +214,7 @@ export async function currentTenancyByRenter(
       startDate: row.tenancy.startDate,
       endDate: row.tenancy.endDate,
       rentAmount: Number(row.tenancy.rentAmount),
+      rentFrequency: row.tenancy.rentFrequency,
       arrears: arrearsByTenancy.get(row.tenancy.id) ?? 0,
     });
   }

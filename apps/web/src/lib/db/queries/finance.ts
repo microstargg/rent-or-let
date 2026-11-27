@@ -797,6 +797,8 @@ export async function getActiveTenanciesForRent(branchId: string) {
     .select({
       id: tenancies.id,
       rentAmount: tenancies.rentAmount,
+      rentFrequency: tenancies.rentFrequency,
+      metadata: tenancies.metadata,
       startDate: tenancies.startDate,
       endDate: tenancies.endDate,
     })
@@ -810,22 +812,25 @@ export async function getActiveTenanciesForRent(branchId: string) {
     );
 }
 
-export async function getExistingRentInvoicesForDueDate(
+/** Rent invoices already raised for these tenancies between two due dates (any status). */
+export async function getExistingRentInvoicesBetween(
   branchId: string,
-  dueDate: string,
+  from: string,
+  to: string,
   tenancyIds: string[]
 ) {
   await ensureAgency();
   if (tenancyIds.length === 0) return [];
   return db
-    .select({ tenancyId: invoices.tenancyId })
+    .select({ tenancyId: invoices.tenancyId, dueDate: invoices.dueDate })
     .from(invoices)
     .where(
       and(
         eq(invoices.branchId, branchId),
         agencyEq(invoices.agencyId),
         eq(invoices.type, "rent"),
-        eq(invoices.dueDate, dueDate),
+        gte(invoices.dueDate, from),
+        lte(invoices.dueDate, to),
         inArray(invoices.tenancyId, tenancyIds)
       )
     );

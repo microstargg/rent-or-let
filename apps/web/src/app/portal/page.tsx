@@ -1,3 +1,4 @@
+import { rentPeriodLabel } from "@/lib/finance/rent-schedule";
 import Link from "next/link";
 import {
   getActiveTenancyForRenter,
@@ -32,7 +33,7 @@ export default async function PortalDashboardPage() {
         title={`Welcome, ${ctx.profile.renter.firstName}`}
         description={
           tenancy
-            ? `Active tenancy · ${formatMoney(tenancy.rentAmount)} a month`
+            ? `Active tenancy · ${formatMoney(tenancy.rentAmount)} ${rentPeriodLabel(tenancy.rentFrequency)}`
             : "No active tenancy"
         }
       />

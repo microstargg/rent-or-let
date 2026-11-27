@@ -24,6 +24,9 @@ import { getDefaultBranch, getTenancyById, updateBranchSettings } from "@/lib/db
 import { listTenancyContacts } from "@/lib/db/queries/tenancy";
 import { parseUtilityNotices, utilityNotice } from "@/lib/tenancy/utility-notices";
 import { formatCurrency } from "@/lib/utils";
+import { RENT_FREQUENCIES, londonToday, rentPeriodLabel } from "@/lib/finance/rent-schedule";
+import { saveRentSchedule } from "@/lib/db/queries/rent-schedule";
+import { raiseRentInvoices } from "@/lib/operations/rent/generate-invoices";
 
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 
@@ -93,6 +96,13 @@ const actionSchema = z.discriminatedUnion("action", [
     save_contacts: z.boolean().optional(),
   }),
   z.object({ action: z.literal("apply_credit") }),
+  z.object({
+    action: z.literal("rent_schedule"),
+    frequency: z.enum(RENT_FREQUENCIES),
+    /** The next date rent is due on the new schedule. */
+    from: isoDate,
+    rent_amount: z.number().positive().max(1000000),
+  }),
   z.object({
     action: z.literal("refund_credit"),
     amount: z.number().positive().max(1000000),
@@ -236,6 +246,40 @@ export async function PATCH(
       });
       await log("section_8_served", `Section 8 notice served on grounds ${body.grounds.join(", ")}`, { noticeId: notice?.id });
       return NextResponse.json({ notice, check }, { status: 201 });
+    }
+
+    case "rent_schedule": {
+      const today = londonToday();
+      if (body.from < today) {
+        return NextResponse.json(
+          { error: "Pick today or a later date. Rent already due stays as it is." },
+          { status: 400 }
+        );
+      }
+      const before = await getTenancyById(id);
+      if (!before) return NextResponse.json({ error: "Not found" }, { status: 404 });
+      const result = await saveRentSchedule(id, {
+        frequency: body.frequency,
+        from: body.from,
+        rentAmount: body.rent_amount,
+        today,
+      });
+      if (!result) return NextResponse.json({ error: "Not found" }, { status: 404 });
+      const branch = await getDefaultBranch();
+      const raised = branch ? await raiseRentInvoices(branch.id) : { created: 0 };
+      await log(
+        "rent_schedule",
+        `Rent set to ${formatCurrency(body.rent_amount)} ${rentPeriodLabel(body.frequency)}, next due ${body.from}`,
+        {
+          from: body.from,
+          frequency: body.frequency,
+          previousFrequency: before.tenancy.rentFrequency,
+          previousRent: Number(before.tenancy.rentAmount),
+          removed: result.removed,
+          raised: raised.created,
+        }
+      );
+      return NextResponse.json({ ok: true, removed: result.removed });
     }
 
     case "apply_credit": {

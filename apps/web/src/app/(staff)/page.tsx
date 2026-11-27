@@ -3,6 +3,9 @@ import { getDefaultBranch } from "@/lib/db/queries";
 import { listAssignableStaff } from "@/lib/db/queries/notifications";
 import { requireStaffSession } from "@/lib/auth/server";
 import { DASHBOARD_LIST_LIMIT, loadDashboard } from "@/lib/dashboard";
+import { getRentCheck } from "@/lib/db/queries/rent-check";
+import { londonToday } from "@/lib/finance/rent-schedule";
+import { RentCheckCard } from "@/components/admin/rent-check-card";
 import { Button } from "@/components/ui/button";
 import { cn, formatCurrency } from "@/lib/utils";
 
@@ -169,7 +172,8 @@ export default async function AdminDashboardPage() {
     return <div>{header}</div>;
   }
 
-  const d = await loadDashboard(branch.id, me, now);
+  const rentToday = londonToday(now);
+  const [d, rent] = await Promise.all([loadDashboard(branch.id, me, now), getRentCheck(branch.id, rentToday)]);
   const dueLabel = (date: Date | string, verb = "was") =>
     d.isToday(date) ? "Today" : `Overdue, ${verb} ${shortDate(date)}`;
 
@@ -390,6 +394,13 @@ export default async function AdminDashboardPage() {
           ))}
         </div>
       )}
+
+      <RentCheckCard
+        today={rentToday}
+        dueToday={rent.dueToday}
+        overdue={rent.overdue}
+        overdueTotal={rent.overdueTotal}
+      />
 
       {!hasYourDay && !hasAttention ? (
         <div className="mt-8 rounded-xl border border-dashed bg-muted/20 px-6 py-10 text-center">

@@ -6,6 +6,7 @@ import { ensureBankFeed, insertBankTransaction } from "@/lib/db/queries/bank-fee
 import { matchPendingBankTransactions } from "@/lib/bank-feed/sync";
 import { matchOutgoingBankTransactions } from "@/lib/bank-feed/match-outgoing";
 import { csvProviderTxnId, pdfProviderTxnId } from "@/lib/payment-ref";
+import { listTicksNotInBank } from "@/lib/db/queries/bank-check";
 
 export async function ensureCsvBankConnection(branchId: string) {
   await ensureBankFeed();
@@ -219,6 +220,12 @@ export interface StatementImportResult {
   duplicates: number;
   matched: number;
   exceptions: number;
+  /** Money in that confirmed rent already ticked as received. */
+  confirmedTicks: number;
+  /** Money in from a tenant whose tick was for a different amount. */
+  amountMismatches: number;
+  /** Ticks the uploaded statements should show but don't. */
+  ticksNotInBank: number;
   outgoingMatched: number;
   outgoingUnmatched: number;
   from: string | null;
@@ -287,6 +294,9 @@ export async function importStatementRowsForBranch(
     duplicates,
     matched: matchResult.matched,
     exceptions: matchResult.exceptions,
+    confirmedTicks: matchResult.confirmedTicks,
+    amountMismatches: matchResult.amountMismatches,
+    ticksNotInBank: (await listTicksNotInBank(branchId)).rows.length,
     outgoingMatched: outgoing.matched,
     outgoingUnmatched: outgoing.unmatched,
     from: dates[0] ?? null,

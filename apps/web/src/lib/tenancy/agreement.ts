@@ -14,7 +14,7 @@ export interface AgreementTerms {
   tenants: string[];
   guarantors: { name: string; guarantees: string | null }[];
   startDate: string;
-  rent: { amount: number; frequency: string; dueDay: number };
+  rent: { amount: number; frequency: string; dueDay: number; firstDue?: string | null };
   payment: { accountName: string | null; sortCode: string | null; accountNumber: string | null; reference: string | null };
   deposit: { amount: number | null; scheme: string | null };
   additionalTerms: string | null;
@@ -165,7 +165,13 @@ export function renderAgreementPdf(
     ...rowBlocks("Start date", ukDate(terms.startDate)),
     ...rowBlocks(
       "Rent",
-      `${money(terms.rent.amount)} ${terms.rent.frequency === "weekly" ? "per week" : "per month"}, due on the ${ordinal(terms.rent.dueDay)}`
+      terms.rent.frequency === "monthly" || !terms.rent.frequency
+        ? `${money(terms.rent.amount)} per month, due on the ${ordinal(terms.rent.dueDay)}`
+        : `${money(terms.rent.amount)} ${
+            terms.rent.frequency === "weekly" ? "per week" : terms.rent.frequency === "fortnightly" ? "per fortnight" : "every 4 weeks"
+          }${terms.rent.firstDue ? `, first due ${ukDate(terms.rent.firstDue)} and every ${
+            terms.rent.frequency === "weekly" ? "week" : terms.rent.frequency === "fortnightly" ? "fortnight" : "4 weeks"
+          } after` : ""}`
     )
   );
   if (terms.payment.accountNumber) {

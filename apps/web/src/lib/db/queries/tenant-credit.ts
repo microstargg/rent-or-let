@@ -264,6 +264,7 @@ export interface TenantCreditRow {
   status: string;
   endDate: string | null;
   rentAmount: number;
+  rentFrequency: string;
   nextDue: string | null;
   lastPaidAt: Date | null;
 }
@@ -307,6 +308,7 @@ export async function listTenantCredits(branchId: string): Promise<TenantCreditR
         status: tenancies.status,
         endDate: tenancies.endDate,
         rentAmount: tenancies.rentAmount,
+        rentFrequency: tenancies.rentFrequency,
         address: properties.displayAddress,
         landlordId: properties.landlordId,
         firstName: renters.firstName,
@@ -344,6 +346,7 @@ export async function listTenantCredits(branchId: string): Promise<TenantCreditR
         status: t?.status ?? "unknown",
         endDate: t?.endDate ?? null,
         rentAmount: Number(t?.rentAmount ?? 0),
+        rentFrequency: t?.rentFrequency ?? "monthly",
         nextDue: dueBy.get(c.tenancyId) ?? null,
         lastPaidAt: c.lastPaidAt,
       };
