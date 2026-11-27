@@ -1032,7 +1032,7 @@ export {
   getPaymentByExternalRef,
   updateInvoiceStatus,
   getActiveTenanciesForRent,
-  getExistingRentInvoicesForDueDate,
+  getExistingRentInvoicesBetween,
   countOverdueInvoices,
   getLandlordStatementData,
   getTenancyBalance,

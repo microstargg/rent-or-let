@@ -17,6 +17,13 @@ export function StatementCsvImport({
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
+  const [check, setCheck] = useState<{
+    confirmed: number;
+    notTicked: number;
+    mismatches: number;
+    notInBank: number;
+    unmatched: number;
+  } | null>(null);
 
   async function onFile(file: File | null) {
     if (!file) return;
@@ -24,6 +31,7 @@ export function StatementCsvImport({
     setMessage(null);
     setError(null);
     setWarning(null);
+    setCheck(null);
     try {
       const fd = new FormData();
       fd.set("file", file);
@@ -40,6 +48,13 @@ export function StatementCsvImport({
             `Money out: ${data.outgoingMatched} matched to payouts or jobs, ${data.outgoingUnmatched} not recognised.`,
           ].join(" ")
         );
+        setCheck({
+          confirmed: Number(data.confirmedTicks ?? 0),
+          notTicked: Number(data.matched ?? 0),
+          mismatches: Number(data.amountMismatches ?? 0),
+          notInBank: Number(data.ticksNotInBank ?? 0),
+          unmatched: Number(data.exceptions ?? 0),
+        });
         const read = Number(data.creditTotal ?? 0);
         const printed = data.statementMoneyIn;
         if (typeof printed === "number" && Math.abs(printed - read) > 0.01) {
@@ -85,6 +100,33 @@ export function StatementCsvImport({
         )}
       </div>
       {message && <p className="mt-2 text-sm text-muted-foreground">{message}</p>}
+      {check && (
+        <div className="mt-3 rounded-lg border bg-muted/30 p-3 text-sm">
+          <p className="font-medium">Bank check</p>
+          <ul className="mt-1 space-y-0.5">
+            <li>
+              <span className="tabular-nums font-medium text-emerald-700">{check.confirmed}</span> rent{check.confirmed === 1 ? "" : "s"} marked as received and confirmed by the bank
+            </li>
+            <li>
+              <span className="tabular-nums font-medium">{check.notTicked}</span> in the bank but not marked yet: recorded now against the right rent
+            </li>
+            <li className={check.mismatches ? "text-amber-800" : undefined}>
+              <span className="tabular-nums font-medium">{check.mismatches}</span> where the amount differs from what was marked
+            </li>
+            <li className={check.notInBank ? "text-amber-800" : undefined}>
+              <span className="tabular-nums font-medium">{check.notInBank}</span> marked as received but not in the bank
+            </li>
+            <li className={check.unmatched ? "text-amber-800" : undefined}>
+              <span className="tabular-nums font-medium">{check.unmatched}</span> money in we couldn&apos;t match to a tenant
+            </li>
+          </ul>
+          {check.mismatches + check.notInBank + check.unmatched > 0 && (
+            <a href="/finance/exceptions" className="mt-2 inline-block text-primary hover:underline">
+              Sort these out on Exceptions
+            </a>
+          )}
+        </div>
+      )}
       {warning && <p className="mt-2 text-sm text-amber-700">{warning}</p>}
       {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
     </div>

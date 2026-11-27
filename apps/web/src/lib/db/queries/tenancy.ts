@@ -31,6 +31,7 @@ import {
   type AgreementTerms,
 } from "@/lib/tenancy/agreement";
 import { parsePaymentPlan } from "@/lib/finance/arrears";
+import { parseRentSchedule } from "@/lib/finance/rent-schedule";
 import { parseInspectionReport } from "@/lib/inspections/report";
 import { parseDepositReturn, splitDeposit, type DepositDeduction, type DepositReturn } from "@/lib/tenancy/deposits";
 
@@ -338,7 +339,8 @@ async function buildAgreementTerms(tenancyId: string, additionalTerms: string | 
     rent: {
       amount: Number(detail.tenancy.rentAmount),
       frequency: detail.tenancy.rentFrequency,
-      dueDay: 1,
+      dueDay: Number(parseRentSchedule(detail.tenancy).from?.slice(8, 10) ?? 1),
+      firstDue: parseRentSchedule(detail.tenancy).from,
     },
     payment: {
       accountName: account.name,

@@ -502,6 +502,10 @@ export async function createTenancy(data: {
   propertyId: string;
   primaryRenterId: string;
   rentAmount: number;
+  /** weekly, fortnightly, four_weekly or monthly. Defaults to monthly. */
+  rentFrequency?: string;
+  /** First rent due date. Without one, rent is monthly on the 1st as before. */
+  rentFrom?: string | null;
   depositAmount?: number | null;
   startDate: string;
   endDate?: string | null;
@@ -509,6 +513,9 @@ export async function createTenancy(data: {
 }) {
   await ensureAgency();
   const paymentRef = await allocateUniquePaymentRef(data.branchId);
+  const scheduleMeta: Record<string, unknown> = data.rentFrom
+    ? { rent_schedule: { from: data.rentFrom, set_on: new Date().toISOString().slice(0, 10) } }
+    : {};
   const [row] = await db
     .insert(tenancies)
     .values({
@@ -517,12 +524,13 @@ export async function createTenancy(data: {
       propertyId: data.propertyId,
       primaryRenterId: data.primaryRenterId,
       rentAmount: String(data.rentAmount),
+      rentFrequency: data.rentFrequency ?? "monthly",
       depositAmount: data.depositAmount != null ? String(data.depositAmount) : null,
       startDate: data.startDate,
       endDate: data.endDate,
       depositScheme: data.depositScheme,
       status: "active",
-      metadata: withPaymentRef({}, paymentRef),
+      metadata: withPaymentRef(scheduleMeta, paymentRef),
     })
     .returning();
 

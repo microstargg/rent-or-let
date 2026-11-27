@@ -1,64 +1,64 @@
 import {
   getActiveTenanciesForRent,
-  getExistingRentInvoicesForDueDate,
+  getExistingRentInvoicesBetween,
   createInvoices,
 } from "@/lib/db/queries";
-
-export function rentDueDateForPeriodStart(periodStart: string): string {
-  const start = new Date(periodStart);
-  const due = new Date(start);
-  due.setMonth(due.getMonth() + 1);
-  return due.toISOString().slice(0, 10);
-}
-
-export async function generateRentInvoicesForBranch(
-  branchId: string,
-  periodStart: string
-): Promise<{ created: number }> {
-  const dueDate = rentDueDateForPeriodStart(periodStart);
-  // Only tenancies running on the due date: not yet started or already ended get no rent.
-  const tenancyList = (await getActiveTenanciesForRent(branchId)).filter(
-    (t) => t.startDate <= dueDate && (!t.endDate || t.endDate >= dueDate)
-  );
-  if (tenancyList.length === 0) return { created: 0 };
-
-  const tenancyIds = tenancyList.map((t) => t.id);
-  const existing = await getExistingRentInvoicesForDueDate(branchId, dueDate, tenancyIds);
-  const already = new Set(existing.map((r) => r.tenancyId));
-
-  const rows = tenancyList
-    .filter((t) => !already.has(t.id))
-    .map((t) => ({
-      branchId,
-      tenancyId: t.id,
-      type: "rent",
-      dueDate,
-      amount: Number(t.rentAmount),
-      status: "due",
-    }));
-
-  if (rows.length === 0) return { created: 0 };
-  await createInvoices(rows);
-  return { created: rows.length };
-}
+import {
+  RENT_CATCH_UP_DAYS,
+  addDaysIso,
+  londonToday,
+  parseRentSchedule,
+  rentDueDatesBetween,
+  rentLookaheadDays,
+} from "@/lib/finance/rent-schedule";
 
 /**
- * Raise next month's rent, and this month's too if an earlier run was missed.
- * Safe to run repeatedly: invoices already raised for a due date are skipped.
+ * Raise every rent invoice that falls due from a month ago up to each tenancy's
+ * look-ahead (a month for monthly rent, two weeks for weekly, fortnightly and
+ * four-weekly). Runs every morning; safe to run repeatedly, because a due date that
+ * already has a rent invoice for the tenancy is skipped.
  */
 export async function raiseRentInvoices(
   branchId: string,
   now = new Date()
 ): Promise<{ created: number }> {
-  const periodStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
-  const previousStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
-  const catchUp = await generateRentInvoicesForBranch(
+  const today = londonToday(now);
+  const windowFrom = addDaysIso(today, -RENT_CATCH_UP_DAYS);
+  const windowTo = addDaysIso(today, Math.max(rentLookaheadDays("monthly"), rentLookaheadDays("weekly")));
+
+  const tenancyList = await getActiveTenanciesForRent(branchId);
+  if (tenancyList.length === 0) return { created: 0 };
+
+  const existing = await getExistingRentInvoicesBetween(
     branchId,
-    previousStart.toISOString().slice(0, 10)
+    windowFrom,
+    windowTo,
+    tenancyList.map((t) => t.id)
   );
-  const next = await generateRentInvoicesForBranch(
-    branchId,
-    periodStart.toISOString().slice(0, 10)
-  );
-  return { created: catchUp.created + next.created };
+  const already = new Set(existing.map((r) => `${r.tenancyId}|${r.dueDate}`));
+
+  const rows: Parameters<typeof createInvoices>[0] = [];
+  for (const t of tenancyList) {
+    const schedule = parseRentSchedule(t);
+    const to = addDaysIso(today, rentLookaheadDays(schedule.frequency));
+    for (const dueDate of rentDueDatesBetween(schedule, t.startDate, windowFrom, to)) {
+      // Only while the tenancy runs: not before it starts or after it ends.
+      if (dueDate < t.startDate || (t.endDate && dueDate > t.endDate)) continue;
+      const key = `${t.id}|${dueDate}`;
+      if (already.has(key)) continue;
+      already.add(key);
+      rows.push({
+        branchId,
+        tenancyId: t.id,
+        type: "rent",
+        dueDate,
+        amount: Number(t.rentAmount),
+        status: "due",
+      });
+    }
+  }
+
+  if (rows.length === 0) return { created: 0 };
+  await createInvoices(rows);
+  return { created: rows.length };
 }

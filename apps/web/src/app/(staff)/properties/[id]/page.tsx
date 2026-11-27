@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { rentShortSuffix } from "@/lib/finance/rent-schedule";
 import { notFound } from "next/navigation";
 import { getPropertyById } from "@/lib/db/queries";
 import { listPropertyKeys } from "@/lib/db/queries/keys";
@@ -186,7 +187,7 @@ export default async function EditPropertyPage({ params, searchParams }: EditPro
       ? {
           label: "Rent",
           value: current.overdue > 0 ? `${formatCurrency(current.overdue)} owed` : "Up to date",
-          hint: `${formatCurrency(current.rent)} ${current.rentFrequency === "monthly" ? "pcm" : current.rentFrequency}`,
+          hint: `${formatCurrency(current.rent)} ${rentShortSuffix(current.rentFrequency)}`,
           tone: current.overdue > 0 ? "danger" : "success",
           tab: "tenancies",
         }
@@ -278,7 +279,7 @@ export default async function EditPropertyPage({ params, searchParams }: EditPro
                 ["Tenant", current.renterName],
                 ...(current.renterPhone ? ([["Phone", current.renterPhone]] as [string, React.ReactNode][]) : []),
                 ...(current.renterEmail ? ([["Email", current.renterEmail]] as [string, React.ReactNode][]) : []),
-                ["Rent", `${formatCurrency(current.rent)} ${current.rentFrequency === "monthly" ? "pcm" : current.rentFrequency}`],
+                ["Rent", `${formatCurrency(current.rent)} ${rentShortSuffix(current.rentFrequency)}`],
                 ["Started", ukDate(current.startDate)],
                 ["Ends", current.endDate ? ukDate(current.endDate) : "Rolling"],
                 [
@@ -434,7 +435,7 @@ export default async function EditPropertyPage({ params, searchParams }: EditPro
                 {ukDate(t.startDate)} to {t.endDate ? ukDate(t.endDate) : "now"}
               </td>
               <td className="px-4 py-3">
-                {formatCurrency(t.rent)} {t.rentFrequency === "monthly" ? "pcm" : t.rentFrequency}
+                {formatCurrency(t.rent)} {rentShortSuffix(t.rentFrequency)}
               </td>
               <td className="px-4 py-3">
                 <StatusBadge status={t.status} />

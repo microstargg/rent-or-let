@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { rentPeriodLabel } from "@/lib/finance/rent-schedule";
 import { notFound } from "next/navigation";
 import { AdminPageHeader, AdminSection, StatGrid, StatPill, StatusBadge } from "@/components/admin/admin-page";
 import { getDefaultBranch } from "@/lib/db/queries";
@@ -83,7 +84,7 @@ export default async function RenterProfilePage({ params }: { params: Promise<{ 
         <StatPill
           label="Balance"
           value={current ? (current.arrears > 0.004 ? formatMoney(current.arrears) : "Up to date") : "—"}
-          hint={current && current.arrears > 0.004 ? "Overdue rent" : current ? `Rent ${formatMoney(current.rentAmount, { pence: false })} a month` : undefined}
+          hint={current && current.arrears > 0.004 ? "Overdue rent" : current ? `Rent ${formatMoney(current.rentAmount, { pence: false })} ${rentPeriodLabel(current.rentFrequency)}` : undefined}
           tone={current && current.arrears > 0.004 ? "danger" : "neutral"}
           href={current ? `/tenancies/${current.tenancyId}?tab=money` : undefined}
         />

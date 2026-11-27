@@ -17,7 +17,15 @@ import {
   TenancyDepositPanel,
   TenancyNoticesPanel,
   TenancyPeoplePanel,
+  TenancyRentSchedulePanel,
 } from "@/components/admin/tenancy-detail-panels";
+import {
+  londonToday,
+  nextRentDueOnOrAfter,
+  parseRentSchedule,
+  rentFrequencyName,
+  rentPeriodLabel,
+} from "@/lib/finance/rent-schedule";
 import { displayPersonName } from "@/lib/person-name";
 import { formatCurrency, formatDay, formatMoney } from "@/lib/utils";
 import { SECTION_8_GROUNDS } from "@/lib/tenancy/section8";
@@ -90,6 +98,8 @@ export default async function TenancyDetailPage({
   const signed = detail.agreements.some((a) => a.agreement.status === "completed");
   const paymentRef = getPaymentRefFromMetadata(tenancy.metadata);
   const newestFirst = [...ledger].reverse();
+  const schedule = parseRentSchedule(tenancy);
+  const nextRentDue = nextRentDueOnOrAfter(schedule, tenancy.startDate, londonToday());
 
   const attention: Array<{ text: string; tab: string }> = [];
   if (detail.overdue > 0.004) attention.push({ text: `${formatMoney(detail.overdue)} rent overdue`, tab: "money" });
@@ -102,7 +112,7 @@ export default async function TenancyDetailPage({
     attention.push({ text: `Fixed term ends ${formatDay(tenancy.endDate)}`, tab: "move" });
 
   const summary: PropertySummaryCard[] = [
-    { label: "Rent", value: formatCurrency(Number(tenancy.rentAmount)), hint: `${tenancy.rentFrequency === "weekly" ? "Weekly" : "Monthly"}${paymentRef ? ` · ref ${paymentRef}` : ""}`, tone: "neutral", tab: "money" },
+    { label: "Rent", value: formatCurrency(Number(tenancy.rentAmount)), hint: `${rentFrequencyName(tenancy.rentFrequency)}${paymentRef ? ` · ref ${paymentRef}` : ""}`, tone: "neutral", tab: "money" },
     {
       label: "Overdue",
       value: formatCurrency(detail.overdue),
@@ -181,7 +191,7 @@ export default async function TenancyDetailPage({
               <Fact label="Started">{formatDay(tenancy.startDate)}</Fact>
               <Fact label="Ends">{tenancy.endDate ? formatDay(tenancy.endDate) : "Rolling"}</Fact>
               <Fact label="Rent">
-                {formatMoney(tenancy.rentAmount)} {tenancy.rentFrequency === "weekly" ? "a week" : "a month"}
+                {formatMoney(tenancy.rentAmount)} {rentPeriodLabel(tenancy.rentFrequency)}
               </Fact>
               <Fact label="Payment ref">{paymentRef ? <CopyPaymentRef value={paymentRef} /> : "—"}</Fact>
               <Fact label="Status">
@@ -213,6 +223,20 @@ export default async function TenancyDetailPage({
       countTone: "danger",
       content: (
         <>
+          <AdminSection
+            title="Rent and pay day"
+            description="How often the tenant pays and when. Rent is raised from this each morning."
+            className="mt-4"
+          >
+            <TenancyRentSchedulePanel
+              tenancyId={tenancy.id}
+              frequency={schedule.frequency}
+              rent={Number(tenancy.rentAmount)}
+              nextDue={nextRentDue}
+              legacy={!schedule.from}
+              ended={ended}
+            />
+          </AdminSection>
           <AdminSection
             title="Rent account"
             description="Every charge and payment, newest first. The balance is what the tenant owes after each line."
@@ -265,6 +289,7 @@ export default async function TenancyDetailPage({
               nextDue={openInvoices[0]?.dueDate ?? null}
               ended={ended}
               opening={opening}
+              frequency={schedule.frequency}
             />
           </AdminSection>
         </>

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { rentPeriodsNoun } from "@/lib/finance/rent-schedule";
 import { listArrears, getDefaultBranch } from "@/lib/db/queries";
 import { listTenantCredits, listTenanciesWithoutOpeningBalance } from "@/lib/db/queries/tenant-credit";
 import { ApplyLateFeesButton } from "@/components/admin/apply-late-fees-button";
@@ -157,7 +158,7 @@ export default async function BalancesPage({
                   <td className="px-4 py-3">{c.renterName}</td>
                   <td className="px-4 py-3 font-semibold text-emerald-700">{formatMoney(c.credit)}</td>
                   <td className="px-4 py-3 text-muted-foreground">
-                    {c.rentAmount > 0 ? `${(c.credit / c.rentAmount).toFixed(1)} months` : "—"}
+                    {c.rentAmount > 0 ? `${(c.credit / c.rentAmount).toFixed(1)} ${rentPeriodsNoun(c.rentFrequency)}` : "—"}
                   </td>
                   <td className="px-4 py-3 text-muted-foreground">{ukDate(c.nextDue)}</td>
                   <td className="px-4 py-3 text-sm">

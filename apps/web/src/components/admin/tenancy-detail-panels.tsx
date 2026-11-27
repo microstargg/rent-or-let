@@ -11,6 +11,7 @@ import { periodLabel, type Section8Ground } from "@/lib/tenancy/section8";
 import type { DepositReturn } from "@/lib/tenancy/deposits";
 import type { PaymentPlan, PlanProgress } from "@/lib/finance/arrears";
 import { formatMoney, formatDay } from "@/lib/utils";
+import { RENT_FREQUENCY_OPTIONS, rentPeriodLabel, rentPeriodsNoun } from "@/lib/finance/rent-schedule";
 
 const selectClass = "mt-1.5 flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm";
 const card = "rounded-xl border bg-card p-5 shadow-sm";
@@ -41,7 +42,7 @@ function useTenancyAction(tenancyId: string) {
 }
 
 function today() {
-  return new Date().toISOString().slice(0, 10);
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/London" }).format(new Date());
 }
 
 function ukDate(iso: string | null | undefined) {
@@ -796,10 +797,12 @@ export function TenancyCreditPanel({
   nextDue,
   ended,
   opening,
+  frequency,
 }: {
   tenancyId: string;
   credit: number;
   rent: number;
+  frequency?: string;
   nextDue: string | null;
   ended: boolean;
   opening: { kind: "arrears" | "credit"; amount: number; asOf: string; note: string | null } | null;
@@ -821,7 +824,7 @@ export function TenancyCreditPanel({
         Credit held for the tenant:{" "}
         <span className={`font-medium tabular-nums ${credit > 0 ? "text-emerald-700" : ""}`}>{formatMoney(credit)}</span>
         {credit > 0 && months >= 0.95 && (
-          <span className="text-muted-foreground"> · about {months.toFixed(1)} months&apos; rent</span>
+          <span className="text-muted-foreground"> · about {months.toFixed(1)} {rentPeriodsNoun(frequency)}&apos; rent</span>
         )}
       </p>
       {credit > 0 ? (
@@ -943,6 +946,91 @@ export function TenancyCreditPanel({
           <p className="text-xs text-muted-foreground sm:col-span-4">
             For tenancies taken on from another agent or system. Arrears are added as an opening charge on that date; credit is held and used on the next rent due dates. It can be changed until a payment has gone against it.
           </p>
+        </div>
+      )}
+      {message && <p className="mt-2 text-sm text-red-600">{message}</p>}
+    </div>
+  );
+}
+
+/** How often the tenant pays, how much, and when rent is next due. */
+export function TenancyRentSchedulePanel({
+  tenancyId,
+  frequency,
+  rent,
+  nextDue,
+  legacy,
+  ended,
+}: {
+  tenancyId: string;
+  frequency: string;
+  rent: number;
+  nextDue: string | null;
+  /** Never set up: monthly on the 1st, as every tenancy used to be. */
+  legacy: boolean;
+  ended: boolean;
+}) {
+  const { run, busy, message } = useTenancyAction(tenancyId);
+  const [open, setOpen] = useState(false);
+  const [freq, setFreq] = useState(frequency);
+  const [amount, setAmount] = useState(rent.toFixed(2));
+  const [from, setFrom] = useState(nextDue && nextDue >= today() ? nextDue : today());
+
+  return (
+    <div className={card}>
+      <p className="text-sm">
+        <span className="font-medium tabular-nums">{formatMoney(rent)}</span> {rentPeriodLabel(frequency)}
+        {!ended && nextDue && <span className="text-muted-foreground"> · next due {ukDate(nextDue)}</span>}
+      </p>
+      {legacy && !ended && (
+        <p className="mt-1 text-sm text-muted-foreground">
+          Due on the 1st of each month. If this tenant pays weekly, fortnightly, every 4 weeks or on another day, change it here.
+        </p>
+      )}
+      {!ended && !open && (
+        <Button size="sm" variant="outline" className="mt-3" onClick={() => setOpen(true)}>
+          Change rent or pay day
+        </Button>
+      )}
+      {open && (
+        <div className="mt-3 grid gap-2 sm:grid-cols-3">
+          <div>
+            <Label className="text-xs">Rent paid</Label>
+            <select className={selectClass} value={freq} onChange={(e) => setFreq(e.target.value)}>
+              {RENT_FREQUENCY_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <Label className="text-xs">Rent (£ {rentPeriodLabel(freq).replace(/^a /, "per ")})</Label>
+            <Input type="number" min="0.01" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} />
+          </div>
+          <div>
+            <Label className="text-xs">Next rent due</Label>
+            <Input type="date" min={today()} value={from} onChange={(e) => setFrom(e.target.value)} />
+          </div>
+          <p className="text-xs text-muted-foreground sm:col-span-3">
+            Rent is then due on this date and every {freq === "monthly" ? "month on the same day" : freq === "four_weekly" ? "4 weeks" : freq === "fortnightly" ? "fortnight" : "week"} after it.
+            Rent already raised for later dates that hasn&apos;t been paid is raised again on the new schedule. Rent already due stays as it is.
+          </p>
+          <div className="flex gap-2 sm:col-span-3">
+            <Button
+              size="sm"
+              disabled={!(Number(amount) > 0) || !from || busy !== null}
+              onClick={async () => {
+                const r = await run({ action: "rent_schedule", frequency: freq, from, rent_amount: Number(amount) });
+                if (r.ok) setOpen(false);
+              }}
+            >
+              {busy === "rent_schedule" ? "Saving…" : "Save"}
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setOpen(false)}>
+              Cancel
+            </Button>
+          </div>
         </div>
       )}
       {message && <p className="mt-2 text-sm text-red-600">{message}</p>}

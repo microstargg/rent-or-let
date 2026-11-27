@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useEntityDialogClose } from "@/components/admin/admin-entity-dialog";
+import { RENT_FREQUENCY_OPTIONS, rentPeriodLabel } from "@/lib/finance/rent-schedule";
 
 interface TenancyFormProps {
   properties: { id: string; label: string }[];
@@ -21,6 +22,7 @@ export function TenancyForm({ properties, renters, onSuccess, compact }: Tenancy
   const [error, setError] = useState<string | null>(null);
   const [propertyFilter, setPropertyFilter] = useState("");
   const [renterFilter, setRenterFilter] = useState("");
+  const [frequency, setFrequency] = useState("monthly");
 
   const filteredProperties = useMemo(() => {
     const q = propertyFilter.trim().toLowerCase();
@@ -46,6 +48,8 @@ export function TenancyForm({ properties, renters, onSuccess, compact }: Tenancy
         property_id: fd.get("property_id"),
         primary_renter_id: fd.get("primary_renter_id"),
         rent_amount: Number(fd.get("rent_amount")),
+        rent_frequency: fd.get("rent_frequency") || "monthly",
+        rent_from: fd.get("rent_from") || null,
         deposit_amount: fd.get("deposit_amount") ? Number(fd.get("deposit_amount")) : null,
         start_date: fd.get("start_date"),
         deposit_scheme: fd.get("deposit_scheme") || null,
@@ -58,6 +62,7 @@ export function TenancyForm({ properties, renters, onSuccess, compact }: Tenancy
       (e.target as HTMLFormElement).reset();
       setPropertyFilter("");
       setRenterFilter("");
+      setFrequency("monthly");
       onSuccess?.();
       closeDialog?.();
     }
@@ -124,8 +129,29 @@ export function TenancyForm({ properties, renters, onSuccess, compact }: Tenancy
         )}
       </div>
       <div>
-        <Label htmlFor="rent_amount">Rent (£/month)</Label>
+        <Label htmlFor="rent_frequency">Rent paid</Label>
+        <select
+          id="rent_frequency"
+          name="rent_frequency"
+          value={frequency}
+          onChange={(e) => setFrequency(e.target.value)}
+          className="w-full rounded-md border px-3 py-2 text-sm"
+        >
+          {RENT_FREQUENCY_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div>
+        <Label htmlFor="rent_amount">Rent (£ {rentPeriodLabel(frequency).replace(/^a /, "per ")})</Label>
         <Input id="rent_amount" name="rent_amount" type="number" step="0.01" required />
+      </div>
+      <div>
+        <Label htmlFor="rent_from">First rent due</Label>
+        <Input id="rent_from" name="rent_from" type="date" />
+        <p className="mt-1 text-xs text-muted-foreground">Leave blank to use the start date.</p>
       </div>
       <div>
         <Label htmlFor="deposit_amount">Deposit</Label>

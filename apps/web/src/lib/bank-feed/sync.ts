@@ -7,6 +7,7 @@ import {
 } from "@/lib/db/queries/bank-feed";
 import { recordPaymentAndAllocate, getPaymentByExternalRef } from "@/lib/db/queries/finance";
 import { matchBankTransaction } from "@/lib/bank-feed/match";
+import { pairBankLinesWithTicks } from "@/lib/db/queries/bank-check";
 
 function paymentExternalRef(providerTxnId: string): string {
   if (/^(csv|pdf|tl|eb)_/.test(providerTxnId)) return providerTxnId;
@@ -17,8 +18,17 @@ export async function matchPendingBankTransactions(branchId: string): Promise<{
   matched: number;
   exceptions: number;
   skipped: number;
+  /** Lines that confirmed rent staff had already ticked as received. */
+  confirmedTicks: number;
+  /** Lines from a tenant who had a tick, but for a different amount. */
+  amountMismatches: number;
 }> {
-  const pending = await listPendingBankTransactions(branchId);
+  // Rent ticked off by hand comes first, so a bank line doesn't pay it a second time.
+  const { paired, mismatched, handled } = await pairBankLinesWithTicks(
+    branchId,
+    await listPendingBankTransactions(branchId)
+  );
+  const pending = (await listPendingBankTransactions(branchId)).filter((t) => !handled.has(t.id));
   let candidates = await listOpenInvoiceMatchCandidates(branchId);
   let matched = 0;
   let exceptions = 0;
@@ -96,7 +106,7 @@ export async function matchPendingBankTransactions(branchId: string): Promise<{
     exceptions += 1;
   }
 
-  return { matched, exceptions, skipped };
+  return { matched, exceptions, skipped, confirmedTicks: paired, amountMismatches: mismatched };
 }
 
 /** Insert a synthetic credit then run matching. */
