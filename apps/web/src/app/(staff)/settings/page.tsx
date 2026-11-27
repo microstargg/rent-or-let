@@ -9,6 +9,7 @@ import { AdminPageHeader } from "@/components/admin/admin-page";
 import { getLateFeeRules, getManagementFeePercent } from "@/lib/branch-settings";
 import { isSmsConfigured } from "@/lib/sms/send";
 import { cn } from "@/lib/utils";
+import { isOpenBankingEnabled } from "@/lib/bank-feed/enable-banking";
 
 const SECTIONS = [
   { id: "agency", label: "Agency" },
@@ -151,11 +152,13 @@ export default async function AdminSettingsPage({
 
           {section === "connections" && (
             <>
-              <LinkCard
-                href="/settings/bank-feed"
-                title="Bank feed"
-                text="Pull client account transactions into Month end through open banking, instead of uploading statements."
-              />
+              {isOpenBankingEnabled() && (
+                <LinkCard
+                  href="/settings/bank-feed"
+                  title="Bank feed"
+                  text="Pull client account transactions into Month end through open banking, instead of uploading statements."
+                />
+              )}
               <LinkCard href="/portals" title="Property portals" text="Send your listings to Rightmove and OnTheMarket." />
               <AgencySettingsClient {...agencyProps} only={["inbox", "stripe"]} />
             </>

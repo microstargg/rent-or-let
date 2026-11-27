@@ -28,6 +28,15 @@ export interface EnableBankingConfig {
   psuType: "business" | "personal";
 }
 
+/**
+ * Master switch for the open banking feed. Off unless OPEN_BANKING_ENABLED=true, because
+ * Enable Banking's free mode doesn't allow business or commercial use and no paid provider
+ * has been chosen yet. While it's off, Month end and Settings show statement import only.
+ */
+export function isOpenBankingEnabled(): boolean {
+  return process.env.OPEN_BANKING_ENABLED?.trim().toLowerCase() === "true";
+}
+
 /** Agencies allowed to see the bank connect button. Defaults to the demo only. */
 function allowedAgencies(): string[] {
   const raw = process.env.ENABLE_BANKING_AGENCIES?.trim() || "demo";
@@ -52,6 +61,7 @@ function readPrivateKey(): string | null {
 
 /** `agencySlug` comes from `await ensureAgency()`; the button only shows for allowed agencies. */
 export function getEnableBankingConfig(agencySlug: string): EnableBankingConfig | null {
+  if (!isOpenBankingEnabled()) return null;
   const appId = process.env.ENABLE_BANKING_APP_ID?.trim();
   const privateKeyPem = readPrivateKey();
   if (!appId || !privateKeyPem) return null;
